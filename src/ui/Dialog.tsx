@@ -1,0 +1,47 @@
+import { useEffect, useId, useRef, type ReactNode } from 'react'
+
+/** Diálogo modal con <dialog> nativo (foco atrapado, Esc y fondo los maneja el navegador). */
+export function Dialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  children,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  description?: string
+  children: ReactNode
+}) {
+  const ref = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  const descId = useId()
+
+  useEffect(() => {
+    const d = ref.current
+    if (!d) return
+    if (open && !d.open) d.showModal()
+    if (!open && d.open) d.close()
+  }, [open])
+
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby={titleId}
+      aria-describedby={description ? descId : undefined}
+      onClose={() => onOpenChange(false)}
+      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-3xl bg-cream p-6 shadow-2xl backdrop:bg-ink/60 backdrop:backdrop-blur-sm"
+    >
+      <h2 id={titleId} className="font-display text-xl font-semibold text-ink">
+        {title}
+      </h2>
+      {description && (
+        <p id={descId} className="mt-1 text-ink/60">
+          {description}
+        </p>
+      )}
+      <div className="mt-5">{open && children}</div>
+    </dialog>
+  )
+}

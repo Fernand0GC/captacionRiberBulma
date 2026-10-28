@@ -1,0 +1,50 @@
+@import 'tailwindcss';
+@import '@fontsource/fredoka/latin-600.css';
+@import '@fontsource/fredoka/latin-700.css';
+
+/* Marca Riber Bulma (misma paleta que riber-bulma-landing) */
+@theme {
+  --color-ink: #0b0b0c;
+  --color-charcoal: #161618;
+  --color-graphite: #2a2a2e;
+  --color-gold: #c9a227;
+  --color-gold-light: #e6c567;
+  --color-gold-dark: #a8861c;
+  --color-cream: #fafaf8;
+  --color-sand: #f1eee4;
+  --color-rb-red: #e31c25;
+
+  --font-display: 'Fredoka', system-ui, sans-serif;
+
+  --shadow-gold: 0 10px 30px -10px rgba(201, 162, 39, 0.6);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-cream text-ink antialiased;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+}
+
+.bg-gold-gradient {
+  background-image: linear-gradient(135deg, var(--color-gold-light) 0%, var(--color-gold) 55%, var(--color-gold-dark) 100%);
+}
+
+.bg-ink-gradient {
+  background-image: radial-gradient(120% 80% at 50% 0%, #1f1f23 0%, var(--color-ink) 60%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-pop {
+    animation: pop 0.25s ease-out;
+  }
+}
+
+@keyframes pop {
+  0% { transform: scale(0.96); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; }
+}

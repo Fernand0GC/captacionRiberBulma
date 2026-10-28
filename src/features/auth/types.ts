@@ -1,0 +1,36 @@
+export type AppRole =
+  | 'field_volunteer'
+  | 'field_assistant'
+  | 'field_supervisor'
+  | 'branch_manager'
+  | 'general_manager'
+  | 'admin'
+
+export type Profile = {
+  id: string
+  username: string
+  full_name: string
+  role: AppRole
+  branch_id: number | null
+  contract_type: 'temporary' | 'permanent'
+  active: boolean
+  deactivated_at: string | null
+}
+
+export const ROLE_LABEL: Record<AppRole, string> = {
+  field_volunteer: 'Volantero',
+  field_assistant: 'Auxiliar',
+  field_supervisor: 'Supervisor',
+  branch_manager: 'Encargado',
+  general_manager: 'Gerente',
+  admin: 'Administrador',
+}
+
+export const FIELD_ROLES: AppRole[] = ['field_volunteer', 'field_assistant', 'field_supervisor']
+export const MANAGER_ROLES: AppRole[] = ['branch_manager', 'general_manager', 'admin']
+export const CAPTURE_ROLES: AppRole[] = [...FIELD_ROLES, 'branch_manager']
+export const FOLLOWUP_ROLES: AppRole[] = ['field_assistant', 'field_supervisor', 'branch_manager']
+
+export function homePath(role: AppRole): string {
+  return MANAGER_ROLES.includes(role) ? '/gestion' : '/registrar'
+}

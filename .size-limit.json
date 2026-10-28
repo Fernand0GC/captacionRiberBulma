@@ -1,0 +1,8 @@
+[
+  {
+    "name": "JS inicial (/registrar)",
+    "path": "dist/assets/index-*.js",
+    "limit": "170 KB",
+    "gzip": true
+  }
+]
