@@ -4,10 +4,6 @@ import { GROUP_LABEL, type Catalogs, type ProductGroup } from './useCatalogs'
 
 const GROUPS: ProductGroup[] = ['phones', 'major_appliances', 'small_appliances']
 
-/**
- * Producto de interés (opcional, FR-011c): Celulares es una sola opción (un toque y listo);
- * Electro mayor y Electro menor muestran sus categorías. Buscador general solo de categorías.
- */
 export function ProductPicker({
   catalogs,
   value,

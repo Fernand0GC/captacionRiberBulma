@@ -57,6 +57,14 @@ Reglas:
 ## `my_rejections(since timestamptz) → jsonb[]`
 Para el aviso al autor (FR-017): `[{ "id": "…", "phone_masked": "7123••67", "at": "…" }]`. Solo devuelve sus propias captaciones con `duplicate_rejected`, y el teléfono enmascarado.
 
+## `list_prospects(f jsonb, p_limit int = 50, p_offset int = 0) → jsonb` *(panel de solo lectura)*
+Encargado (su sucursal; otra → `forbidden`), gerente y admin (todas, o `f.branch_id`). Por POST: la búsqueda nunca viaja en una URL.
+Filtros `f`: `from`, `to` (fechas de La Paz, por defecto hoy; máximo 366 días), `branch_id`, `created_by`, `channel_id`, `q` (nombre o celular en cualquier formato).
+Excluye anuladas y duplicados rechazados. Salida: `{ total, rows: [{ id, full_name, phone_raw, interest, occupation, address, client_created_at, shift, stage, late_after_deactivation, branch_id, branch_name, created_by, created_by_name, created_by_role, channel_name, product_name, product_group }] }`, ordenado del más reciente al más antiguo; `p_limit` máximo 200.
+
+## `staff_options() → jsonb`
+Personal para el filtro "registrado por": encargado = su sucursal; gerente y admin = todos (incluye dados de baja). `[{ id, full_name, role, branch_id, active }]`.
+
 ## `change_stage(prospect_id uuid, to_stage prospect_stage, lost_reason_id smallint default null, note text default null) → jsonb`
 Valida la transición (data-model §Máquina de estados), el permiso (responsable asignado o gestor del alcance), el motivo obligatorio para `lost` y que exista `product_id` para `sale` (parámetro opcional `product_id` para completarlo en el mismo paso).
 Actualiza `prospects.stage`, `stage_changed_at` y `sold_at`, e inserta en `stage_events` en una sola transacción. Devuelve `{ stage, stage_changed_at }`.

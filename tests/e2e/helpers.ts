@@ -17,7 +17,7 @@ export function randomPhone(): string {
 
 /** Abre el formulario; si el canal de hoy no está elegido, elige "Activación" (FR-011b). */
 export async function fillCapture(page: Page, name: string, phone: string): Promise<void> {
-  await page.getByRole('button', { name: 'Registrar' }).click()
+  await page.getByRole('button', { name: 'Nuevo Registro' }).click()
   const picker = page.getByRole('dialog', { name: '¿Por qué canal captas hoy?' })
   const nameField = page.getByLabel(/Nombre completo/)
   await expect(picker.or(nameField)).toBeVisible()
@@ -29,4 +29,12 @@ export async function fillCapture(page: Page, name: string, phone: string): Prom
 
 export async function todayCount(page: Page): Promise<number> {
   return Number(await page.getByTestId('today-count').innerText())
+}
+
+/** En gestión, "Salir" está en el menú lateral; en celular, dentro del menú ☰. */
+export async function logoutFromManage(page: Page): Promise<void> {
+  const menu = page.getByRole('button', { name: 'Abrir menú' })
+  if (await menu.isVisible()) await menu.click()
+  await page.getByRole('button', { name: 'Salir' }).click()
+  await expect(page).toHaveURL(/\/login$/)
 }

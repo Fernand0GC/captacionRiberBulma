@@ -88,7 +88,61 @@ Deno.serve(async (req) => {
       }
       return json(201, { id: created.user.id })
     }
-    // update, deactivate, reactivate, reset_password: US7 (T059).
+    case 'update': {
+      // Nombre, rol, sucursal y contrato. El usuario (login) no cambia.
+      const id = String(body.id ?? '')
+      const patch: Record<string, unknown> = {}
+      if (body.full_name !== undefined) {
+        const n = String(body.full_name).trim()
+        if (n.length < 3) return json(400, { code: 'invalid_input', details: { field: 'full_name' } })
+        patch.full_name = n
+      }
+      if (body.role !== undefined) {
+        if (!ROLES.includes(String(body.role))) return json(400, { code: 'invalid_input', details: { field: 'role' } })
+        patch.role = body.role
+      }
+      if (body.contract_type !== undefined) {
+        if (!['temporary', 'permanent'].includes(String(body.contract_type))) return json(400, { code: 'invalid_input', details: { field: 'contract_type' } })
+        patch.contract_type = body.contract_type
+      }
+      const role = String(patch.role ?? (await admin.from('profiles').select('role').eq('id', id).maybeSingle()).data?.role ?? '')
+      if (['general_manager', 'admin'].includes(role)) patch.branch_id = null
+      else if (body.branch_id !== undefined) {
+        if (!body.branch_id) return json(400, { code: 'invalid_input', details: { field: 'branch_id' } })
+        patch.branch_id = body.branch_id
+      }
+      if (id === userData.user.id && patch.role && patch.role !== 'admin') {
+        return json(400, { code: 'invalid_input', details: { field: 'role', reason: 'self' } }) // no quitarse el rol a uno mismo
+      }
+      const { data, error } = await admin.from('profiles').update(patch).eq('id', id).select('id').maybeSingle()
+      if (error) return json(400, { code: 'invalid_input', details: { field: 'branch_id' } })
+      if (!data) return json(404, { code: 'not_found' })
+      return json(200, { id })
+    }
+    case 'deactivate':
+    case 'reactivate': {
+      // Baja = perfil inactivo (sin ban de Auth): lo registrado sin señal antes de la baja aún puede subir (research R9).
+      const id = String(body.id ?? '')
+      if (id === userData.user.id) return json(400, { code: 'invalid_input', details: { field: 'id', reason: 'self' } })
+      const active = body.action === 'reactivate'
+      const { data, error } = await admin
+        .from('profiles')
+        .update({ active, deactivated_at: active ? null : new Date().toISOString() })
+        .eq('id', id)
+        .select('id')
+        .maybeSingle()
+      if (error) return json(500, { code: 'unknown' })
+      if (!data) return json(404, { code: 'not_found' })
+      return json(200, { id })
+    }
+    case 'reset_password': {
+      const id = String(body.id ?? '')
+      const password = String(body.password ?? '')
+      if (password.length < 8) return json(400, { code: 'invalid_input', details: { field: 'password' } })
+      const { error } = await admin.auth.admin.updateUserById(id, { password })
+      if (error) return json(404, { code: 'not_found' })
+      return json(200, { id })
+    }
     default:
       return json(400, { code: 'invalid_input', details: { field: 'action' } })
   }

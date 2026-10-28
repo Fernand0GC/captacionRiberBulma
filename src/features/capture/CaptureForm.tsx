@@ -19,7 +19,7 @@ type Form = { full_name: string; phone: string; interest: string; occupation: st
 type Errors = Partial<Record<'full_name' | 'phone', string>>
 
 const EMPTY: Form = { full_name: '', phone: '', interest: '', occupation: '', address: '' }
-
+const RUBROS = ['Independiente/Negocio/Microcrédito', "Dependiente/Asalariado"] 
 // Solo nombre y celular son obligatorios (FR-011).
 function validate(f: Form): Errors {
   const e: Errors = {}
@@ -143,10 +143,23 @@ export function CaptureForm() {
         </Field>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-semibold text-ink/80">
-            Nivel de interés <span className="font-normal text-ink/40">(opcional)</span>
-          </span>
-          <InterestToggle value={form.interest} onChange={set('interest')} />
+          <span className="text-sm font-semibold text-ink/80">Actividad u oficio</span>
+          <div className="flex flex-col gap-2">
+            {RUBROS.map((rubro) => (
+              <button
+                key={rubro}
+                type="button"
+                onClick={() => set('occupation')(form.occupation === rubro ? '' : rubro)}
+                className={`rounded-xl px-4 py-3 text-left text-sm font-medium ring-1 transition-colors ${
+                  form.occupation === rubro
+                    ? 'bg-charcoal text-gold ring-gold-dark'
+                    : 'bg-white text-ink/80 ring-ink/10 active:bg-ink/5'
+                }`}
+              >
+                {rubro}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -160,24 +173,16 @@ export function CaptureForm() {
           )}
         </div>
 
-        <details className="group rounded-2xl bg-white px-4 ring-1 ring-ink/10 open:pb-4">
-          <summary className="flex min-h-13 cursor-pointer list-none items-center justify-between font-semibold text-ink/80">
-            <span>
-              Más datos <span className="font-normal text-ink/40">(opcional)</span>
-            </span>
-            <span className="text-gold-dark transition group-open:rotate-180" aria-hidden>
-              ▾
-            </span>
-          </summary>
-          <div className="flex flex-col gap-4 pt-1">
-            <Field label="Actividad u oficio">
-              {(id) => <TextInput id={id} autoComplete="off" value={form.occupation} onChange={(e) => set('occupation')(e.target.value)} />}
-            </Field>
-            <Field label="Dirección o referencia">
-              {(id) => <TextInput id={id} autoComplete="off" value={form.address} onChange={(e) => set('address')(e.target.value)} />}
-            </Field>
-          </div>
-        </details>
+        <Field label="Dirección o referencia">
+          {(id) => <TextInput id={id} autoComplete="off" value={form.address} onChange={(e) => set('address')(e.target.value)} />}
+        </Field>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-semibold text-ink/80">
+            Nivel de interés <span className="font-normal text-ink/40">(opcional)</span>
+          </span>
+          <InterestToggle value={form.interest} onChange={set('interest')} />
+        </div>
 
         <Button type="submit" disabled={saving} className="mt-2 min-h-16 font-display text-xl">
           {saving ? 'Guardando…' : 'Guardar'}

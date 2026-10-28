@@ -107,6 +107,20 @@ Migraciones: `supabase/migrations/2026102800NN00_<nombre>.sql`, en el orden de l
 
 ## Phase 4: User Story 2 - Gestionar captaciones desde el módulo completo (Priority: P1)
 
+> **Re-alcance 2026-10-28 (pedido del usuario):** primero un panel **solo de lectura** (T083–T088). Edición, asignación,
+> anulación y duplicados (T041–T048) quedan después, sin cambios de diseño.
+
+### Panel de solo lectura (primero)
+
+- [X] T083 [P] [US2] pgTAP de `list_prospects`: el encargado solo su sucursal (otra → forbidden), gerente/admin todas, roles de campo forbidden, filtros de fecha (La Paz), autor, canal, búsqueda por nombre y celular, paginación y total, excluye anuladas y duplicadas, en `supabase/tests/list_prospects_test.sql`
+- [X] T084 [US2] RPC `list_prospects(filters jsonb, limit, offset)` (POST: la búsqueda nunca va en una URL) + `staff_options()` para el filtro "registrado por", en `supabase/migrations/20261028000800_manage_read.sql`
+- [X] T085 [P] [US2] Hooks de datos con TanStack Query en `src/features/prospects/api.ts`
+- [X] T086 [US2] Pantalla `/gestion`: filtros (período, sucursal, autor, canal en la URL; búsqueda solo en estado), tabla en escritorio y tarjetas en celular, total y paginación, en `src/features/prospects/ProspectsPage.tsx`
+- [X] T087 [US2] Encabezado de gestión con la marca y salir, en `src/features/prospects/ManageHeader.tsx`
+- [X] T088 [P] [US2] E2E: el encargado ve solo su sucursal con autor, fecha y hora; el gerente ve todas; búsqueda por celular, en `tests/e2e/manage-read.spec.ts`
+
+### Edición y gestión completa (después)
+
 **Goal**: Listado, búsqueda y filtros, ficha, edición auditada, duplicados, anulación (solo admin), registro desde gestión
 
 **Independent Test**: El encargado ve solo su sucursal y edita con auditoría; el gerente ve todas; solo el admin anula (quickstart escenario 7)
@@ -161,13 +175,13 @@ Migraciones: `supabase/migrations/2026102800NN00_<nombre>.sql`, en el orden de l
 
 ### Tests for User Story 7 ⚠️
 
-- [ ] T057 [P] [US7] Prueba de la Edge Function `admin-users` (rechaza a quien no es admin; create, deactivate, reactivate, reset_password) en `supabase/functions/admin-users/index.test.ts`
+- [ ] T057 [P] [US7] (cubierto en parte por `tests/e2e/users-admin.spec.ts`: crear, entrar, dar de baja) Prueba de la Edge Function `admin-users` (rechaza a quien no es admin; create, deactivate, reactivate, reset_password) en `supabase/functions/admin-users/index.test.ts`
 - [ ] T058 [P] [US7] E2E: baja con pendientes offline → se suben las anteriores a la baja → pantalla "Usuario desactivado", en `tests/e2e/deactivate.spec.ts`
 
 ### Implementation for User Story 7
 
-- [ ] T059 [US7] Completar `admin-users` con `update`, `deactivate`, `reactivate` y `reset_password`, más el trigger de auditoría en `profiles`, en `supabase/functions/admin-users/index.ts` y `supabase/migrations/20261028001000_users_audit.sql`
-- [ ] T060 [US7] Pantalla `/admin/usuarios` (listado, alta, edición, baja y reactivación, reseteo de contraseña) en `src/features/admin/UsersPage.tsx`
+- [X] T059 [US7] Completar `admin-users` con `update`, `deactivate`, `reactivate` y `reset_password`, más el trigger de auditoría en `profiles`, en `supabase/functions/admin-users/index.ts` y `supabase/migrations/20261028001000_users_audit.sql`
+- [X] T060 [US7] Pantalla `/admin/usuarios` (listado, alta, edición, baja y reactivación, reseteo de contraseña) en `src/features/admin/UsersPage.tsx`
 - [ ] T061 [P] [US7] Pantalla `/admin/catalogos` (canales, productos con línea, motivos, estrategias, corte de turno; solo desactivar, no borrar) en `src/features/admin/CatalogsPage.tsx`
 
 ---

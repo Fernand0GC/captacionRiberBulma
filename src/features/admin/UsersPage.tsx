@@ -1,0 +1,223 @@
+import { useState } from 'react'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { ROLE_LABEL } from '@/features/auth/types'
+import { useBranches } from '@/features/prospects/api'
+import { PageTitle } from '@/app/ManageLayout'
+import { generatePassword } from '@/lib/adminUsers'
+import { normalizeText } from '@/lib/search'
+import { Badge } from '@/ui/Badge'
+import { Button } from '@/ui/Button'
+import { Dialog } from '@/ui/Dialog'
+import { useToast } from '@/ui/Toast'
+import { useUserAction, useUsers, type UserRow } from './api'
+import { UserForm, type UserFormValues } from './UserForm'
+
+type Modal =
+  | { kind: 'create' }
+  | { kind: 'edit'; user: UserRow }
+  | { kind: 'toggle'; user: UserRow }
+  | { kind: 'password'; user: UserRow; password: string }
+  | { kind: 'created'; username: string; password: string }
+
+function errorText(e: unknown): string {
+  const d = (e as { details?: { field?: string; reason?: string } }).details
+  if (d?.field === 'username' && d.reason === 'duplicate') return 'Ese usuario ya existe. Elige otro.'
+  if (d?.reason === 'self') return 'No puedes hacer eso con tu propio usuario.'
+  return (e as Error).message || 'No se pudo guardar.'
+}
+
+export function UsersPage() {
+  const { profile } = useAuth()
+  const users = useUsers()
+  const branches = useBranches()
+  const action = useUserAction()
+  const toast = useToast()
+  const [modal, setModal] = useState<Modal | null>(null)
+  const [q, setQ] = useState('')
+  const [branch, setBranch] = useState('')
+  const [status, setStatus] = useState<'active' | 'inactive' | 'all'>('active')
+
+  const branchName = (id: number | null) => branches.data?.find((b) => b.id === id)?.name ?? '—'
+  const rows = (users.data ?? []).filter(
+    (u) =>
+      (status === 'all' || (status === 'active' ? u.active : !u.active)) &&
+      (!branch || String(u.branch_id) === branch) &&
+      (!q || normalizeText(`${u.full_name} ${u.username}`).includes(normalizeText(q))),
+  )
+  const close = () => {
+    action.reset()
+    setModal(null)
+  }
+
+  async function create(v: UserFormValues) {
+    const password = generatePassword()
+    await action.mutateAsync({ action: 'create', ...v, password })
+    setModal({ kind: 'created', username: v.username, password })
+  }
+  async function update(user: UserRow, v: UserFormValues) {
+    await action.mutateAsync({ action: 'update', id: user.id, full_name: v.full_name, role: v.role, branch_id: v.branch_id, contract_type: v.contract_type })
+    toast('✓ Usuario actualizado', 'success')
+    close()
+  }
+  async function toggle(user: UserRow) {
+    await action.mutateAsync({ action: user.active ? 'deactivate' : 'reactivate', id: user.id })
+    toast(user.active ? 'Usuario dado de baja' : '✓ Usuario reactivado', 'success')
+    close()
+  }
+  async function resetPassword(user: UserRow) {
+    const password = generatePassword()
+    await action.mutateAsync({ action: 'reset_password', id: user.id, password })
+    setModal({ kind: 'password', user, password })
+  }
+
+  const run = (p: Promise<unknown>) => p.catch(() => undefined) // el error se muestra en el diálogo
+
+  return (
+    <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6">
+      <PageTitle
+        title="Usuarios"
+        subtitle="Alta, baja y contraseñas del personal"
+        actions={<Button onClick={() => setModal({ kind: 'create' })}>＋ Nuevo usuario</Button>}
+      />
+
+      <section className="grid grid-cols-1 gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5 sm:grid-cols-3" aria-label="Filtros">
+        <input
+          type="search"
+          aria-label="Buscar usuario"
+          placeholder="Buscar nombre o usuario…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="min-h-11 rounded-xl border border-ink/15 px-3 outline-none focus:border-gold focus:ring-4 focus:ring-gold/20"
+        />
+        <select aria-label="Sucursal" value={branch} onChange={(e) => setBranch(e.target.value)} className="min-h-11 rounded-xl border border-ink/15 bg-white px-3">
+          <option value="">Todas las sucursales</option>
+          {branches.data?.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
+        <select aria-label="Estado" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="min-h-11 rounded-xl border border-ink/15 bg-white px-3">
+          <option value="active">Activos</option>
+          <option value="inactive">Dados de baja</option>
+          <option value="all">Todos</option>
+        </select>
+      </section>
+
+      <p className="px-1 text-ink/60">
+        <span className="font-display text-2xl font-bold text-ink">{rows.length}</span> {rows.length === 1 ? 'usuario' : 'usuarios'}
+      </p>
+
+      <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {rows.map((u) => (
+          <li key={u.id} className="flex flex-col gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5" data-testid={`user-${u.username}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate font-semibold">{u.full_name}</p>
+                <p className="truncate text-sm text-ink/50">@{u.username}</p>
+              </div>
+              {u.active ? <Badge tone="success">Activo</Badge> : <Badge tone="danger">Baja</Badge>}
+            </div>
+            <p className="text-sm text-ink/70">
+              {ROLE_LABEL[u.role]} · {u.branch_id ? branchName(u.branch_id) : 'Todas las sucursales'} ·{' '}
+              {u.contract_type === 'temporary' ? 'Temporal' : 'Con contrato'}
+            </p>
+            <div className="flex flex-wrap gap-2 border-t border-ink/5 pt-3">
+              <button type="button" onClick={() => setModal({ kind: 'edit', user: u })} className="min-h-10 rounded-full px-3 text-sm font-semibold ring-1 ring-ink/15 active:bg-sand">
+                Editar
+              </button>
+              <button type="button" onClick={() => run(resetPassword(u))} className="min-h-10 rounded-full px-3 text-sm font-semibold ring-1 ring-ink/15 active:bg-sand">
+                Nueva contraseña
+              </button>
+              {u.id !== profile?.id && (
+                <button
+                  type="button"
+                  onClick={() => setModal({ kind: 'toggle', user: u })}
+                  className={`min-h-10 rounded-full px-3 text-sm font-semibold ring-1 ${u.active ? 'text-rb-red ring-rb-red/40' : 'text-emerald-700 ring-emerald-300'}`}
+                >
+                  {u.active ? 'Dar de baja' : 'Reactivar'}
+                </button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <Dialog open={modal?.kind === 'create'} onOpenChange={(o) => !o && close()} title="Nuevo usuario">
+        <UserForm branches={branches.data ?? []} busy={action.isPending} error={action.isError ? errorText(action.error) : undefined} onSubmit={(v) => run(create(v))} onCancel={close} />
+      </Dialog>
+
+      {modal?.kind === 'edit' && (
+        <Dialog open onOpenChange={(o) => !o && close()} title={`Editar a ${modal.user.full_name}`}>
+          <UserForm
+            initial={modal.user}
+            branches={branches.data ?? []}
+            busy={action.isPending}
+            error={action.isError ? errorText(action.error) : undefined}
+            onSubmit={(v) => run(update(modal.user, v))}
+            onCancel={close}
+          />
+        </Dialog>
+      )}
+
+      {modal?.kind === 'toggle' && (
+        <Dialog
+          open
+          onOpenChange={(o) => !o && close()}
+          title={modal.user.active ? `¿Dar de baja a ${modal.user.full_name}?` : `¿Reactivar a ${modal.user.full_name}?`}
+          description={
+            modal.user.active
+              ? 'Ya no podrá entrar. Lo que registró se conserva, y lo que haya guardado sin señal antes de la baja todavía puede subir.'
+              : 'Podrá volver a entrar con su usuario y contraseña.'
+          }
+        >
+          {action.isError && <p className="mb-3 text-sm text-rb-red">{errorText(action.error)}</p>}
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={close}>
+              Cancelar
+            </Button>
+            <Button variant={modal.user.active ? 'danger' : 'primary'} className="flex-1" disabled={action.isPending} onClick={() => run(toggle(modal.user))}>
+              {modal.user.active ? 'Dar de baja' : 'Reactivar'}
+            </Button>
+          </div>
+        </Dialog>
+      )}
+
+      {(modal?.kind === 'created' || modal?.kind === 'password') && (
+        <Dialog
+          open
+          onOpenChange={(o) => !o && close()}
+          title={modal.kind === 'created' ? 'Usuario creado' : 'Contraseña nueva'}
+          description="Entrégale estos datos. La contraseña no se vuelve a mostrar."
+        >
+          <dl className="mb-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-2xl bg-white p-4 ring-1 ring-ink/10">
+            <dt className="text-ink/55">Usuario</dt>
+            <dd className="font-semibold" data-testid="new-username">
+              {modal.kind === 'created' ? modal.username : modal.user.username}
+            </dd>
+            <dt className="text-ink/55">Contraseña</dt>
+            <dd className="font-mono text-lg font-semibold" data-testid="new-password">
+              {modal.password}
+            </dd>
+          </dl>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => {
+                const u = modal.kind === 'created' ? modal.username : modal.user.username
+                void navigator.clipboard?.writeText(`Usuario: ${u}\nContraseña: ${modal.password}`)
+                toast('Copiado', 'success')
+              }}
+            >
+              Copiar
+            </Button>
+            <Button className="flex-1" onClick={close}>
+              Listo
+            </Button>
+          </div>
+        </Dialog>
+      )}
+    </main>
+  )
+}

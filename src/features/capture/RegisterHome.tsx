@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { ROLE_LABEL } from '@/features/auth/types'
+import { MANAGER_ROLES, ROLE_LABEL } from '@/features/auth/types'
 import { LogoutButton } from '@/features/auth/LogoutButton'
 import { SyncBadge } from '@/features/sync/SyncBadge'
 import { onSyncEvent } from '@/features/sync/syncLoop'
@@ -48,7 +48,15 @@ export function RegisterHome() {
       <BrandHeader
         title={profile!.full_name}
         subtitle={`${ROLE_LABEL[profile!.role]} · Turno ${SHIFT_LABEL[shiftFor(new Date())].toLowerCase()}`}
-        right={<LogoutButton tone="dark" />}
+        right={
+          MANAGER_ROLES.includes(profile!.role) ? (
+            <Link to="/gestion" className="flex min-h-11 items-center rounded-full px-4 text-sm font-semibold text-gold-light ring-1 ring-gold/40 active:bg-white/10">
+              Panel
+            </Link>
+          ) : (
+            <LogoutButton tone="dark" />
+          )
+        }
       />
 
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-8 pt-4">
@@ -72,15 +80,15 @@ export function RegisterHome() {
           className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-ink/5 active:bg-sand"
         >
           <span>
-            <span className="block text-xs font-semibold uppercase tracking-wide text-ink/45">Canal de hoy</span>
-            <span className="block text-lg font-semibold" data-testid="day-channel">
-              {channelName ?? 'Sin elegir'}
-            </span>
+            <span className="block text-xl font-bold uppercase text-black">Canal de hoy</span>
           </span>
-          <span className="text-sm font-semibold text-gold-dark">{channelName ? 'Cambiar' : 'Elegir'}</span>
+          <span className="bg-gold-gradient rounded-2xl px-4 py-3 text-left text-xl font-semibold text-amber-50">{channelName ? 'Cambiar' : 'Elegir'}</span>
         </button>
 
         <section className="flex flex-1 flex-col items-center justify-center gap-10 py-6">
+           <span className="block text-2xl font-semibold" data-testid="day-channel">
+              {channelName ?? 'Sin elegir'}
+            </span>
           <div className="text-center">
             <p className="font-display text-8xl font-bold leading-none tabular-nums text-ink" data-testid="today-count">
               {today}
@@ -95,7 +103,7 @@ export function RegisterHome() {
             <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-2xl text-gold-light">
               +
             </span>
-            Registrar
+            Nuevo Registro
           </button>
         </section>
       </main>

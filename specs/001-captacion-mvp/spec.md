@@ -173,7 +173,7 @@ El administrador da de alta usuarios con nombre, rol (volantero, auxiliar, super
 - **FR-003**: Volantero, auxiliar y supervisor MUST tener los mismos permisos de captación: solo crear captaciones y ver su conteo propio. Además, auxiliar, supervisor y encargado pueden ser responsables de seguimiento y ver los prospectos que tienen asignados (FR-035).
 - **FR-004**: El encargado MUST poder usar el modo registro y el módulo de gestión, limitado a su sucursal.
 - **FR-005**: El gerente MUST poder usar el módulo de gestión sobre todas las sucursales.
-- **FR-006**: Solo el administrador MUST poder anular captaciones (con motivo obligatorio) y gestionar usuarios y catálogos.
+- **FR-006**: Solo el administrador (en la app: **Sistemas**) MUST poder anular captaciones (con motivo obligatorio) y gestionar usuarios y catálogos.
 - **FR-007**: Los permisos MUST aplicarse en el servidor, de modo que un usuario no pueda obtener ni modificar datos fuera de su permiso aunque manipule la aplicación.
 
 **Registro de campo**

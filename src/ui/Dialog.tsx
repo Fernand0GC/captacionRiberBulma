@@ -18,11 +18,17 @@ export function Dialog({
   const titleId = useId()
   const descId = useId()
 
+  // El evento `close` del <dialog> también llega cuando lo cierra la app; solo avisamos los cierres del usuario (Esc).
+  const closingByApp = useRef(false)
+
   useEffect(() => {
     const d = ref.current
     if (!d) return
     if (open && !d.open) d.showModal()
-    if (!open && d.open) d.close()
+    if (!open && d.open) {
+      closingByApp.current = true
+      d.close()
+    }
   }, [open])
 
   return (
@@ -30,7 +36,10 @@ export function Dialog({
       ref={ref}
       aria-labelledby={titleId}
       aria-describedby={description ? descId : undefined}
-      onClose={() => onOpenChange(false)}
+      onClose={() => {
+        if (closingByApp.current) closingByApp.current = false
+        else onOpenChange(false)
+      }}
       className="m-auto w-[calc(100%-2rem)] max-w-md rounded-3xl bg-cream p-6 shadow-2xl backdrop:bg-ink/60 backdrop:backdrop-blur-sm"
     >
       <h2 id={titleId} className="font-display text-xl font-semibold text-ink">

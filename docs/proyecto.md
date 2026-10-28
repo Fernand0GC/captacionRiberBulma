@@ -25,7 +25,7 @@ Login obligatorio. Cada acción se controla por rol, y la RLS lo hace cumplir en
 | Supervisor | Contrato | ✔ | — | — | Lo propio |
 | Encargado | Contrato | ✔ | ✔ | — | Su sucursal |
 | Gerente | Contrato | — | ✔ | — | Todas las sucursales |
-| Administrador | Contrato | — | ✔ | ✔ | Todo + usuarios y catálogos |
+| Administrador (Sistemas) | Contrato | — | ✔ | ✔ | Todo + usuarios y catálogos |
 
 - Volantero, auxiliar y supervisor tienen **los mismos permisos**; cambia el tipo de contrato. Los volanteros son temporales,
   así que el alta y baja (desactivar usuario) tiene que ser rápida, y lo que registraron se conserva.

@@ -23,7 +23,7 @@ export const ROLE_LABEL: Record<AppRole, string> = {
   field_supervisor: 'Supervisor',
   branch_manager: 'Encargado',
   general_manager: 'Gerente',
-  admin: 'Administrador',
+  admin: 'Sistemas',
 }
 
 export const FIELD_ROLES: AppRole[] = ['field_volunteer', 'field_assistant', 'field_supervisor']
