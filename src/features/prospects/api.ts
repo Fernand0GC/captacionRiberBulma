@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toAppError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 import type { AppRole } from '@/features/auth/types'
@@ -25,6 +25,10 @@ export type ProspectRow = {
   channel_name: string | null
   product_name: string | null
   product_group: ProductGroup | null
+  assigned_to: string | null
+  assigned_to_name: string | null
+  contact_attempts: number
+  visit_at: string | null
 }
 
 export type ProspectFilters = {
@@ -32,8 +36,11 @@ export type ProspectFilters = {
   to: string
   branch_id?: number
   created_by?: string
-  channel_id?: number
+  channel_id?: number | 'none'
   q?: string
+  assigned?: string
+  stage?: string
+  view?: 'visits'
 }
 
 export function useProspects(filters: ProspectFilters, page: number) {
@@ -47,7 +54,7 @@ export function useProspects(filters: ProspectFilters, page: number) {
         p_offset: (page - 1) * PAGE_SIZE,
       })
       if (error) throw toAppError(error)
-      return data as { total: number; rows: ProspectRow[] }
+      return data as { total: number; by_channel: { channel_id: number | null; name: string; n: number }[]; rows: ProspectRow[] }
     },
   })
 }
@@ -88,5 +95,32 @@ export function useChannels() {
       if (error) throw toAppError(error)
       return data as { id: number; name: string }[]
     },
+  })
+}
+
+export type Assignee = { id: string; full_name: string; role: AppRole }
+
+/** Auxiliares, supervisores y encargado activos de la sucursal (a quién se puede asignar). */
+export function useAssignees(branchId: number | undefined) {
+  return useQuery({
+    queryKey: ['assignees', branchId],
+    enabled: branchId !== undefined,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('assignee_options', { p_branch: branchId })
+      if (error) throw toAppError(error)
+      return data as Assignee[]
+    },
+  })
+}
+
+export function useAssign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { ids: string[]; to: string | null }) => {
+      const { data, error } = await supabase.rpc('assign_prospects', { p_ids: v.ids, p_to: v.to })
+      if (error) throw toAppError(error)
+      return data as number
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['prospects'] }),
   })
 }

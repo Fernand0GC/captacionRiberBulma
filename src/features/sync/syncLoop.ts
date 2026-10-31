@@ -21,7 +21,7 @@ export function requestFlush(): void {
     userId,
     submit: submitCapture,
     onEvent: async (e) => {
-      if (e.type === 'accepted') await bumpToday(userId, e.row.createdAt)
+      if (e.type === 'accepted') await bumpToday(userId, e.row.createdAt, e.row.id)
       listeners.forEach((l) => l(e))
     },
   })

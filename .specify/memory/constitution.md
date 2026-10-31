@@ -19,7 +19,7 @@ Objetivo: celulares Android de gama baja con 3G.
 - Ninguna dependencia entra sin justificar su peso en el plan.
 
 ### III. El embudo es la fuente de verdad
-El ciclo del prospecto (captación → seguimiento → cliente interesado → venta / sin interés; recaptación entra en la v2; la planificación es la agenda de actividades, no una etapa)
+El ciclo del prospecto (1 captación → 2 recaptación → 3 seguimiento → 4 cliente potencial → 5 venta / 6 sin interés; la planificación es la agenda de actividades, no una etapa)
 se modela como una máquina de estados con transiciones permitidas definidas en la spec.
 - Cada cambio de etapa queda como evento inmutable (quién, cuándo, desde dónde, motivo).
 - Los reportes se calculan de los eventos; no hay contadores sueltos editables a mano.
@@ -62,4 +62,4 @@ Cada feature pasa por spec → plan → tasks antes de escribir código (Spec Ki
 Esta constitución manda por encima de otras prácticas. Para cambiarla hace falta aprobación del usuario,
 subir la versión (semver) y anotar el motivo. `CLAUDE.md` tiene la guía operativa del día a día.
 
-**Version**: 1.1.0 | **Ratified**: 2026-10-27 | **Last Amended**: 2026-10-27 (principio IV alineado a la spec 001: permisos por rol y rol leído del servidor; v1.0.2: recaptación pasa a la v2)
+**Version**: 1.2.1 | **Ratified**: 2026-10-27 | **Last Amended**: 2026-10-28 (v1.2.1: la etapa 4 se llama "cliente potencial"; v1.2.0 principio III: recaptación vuelve como etapa 2, definida por el encargado de ventas; v1.1.0: principio IV, permisos por rol)

@@ -65,19 +65,27 @@ Excluye anuladas y duplicados rechazados. Salida: `{ total, rows: [{ id, full_na
 ## `staff_options() → jsonb`
 Personal para el filtro "registrado por": encargado = su sucursal; gerente y admin = todos (incluye dados de baja). `[{ id, full_name, role, branch_id, active }]`.
 
-## `change_stage(prospect_id uuid, to_stage prospect_stage, lost_reason_id smallint default null, note text default null) → jsonb`
-Valida la transición (data-model §Máquina de estados), el permiso (responsable asignado o gestor del alcance), el motivo obligatorio para `lost` y que exista `product_id` para `sale` (parámetro opcional `product_id` para completarlo en el mismo paso).
-Actualiza `prospects.stage`, `stage_changed_at` y `sold_at`, e inserta en `stage_events` en una sola transacción. Devuelve `{ stage, stage_changed_at }`.
+## `add_followup(p jsonb) → jsonb` *(llamada; implementado)*
+Entrada: `{ id, prospect_id, result, note?, visit_at? }`; `result` ∈ `no_answer | interested | visit_confirmed | not_interested | not_in_city | wrong_number`.
+Idempotente por `id`. Permiso: responsable asignado o gestor del alcance. Reglas (FR-039): `no_answer` suma intento y vuelve mañana 9:00
+(al 3.º → `lost` "No contesta (3 intentos)"); `interested` y `visit_confirmed` (exige `visit_at`) → `interested`; el resto → `lost` con su motivo.
+Inserta en `followups` y, si cambia la etapa, en `stage_events`. Salida: `{ stage, contact_attempts, next_contact_at, visit_at }`.
+`change_stage` manual (y Venta con producto) queda para el resto de US3.
 
-## `add_followup(p jsonb) → jsonb`
-Entrada: `{ id, prospect_id, contacted_at, channel_id, result, effective, note, next_action, next_contact_at }`. Idempotente por `id`.
-Permiso: el responsable asignado o un gestor del alcance. Si el prospecto está en `capture`, pasa automáticamente a `followup` (con su evento).
+## `list_my_followups(p_view text) → jsonb`
+Bandeja del responsable: `pending` (para hoy o vencidos), `interested`, `visits` (visitas pactadas desde hoy). Salida `{ counts, rows }`.
 
-## `assign_prospect(prospect_id uuid, to_user uuid | null) → void`
-Encargado (su sucursal), gerente o admin. `to_user` debe ser un usuario activo con `can_follow_up()` de la sucursal del prospecto. Inserta en `assignment_events`.
+## `assign_prospects(p_ids uuid[], p_to uuid | null) → int`
+Encargado (su sucursal), gerente o Sistemas. `p_to`: auxiliar, supervisor o encargado activo **de la sucursal del prospecto**; `null` quita el responsable. Deja `assignment_events`.
 
-## `assign_prospects_bulk(prospect_ids uuid[], to_user uuid) → int`
-Igual que `assign_prospect`, para varios prospectos a la vez. Devuelve cuántos asignó.
+## `distribution_preview(p_branch, p_from, p_to, p_include_older) → jsonb`
+Encargado (su sucursal), gerente/Sistemas. `{ total, by_author: [{name, n}], people: [{id, full_name, role, pending_today, assigned_total}] }`.
+
+## `distribute_prospects(p_branch, p_from, p_to, p_include_older, p_quotas jsonb) → jsonb`
+Reparte por cupos `{ user_id: n }` sobre las sin asignar (ordenadas por hora, intercaladas). Solo auxiliar, supervisor o encargado activos de la sucursal. `{ assigned, by_person }`.
+
+## `assignee_options(p_branch smallint) → jsonb`
+A quién se puede asignar en esa sucursal.
 
 ## `update_prospect(prospect_id uuid, patch jsonb) → void`
 Gestores del alcance. Campos editables: `full_name`, `phone`, `product_id`, `channel_id`, `interest`, `occupation`, `address`.

@@ -12,9 +12,21 @@ export function getDayChannel(userId: string): number | null {
   }
 }
 
-export function setDayChannel(userId: string, channelId: number): void {
+// 'plan' = se tomó solo de la actividad en curso (puede seguir al plan); 'manual' = lo eligió la persona (se respeta).
+export type ChannelSource = 'plan' | 'manual'
+
+export function getDayChannelSource(userId: string): ChannelSource | null {
+  try {
+    return localStorage.getItem(`${key(userId)}.source`) === 'plan' ? 'plan' : getDayChannel(userId) === null ? null : 'manual'
+  } catch {
+    return null
+  }
+}
+
+export function setDayChannel(userId: string, channelId: number, source: ChannelSource = 'manual'): void {
   try {
     localStorage.setItem(key(userId), String(channelId))
+    localStorage.setItem(`${key(userId)}.source`, source)
   } catch {
     /* sin almacenamiento: se volverá a pedir */
   }

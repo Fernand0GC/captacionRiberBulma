@@ -3,10 +3,10 @@ import { liveQuery } from 'dexie'
 import { laPazDate } from '@/lib/dates'
 import { db } from './db'
 
-export type SyncStatus = { pending: number; pendingToday: number; blocked: number; online: boolean }
+export type SyncStatus = { pending: number; pendingToday: number; pendingTodayIds: string[]; blocked: number; online: boolean }
 
 export function useSyncStatus(userId: string | undefined): SyncStatus {
-  const [counts, setCounts] = useState({ pending: 0, pendingToday: 0, blocked: 0 })
+  const [counts, setCounts] = useState({ pending: 0, pendingToday: 0, pendingTodayIds: [] as string[], blocked: 0 })
   const [online, setOnline] = useState(() => navigator.onLine)
 
   useEffect(() => {
@@ -14,9 +14,11 @@ export function useSyncStatus(userId: string | undefined): SyncStatus {
     const sub = liveQuery(async () => {
       const rows = await db.outbox.where('userId').equals(userId).toArray()
       const today = laPazDate(new Date())
+      const todayIds = rows.filter((r) => r.state !== 'blocked' && laPazDate(new Date(r.createdAt)) === today).map((r) => r.id)
       return {
         pending: rows.filter((r) => r.state !== 'blocked').length,
-        pendingToday: rows.filter((r) => r.state !== 'blocked' && laPazDate(new Date(r.createdAt)) === today).length,
+        pendingToday: todayIds.length,
+        pendingTodayIds: todayIds,
         blocked: rows.filter((r) => r.state === 'blocked').length,
       }
     }).subscribe({ next: setCounts })

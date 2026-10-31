@@ -14,18 +14,14 @@ insert into public.branches (id, code, name) values
   (9, 'SANBORJA', 'SAN BORJA'),
   (10, 'SANTACRUZ', 'SANTA CRUZ');
 
-insert into public.channels (name, sort) values
-  ('TikTok', 1), ('Facebook', 2), ('Activación', 3), ('Llamadas', 4), ('Marketplace', 5),
-  ('E-commerce', 6), ('Visitas', 7), ('Messenger', 8), ('Otro', 99);
+-- Canales: los carga la migración 20261028001000_channels_catalog.sql (catálogo real).
 
 -- Productos: los carga la migración 20261028000250_product_catalog.sql (catálogo real de riber-bulma).
 
 insert into public.lost_reasons (name) values
   ('Precio'), ('Ya compró en otro lado'), ('No lo necesita'), ('Sin capacidad de pago'), ('Otro');
 
-insert into public.agenda_strategies (name) values
-  ('Marketing'), ('Mensajería'), ('Negociación'), ('Activación'), ('Llamadas'),
-  ('Atención en tienda'), ('Contenido'), ('En vivo'), ('Kardex'), ('Otra');
+-- Estrategias de la planificación: las carga la migración 20261029000600_agenda.sql.
 
 -- Usuarios de prueba (auth.users + auth.identities + profiles).
 do $$

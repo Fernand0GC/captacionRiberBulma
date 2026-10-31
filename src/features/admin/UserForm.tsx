@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { ROLE_LABEL, type AppRole } from '@/features/auth/types'
+import { generatePassword } from '@/lib/adminUsers'
 import { Button } from '@/ui/Button'
 import { Field, TextInput } from '@/ui/Field'
 import { Select } from '@/ui/Select'
@@ -11,9 +12,18 @@ export type UserFormValues = {
   role: AppRole
   branch_id: number | null
   contract_type: 'temporary' | 'permanent'
+  /** Solo al crear. */
+  password?: string
 }
 
-const ROLES: AppRole[] = ['field_volunteer', 'field_assistant', 'field_supervisor', 'branch_manager', 'general_manager', 'admin']
+const ROLES: AppRole[] = [
+  'field_volunteer',
+  'field_assistant',
+  'field_supervisor',
+  'branch_manager',
+  'general_manager',
+  'admin',
+]
 const GLOBAL: AppRole[] = ['general_manager', 'admin']
 
 export function UserForm({
@@ -37,6 +47,7 @@ export function UserForm({
     role: initial?.role ?? 'field_volunteer',
     branch_id: initial?.branch_id ?? null,
     contract_type: initial?.contract_type ?? 'temporary',
+    password: initial ? undefined : generatePassword(),
   })
   const [errs, setErrs] = useState<Partial<Record<keyof UserFormValues, string>>>({})
   const needsBranch = !GLOBAL.includes(v.role)
@@ -44,11 +55,14 @@ export function UserForm({
   function submit(e: FormEvent) {
     e.preventDefault()
     const x: typeof errs = {}
-    if (!initial && !/^[a-z0-9._]{3,30}$/.test(v.username)) x.username = '3 a 30 caracteres: minúsculas, números, punto o guion bajo.'
+    if (!initial && !/^[a-z0-9._]{3,30}$/.test(v.username))
+      x.username = '3 a 30 caracteres: minúsculas, números, punto o guion bajo.'
     if (v.full_name.trim().length < 3) x.full_name = 'Escribe el nombre completo.'
     if (needsBranch && !v.branch_id) x.branch_id = 'Elige la sucursal.'
+    if (!initial && (v.password ?? '').trim().length < 8) x.password = 'Mínimo 8 caracteres.'
     setErrs(x)
-    if (Object.keys(x).length === 0) onSubmit({ ...v, branch_id: needsBranch ? v.branch_id : null })
+    if (Object.keys(x).length === 0)
+      onSubmit({ ...v, password: v.password?.trim(), branch_id: needsBranch ? v.branch_id : null })
   }
 
   return (
@@ -68,9 +82,47 @@ export function UserForm({
           )}
         </Field>
       )}
+      {!initial && (
+        <Field
+          label="Contraseña"
+          required
+          error={errs.password}
+          hint="Escribe la que quieras o usa la generada (mínimo 8)."
+        >
+          {(id, d) => (
+            <div className="flex gap-2">
+              <TextInput
+                id={id}
+                aria-describedby={d}
+                invalid={!!errs.password}
+                autoCapitalize="none"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={false}
+                className="font-mono"
+                value={v.password ?? ''}
+                onChange={(e) => setV({ ...v, password: e.target.value })}
+              />
+              <button
+                type="button"
+                onClick={() => setV({ ...v, password: generatePassword() })}
+                className="min-h-12 shrink-0 rounded-xl px-3 text-sm font-semibold ring-1 ring-ink/15 active:bg-sand"
+              >
+                Generar
+              </button>
+            </div>
+          )}
+        </Field>
+      )}
       <Field label="Nombre completo" required error={errs.full_name}>
         {(id, d) => (
-          <TextInput id={id} aria-describedby={d} invalid={!!errs.full_name} value={v.full_name} onChange={(e) => setV({ ...v, full_name: e.target.value })} />
+          <TextInput
+            id={id}
+            aria-describedby={d}
+            invalid={!!errs.full_name}
+            value={v.full_name}
+            onChange={(e) => setV({ ...v, full_name: e.target.value })}
+          />
         )}
       </Field>
       <Field label="Rol" required>

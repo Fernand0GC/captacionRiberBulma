@@ -6,4 +6,13 @@ const timeFmt = new Intl.DateTimeFormat('es-BO', { timeZone: BUSINESS_TZ, hour: 
 export const fmtDate = (iso: string) => dateFmt.format(new Date(iso))
 export const fmtTime = (iso: string) => timeFmt.format(new Date(iso))
 
+export const STAGE_LABEL: Record<string, string> = {
+  capture: 'Captación',
+  recapture: 'Recaptación',
+  followup: 'Seguimiento',
+  interested: 'Cliente potencial',
+  sale: 'Venta',
+  lost: 'Sin interés',
+}
+
 export const INTEREST_LABEL = { high: 'Alto', medium: 'Medio', low: 'Bajo' } as const

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { useBranches } from '@/features/prospects/api'
-import { PageTitle } from '@/app/ManageLayout'
+import { PageTitle } from '@/ui/PageTitle'
 import { generatePassword } from '@/lib/adminUsers'
 import { normalizeText } from '@/lib/search'
 import { Badge } from '@/ui/Badge'
@@ -16,6 +16,7 @@ type Modal =
   | { kind: 'create' }
   | { kind: 'edit'; user: UserRow }
   | { kind: 'toggle'; user: UserRow }
+  | { kind: 'reset'; user: UserRow; draft: string }
   | { kind: 'password'; user: UserRow; password: string }
   | { kind: 'created'; username: string; password: string }
 
@@ -50,12 +51,18 @@ export function UsersPage() {
   }
 
   async function create(v: UserFormValues) {
-    const password = generatePassword()
-    await action.mutateAsync({ action: 'create', ...v, password })
-    setModal({ kind: 'created', username: v.username, password })
+    await action.mutateAsync({ action: 'create', ...v })
+    setModal({ kind: 'created', username: v.username, password: v.password ?? '' })
   }
   async function update(user: UserRow, v: UserFormValues) {
-    await action.mutateAsync({ action: 'update', id: user.id, full_name: v.full_name, role: v.role, branch_id: v.branch_id, contract_type: v.contract_type })
+    await action.mutateAsync({
+      action: 'update',
+      id: user.id,
+      full_name: v.full_name,
+      role: v.role,
+      branch_id: v.branch_id,
+      contract_type: v.contract_type,
+    })
     toast('✓ Usuario actualizado', 'success')
     close()
   }
@@ -64,8 +71,7 @@ export function UsersPage() {
     toast(user.active ? 'Usuario dado de baja' : '✓ Usuario reactivado', 'success')
     close()
   }
-  async function resetPassword(user: UserRow) {
-    const password = generatePassword()
+  async function resetPassword(user: UserRow, password: string) {
     await action.mutateAsync({ action: 'reset_password', id: user.id, password })
     setModal({ kind: 'password', user, password })
   }
@@ -80,7 +86,10 @@ export function UsersPage() {
         actions={<Button onClick={() => setModal({ kind: 'create' })}>＋ Nuevo usuario</Button>}
       />
 
-      <section className="grid grid-cols-1 gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5 sm:grid-cols-3" aria-label="Filtros">
+      <section
+        className="grid grid-cols-1 gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5 sm:grid-cols-3"
+        aria-label="Filtros"
+      >
         <input
           type="search"
           aria-label="Buscar usuario"
@@ -89,7 +98,12 @@ export function UsersPage() {
           onChange={(e) => setQ(e.target.value)}
           className="min-h-11 rounded-xl border border-ink/15 px-3 outline-none focus:border-gold focus:ring-4 focus:ring-gold/20"
         />
-        <select aria-label="Sucursal" value={branch} onChange={(e) => setBranch(e.target.value)} className="min-h-11 rounded-xl border border-ink/15 bg-white px-3">
+        <select
+          aria-label="Sucursal"
+          value={branch}
+          onChange={(e) => setBranch(e.target.value)}
+          className="min-h-11 rounded-xl border border-ink/15 bg-white px-3"
+        >
           <option value="">Todas las sucursales</option>
           {branches.data?.map((b) => (
             <option key={b.id} value={b.id}>
@@ -97,7 +111,12 @@ export function UsersPage() {
             </option>
           ))}
         </select>
-        <select aria-label="Estado" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="min-h-11 rounded-xl border border-ink/15 bg-white px-3">
+        <select
+          aria-label="Estado"
+          value={status}
+          onChange={(e) => setStatus(e.target.value as typeof status)}
+          className="min-h-11 rounded-xl border border-ink/15 bg-white px-3"
+        >
           <option value="active">Activos</option>
           <option value="inactive">Dados de baja</option>
           <option value="all">Todos</option>
@@ -105,12 +124,17 @@ export function UsersPage() {
       </section>
 
       <p className="px-1 text-ink/60">
-        <span className="font-display text-2xl font-bold text-ink">{rows.length}</span> {rows.length === 1 ? 'usuario' : 'usuarios'}
+        <span className="font-display text-2xl font-bold text-ink">{rows.length}</span>{' '}
+        {rows.length === 1 ? 'usuario' : 'usuarios'}
       </p>
 
       <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {rows.map((u) => (
-          <li key={u.id} className="flex flex-col gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5" data-testid={`user-${u.username}`}>
+          <li
+            key={u.id}
+            className="flex flex-col gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5"
+            data-testid={`user-${u.username}`}
+          >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="truncate font-semibold">{u.full_name}</p>
@@ -123,10 +147,18 @@ export function UsersPage() {
               {u.contract_type === 'temporary' ? 'Temporal' : 'Con contrato'}
             </p>
             <div className="flex flex-wrap gap-2 border-t border-ink/5 pt-3">
-              <button type="button" onClick={() => setModal({ kind: 'edit', user: u })} className="min-h-10 rounded-full px-3 text-sm font-semibold ring-1 ring-ink/15 active:bg-sand">
+              <button
+                type="button"
+                onClick={() => setModal({ kind: 'edit', user: u })}
+                className="min-h-10 rounded-full px-3 text-sm font-semibold ring-1 ring-ink/15 active:bg-sand"
+              >
                 Editar
               </button>
-              <button type="button" onClick={() => run(resetPassword(u))} className="min-h-10 rounded-full px-3 text-sm font-semibold ring-1 ring-ink/15 active:bg-sand">
+              <button
+                type="button"
+                onClick={() => setModal({ kind: 'reset', user: u, draft: generatePassword() })}
+                className="min-h-10 rounded-full px-3 text-sm font-semibold ring-1 ring-ink/15 active:bg-sand"
+              >
                 Nueva contraseña
               </button>
               {u.id !== profile?.id && (
@@ -144,7 +176,13 @@ export function UsersPage() {
       </ul>
 
       <Dialog open={modal?.kind === 'create'} onOpenChange={(o) => !o && close()} title="Nuevo usuario">
-        <UserForm branches={branches.data ?? []} busy={action.isPending} error={action.isError ? errorText(action.error) : undefined} onSubmit={(v) => run(create(v))} onCancel={close} />
+        <UserForm
+          branches={branches.data ?? []}
+          busy={action.isPending}
+          error={action.isError ? errorText(action.error) : undefined}
+          onSubmit={(v) => run(create(v))}
+          onCancel={close}
+        />
       </Dialog>
 
       {modal?.kind === 'edit' && (
@@ -164,7 +202,11 @@ export function UsersPage() {
         <Dialog
           open
           onOpenChange={(o) => !o && close()}
-          title={modal.user.active ? `¿Dar de baja a ${modal.user.full_name}?` : `¿Reactivar a ${modal.user.full_name}?`}
+          title={
+            modal.user.active
+              ? `¿Dar de baja a ${modal.user.full_name}?`
+              : `¿Reactivar a ${modal.user.full_name}?`
+          }
           description={
             modal.user.active
               ? 'Ya no podrá entrar. Lo que registró se conserva, y lo que haya guardado sin señal antes de la baja todavía puede subir.'
@@ -176,10 +218,67 @@ export function UsersPage() {
             <Button variant="secondary" className="flex-1" onClick={close}>
               Cancelar
             </Button>
-            <Button variant={modal.user.active ? 'danger' : 'primary'} className="flex-1" disabled={action.isPending} onClick={() => run(toggle(modal.user))}>
+            <Button
+              variant={modal.user.active ? 'danger' : 'primary'}
+              className="flex-1"
+              disabled={action.isPending}
+              onClick={() => run(toggle(modal.user))}
+            >
               {modal.user.active ? 'Dar de baja' : 'Reactivar'}
             </Button>
           </div>
+        </Dialog>
+      )}
+
+      {modal?.kind === 'reset' && (
+        <Dialog
+          open
+          onOpenChange={(o) => !o && close()}
+          title={`Nueva contraseña para ${modal.user.full_name}`}
+          description="Escribe la que quieras (mínimo 8 caracteres) o usa la generada."
+        >
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (modal.draft.trim().length >= 8) void run(resetPassword(modal.user, modal.draft.trim()))
+            }}
+          >
+            <div className="flex gap-2">
+              <input
+                aria-label="Contraseña nueva"
+                value={modal.draft}
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                onChange={(e) => setModal({ ...modal, draft: e.target.value })}
+                className="min-h-12 min-w-0 flex-1 rounded-xl border border-ink/15 bg-white px-3 font-mono text-lg outline-none focus:border-gold focus:ring-4 focus:ring-gold/20"
+              />
+              <button
+                type="button"
+                onClick={() => setModal({ ...modal, draft: generatePassword() })}
+                className="min-h-12 rounded-xl px-3 text-sm font-semibold ring-1 ring-ink/15 active:bg-sand"
+              >
+                Generar
+              </button>
+            </div>
+            {modal.draft.trim().length < 8 && (
+              <p className="text-sm text-ink/55">Faltan {8 - modal.draft.trim().length} caracteres.</p>
+            )}
+            {action.isError && <p className="text-sm text-rb-red">{errorText(action.error)}</p>}
+            <div className="flex gap-2">
+              <Button type="button" variant="secondary" className="flex-1" onClick={close}>
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={action.isPending || modal.draft.trim().length < 8}
+              >
+                {action.isPending ? 'Guardando…' : 'Guardar'}
+              </Button>
+            </div>
+          </form>
         </Dialog>
       )}
 

@@ -12,19 +12,20 @@ Zona horaria de negocio: `America/La_Paz`. Timestamps en `timestamptz`.
 | `shift` | `morning`, `afternoon` | Mañana, Tarde |
 | `interest_level` | `high`, `medium`, `low` | Alto, Medio, Bajo |
 | `product_line` | `phones`, `appliances` | CELULARES, ELECTROS |
-| `prospect_stage` | `capture`, `followup`, `interested`, `sale`, `lost` | Captación, Seguimiento, Cliente interesado, Venta, Sin interés |
+| `prospect_stage` | `capture`, `recapture`, `followup`, `interested`, `sale`, `lost` | 1 Captación, 2 Recaptación, 3 Seguimiento, 4 Cliente potencial, 5 Venta, 6 Sin interés |
+| `contact_method` | `call`, `whatsapp_call`, `message`, `store` | Llamada, Llamada WhatsApp, Mensaje, En tienda (ATC) |
 | `prospect_status` | `active`, `voided`, `duplicate_rejected` | Vigente, Anulada, Duplicado rechazado |
-| `contact_result` | `interested`, `not_interested`, `no_answer`, `wrong_number`, `visit_confirmed`, `negotiating`, `pending_reply`, `replied`, `waiting_client`, `referred`, `no_result` | Valores de "Estado" del modelo INFORMES (sin Potencial ni COMPRA, que son etapas) |
+| `contact_result` | `no_answer`, `looking_product`, `visit_store`, `call_later`, `very_interested`, `sold`, `not_interested`, `wrong_number` | No contestó, Busca un producto, Visitará la tienda, Volver a contactar el…, Muy interesado, Compró, No le interesa, Número equivocado (FR-037) |
 | `activity_status` | `pending`, `in_progress`, `done`, `blocked`, `cancelled` | Pendiente, En curso, Completada, Bloqueada, Cancelada |
 
-`recapture` **no** existe en la v1. Se agrega en la v2 con `alter type ... add value` sin migrar datos.
+`recapture` = 2 Recaptación (definida por el negocio el 2026-10-28): contacto por llamada, mensaje o en tienda.
 
 ## Catálogos
 
 | Tabla | Campos | Notas |
 |---|---|---|
 | `branches` | `id smallint pk`, `code text unique`, `name text`, `active bool` | Seed: las 10 sucursales |
-| `channels` | `id smallint pk`, `name text unique`, `active bool`, `sort smallint` | Seed: TikTok, Facebook, Activación, Llamadas, Marketplace, E-commerce, Visitas, Messenger, Otro |
+| `channels` | `id smallint pk`, `name text unique`, `active bool`, `sort smallint` | Canales de **captación** (migración `…001000_channels_catalog.sql`): Volantes, Activación, Visitas de negociación, TikTok, Facebook, Messenger, Marketplace, E-commerce, Otro. Llamadas no es canal de captación: es un medio de recaptación (`contact_method`) |
 | `products` | `id int pk`, `name text unique`, `product_group product_group` (phones, major_appliances, small_appliances), `line product_line` (generada: phones → CELULARES, el resto → ELECTROS), `sort`, `active` | Producto de interés = categoría, sin marcas ni modelos. 57 filas (Celulares + 26 electro mayor + 30 electro menor) cargadas por la migración `…000250_product_catalog.sql` desde riber-bulma `v_products` (copia 2026-10-28) |
 | `lost_reasons` | `id smallint pk`, `name text unique`, `active bool` | Seed provisional: Precio, Ya compró en otro lado, No necesita, Sin capacidad de pago, Otro |
 | `agenda_strategies` | `id smallint pk`, `name text unique`, `active bool` | Seed: Marketing, Mensajería, Negociación, Activación, Llamadas, Atención en tienda, Contenido, En vivo, Kardex, Otra |
@@ -71,6 +72,8 @@ Funciones helper (`security definer stable`, `search_path=''`): `app_role()`, `a
 | `lost_reason_id` | smallint null → lost_reasons | obligatorio si `stage='lost'` (check) |
 | `assigned_to` | uuid null → profiles | responsable de seguimiento; se cambia solo con `assign_prospect` |
 | `next_contact_at` | timestamptz null | lo actualiza la última gestión |
+| `contact_attempts` | smallint default 0 | intentos "No contestó" seguidos; al 3 → `lost` (FR-039) |
+| `visit_at` | timestamptz null | visita pactada ("Pasará a la tienda", FR-038) |
 | `status` | prospect_status default `active` | |
 | `duplicate_of` | uuid null → prospects | si `duplicate_rejected` |
 | `late_after_deactivation` | bool default false | se subió después de la baja del autor (R9); el encargado la revisa |
@@ -80,27 +83,26 @@ Funciones helper (`security definer stable`, `search_path=''`): `app_role()`, `a
 Índices: `unique (phone_norm) where status='active'`; `(branch_id, client_created_at desc)`; `(assigned_to, next_contact_at) where status='active' and stage in ('capture','followup','interested')`;
 `(created_by, client_created_at)`; trigram sobre `full_name` para la búsqueda.
 
-### Máquina de estados (`stage`)
+### Máquina de estados (`stage`) — embudo del negocio (2026-10-28)
 
 ```
-capture ──▶ followup ──▶ interested ──▶ sale (final)
-   │           │  ▲           │
-   │           │  └───────────┘ (interested → followup permitido)
-   └───────────┴──────────────┴──▶ lost (final, requiere motivo)
-capture ──▶ interested | sale  (salto permitido)
+1 capture ──▶ 2 recapture ──▶ 3 followup ──▶ 4 interested ──▶ 5 sale (final)
+     └────────────┴──────────────┴───────────────┴──────────▶ 6 lost (final, con motivo)
 ```
 
-Transiciones válidas: `capture→{followup,interested,sale,lost}`, `followup→{interested,sale,lost}`, `interested→{followup,sale,lost}`.
+La etapa la mueve `add_followup` según el resultado del contacto (FR-039): No contestó → recapture (3 intentos → lost);
+Busca un producto / Visitará la tienda / Volver a contactar → followup; Muy interesado → interested; Compró → sale
+(exige producto); No le interesa / Número equivocado → lost. Las etapas positivas nunca retroceden.
 `sale` y `lost` no tienen salida en la v1. Solo prospectos con `status='active'` cambian de etapa.
 
 ## `stage_events` (solo inserción)
 `id bigint identity pk`, `prospect_id uuid → prospects`, `from_stage`, `to_stage`, `lost_reason_id null`, `note text null`, `actor_id uuid`, `created_at timestamptz default now()`.
 Al crear un prospecto se inserta el evento inicial `null → capture`.
 
-## `followups` (gestiones, solo inserción)
-`id uuid pk` (cliente), `prospect_id`, `contacted_at timestamptz`, `channel_id`, `result contact_result not null`, `effective bool not null`,
-`note text`, `next_action text null`, `next_contact_at timestamptz null`, `actor_id`, `created_at`.
-El trigger actualiza `prospects.next_contact_at` con el valor de la gestión más reciente.
+## `followups` (llamadas/gestiones, solo inserción)
+`id uuid pk` (cliente), `prospect_id`, `contacted_at timestamptz`, `result contact_result not null`, `effective bool` (todo menos `no_answer`),
+`method contact_method`, `note text null`, `visit_at timestamptz null` (obligatorio si `visit_store`), `callback_at timestamptz null` (obligatorio si `call_later`), `actor_id`, `created_at`.
+`add_followup` aplica las reglas de FR-039 sobre el prospecto (etapa, intentos, `next_contact_at`, `visit_at`) e inserta el evento de etapa.
 
 ## `assignment_events` (solo inserción)
 `id bigint identity pk`, `prospect_id`, `from_user null`, `to_user null`, `actor_id`, `created_at`.

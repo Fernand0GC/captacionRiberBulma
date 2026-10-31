@@ -1,43 +1,45 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from '@tanstack/react-router'
 import { LoginPage } from '@/features/auth/LoginPage'
-import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES } from '@/features/auth/types'
+import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
 import { CaptureForm } from '@/features/capture/CaptureForm'
 import { RegisterHome } from '@/features/capture/RegisterHome'
-import { SyncRunner } from '@/features/sync/SyncRunner'
 import { validateManageSearch } from '@/features/prospects/search'
+import { AppShell } from './AppShell'
 import { HomeRedirect, RequireRole } from './guards'
 
-// Bundle inicial: login + registro de campo. El resto se carga lazy (constitución II, research R2).
-const rootRoute = createRootRoute({ component: Outlet })
+// Bundle inicial: login, marco de la app y registro de campo. Lo demás se carga lazy (constitución II, research R2).
+const ALL_ROLES = Object.keys(ROLE_LABEL) as AppRole[]
+const ManagedOutlet = lazyRouteComponent(() => import('./ManagedOutlet'), 'ManagedOutlet')
 
+const rootRoute = createRootRoute({ component: Outlet })
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: HomeRedirect })
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: '/login', component: LoginPage })
 
-const captureLayout = createRoute({
+// Marco único (barra lateral / barra superior) para todas las secciones.
+const shellLayout = createRoute({
   getParentRoute: () => rootRoute,
+  id: 'app',
+  component: () => (
+    <RequireRole roles={ALL_ROLES}>
+      <AppShell />
+    </RequireRole>
+  ),
+})
+
+const captureLayout = createRoute({
+  getParentRoute: () => shellLayout,
   id: 'capture',
   component: () => (
     <RequireRole roles={CAPTURE_ROLES}>
-      <SyncRunner />
       <Outlet />
     </RequireRole>
   ),
 })
-const registerRoute = createRoute({
-  getParentRoute: () => captureLayout,
-  path: '/registrar',
-  component: RegisterHome,
-})
-const registerNewRoute = createRoute({
-  getParentRoute: () => captureLayout,
-  path: '/registrar/nuevo',
-  component: CaptureForm,
-})
-
-const ManagedOutlet = lazyRouteComponent(() => import('./ManagedOutlet'), 'ManagedOutlet')
+const registerRoute = createRoute({ getParentRoute: () => captureLayout, path: '/registrar', component: RegisterHome })
+const registerNewRoute = createRoute({ getParentRoute: () => captureLayout, path: '/registrar/nuevo', component: CaptureForm })
 
 const followupLayout = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellLayout,
   id: 'followup',
   component: () => (
     <RequireRole roles={FOLLOWUP_ROLES}>
@@ -48,17 +50,47 @@ const followupLayout = createRoute({
 const followupRoute = createRoute({
   getParentRoute: () => followupLayout,
   path: '/seguimiento',
-  component: lazyRouteComponent(() => import('@/app/Placeholder'), 'Placeholder'),
+  component: lazyRouteComponent(() => import('@/features/followup/InboxPage'), 'InboxPage'),
 })
 
-const ManageLayout = lazyRouteComponent(() => import('./ManageLayout'), 'ManageLayout')
+// Ficha del cliente: gestores del alcance y el responsable asignado (el servidor decide qué ve cada uno).
+const clientLayout = createRoute({
+  getParentRoute: () => shellLayout,
+  id: 'client',
+  component: () => (
+    <RequireRole roles={[...new Set([...MANAGER_ROLES, ...FOLLOWUP_ROLES])]}>
+      <ManagedOutlet />
+    </RequireRole>
+  ),
+})
+const clientRoute = createRoute({
+  getParentRoute: () => clientLayout,
+  path: '/cliente/$id',
+  component: lazyRouteComponent(() => import('@/features/client/ClientPage'), 'ClientPage'),
+})
+
+// Planificación: todo el personal la ve (su sucursal); arman encargado, gerente y Sistemas (lo decide el servidor).
+const planningLayout = createRoute({
+  getParentRoute: () => shellLayout,
+  id: 'planning',
+  component: () => (
+    <RequireRole roles={ALL_ROLES}>
+      <ManagedOutlet />
+    </RequireRole>
+  ),
+})
+const planningRoute = createRoute({
+  getParentRoute: () => planningLayout,
+  path: '/planificacion',
+  component: lazyRouteComponent(() => import('@/features/agenda/PlanningPage'), 'PlanningPage'),
+})
 
 const manageLayout = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellLayout,
   id: 'manage',
   component: () => (
     <RequireRole roles={MANAGER_ROLES}>
-      <ManageLayout />
+      <ManagedOutlet />
     </RequireRole>
   ),
 })
@@ -67,6 +99,24 @@ const manageRoute = createRoute({
   path: '/gestion',
   validateSearch: validateManageSearch,
   component: lazyRouteComponent(() => import('@/features/prospects/ProspectsPage'), 'ProspectsPage'),
+})
+
+const dashboardRoute = createRoute({
+  getParentRoute: () => manageLayout,
+  path: '/panel',
+  component: lazyRouteComponent(() => import('@/features/dashboard/DashboardPage'), 'DashboardPage'),
+})
+
+const goalsRoute = createRoute({
+  getParentRoute: () => manageLayout,
+  path: '/metas',
+  component: lazyRouteComponent(() => import('@/features/goals/GoalsPage'), 'GoalsPage'),
+})
+
+const distributeRoute = createRoute({
+  getParentRoute: () => manageLayout,
+  path: '/repartir',
+  component: lazyRouteComponent(() => import('@/features/distribution/DistributePage'), 'DistributePage'),
 })
 
 // Sistemas (admin): usuarios y catálogos.
@@ -88,9 +138,13 @@ const usersRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
-  captureLayout.addChildren([registerRoute, registerNewRoute]),
-  followupLayout.addChildren([followupRoute]),
-  manageLayout.addChildren([manageRoute, adminLayout.addChildren([usersRoute])]),
+  shellLayout.addChildren([
+    captureLayout.addChildren([registerRoute, registerNewRoute]),
+    followupLayout.addChildren([followupRoute]),
+    clientLayout.addChildren([clientRoute]),
+    planningLayout.addChildren([planningRoute]),
+    manageLayout.addChildren([dashboardRoute, manageRoute, distributeRoute, goalsRoute, adminLayout.addChildren([usersRoute])]),
+  ]),
 ])
 
 export const router = createRouter({ routeTree, defaultPreload: false })

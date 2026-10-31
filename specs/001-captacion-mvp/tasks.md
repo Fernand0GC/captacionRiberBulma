@@ -127,15 +127,15 @@ Migraciones: `supabase/migrations/2026102800NN00_<nombre>.sql`, en el orden de l
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T041 [P] [US2] pgTAP permisos de gestión: el encargado solo ve y edita su sucursal; el gerente ve y edita todas; `void_prospect` solo para admin; `update_prospect` revalida que el teléfono sea único y deja auditoría, en `supabase/tests/rls_manage_test.sql`
-- [ ] T042 [P] [US2] E2E: el encargado filtra, edita y ve la auditoría; el admin anula y la ficha desaparece del listado, en `tests/e2e/manage.spec.ts`
+- [X] T041 (hecho como ficha /cliente/$id con RPC get_prospect/update_prospect/void_prospect, 2026-10-29) [P] [US2] pgTAP permisos de gestión: el encargado solo ve y edita su sucursal; el gerente ve y edita todas; `void_prospect` solo para admin; `update_prospect` revalida que el teléfono sea único y deja auditoría, en `supabase/tests/rls_manage_test.sql`
+- [X] T042 (hecho como ficha /cliente/$id con RPC get_prospect/update_prospect/void_prospect, 2026-10-29) [P] [US2] E2E: el encargado filtra, edita y ve la auditoría; el admin anula y la ficha desaparece del listado, en `tests/e2e/manage.spec.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T043 [US2] Migración: políticas SELECT de `prospects` para gestores, vista `v_prospects` (`security_invoker`), índice trigram de `full_name`, trigger `audit_row` en `prospects`, RPC `update_prospect` y `void_prospect` en `supabase/migrations/20261028000800_manage.sql`
-- [ ] T044 [P] [US2] Hooks de datos (listado paginado con filtros, ficha, auditoría) con TanStack Query en `src/features/prospects/api.ts`
+- [X] T043 (hecho como ficha /cliente/$id con RPC get_prospect/update_prospect/void_prospect, 2026-10-29) [US2] Migración: políticas SELECT de `prospects` para gestores, vista `v_prospects` (`security_invoker`), índice trigram de `full_name`, trigger `audit_row` en `prospects`, RPC `update_prospect` y `void_prospect` en `supabase/migrations/20261028000800_manage.sql`
+- [X] T044 (hecho como ficha /cliente/$id con RPC get_prospect/update_prospect/void_prospect, 2026-10-29) [P] [US2] Hooks de datos (listado paginado con filtros, ficha, auditoría) con TanStack Query en `src/features/prospects/api.ts`
 - [ ] T045 [US2] Listado `/gestion` con TanStack Table (lazy): filtros en search params tipados (sucursal fija para el encargado; `vence=hoy|vencidos` por `next_contact_at`; `tras_baja`); la búsqueda `q` va en el estado local, **nunca** en la URL, en `src/features/prospects/ProspectsList.tsx`
-- [ ] T046 [US2] Ficha `/gestion/$id`: datos editables, historial de etapas, auditoría, anular (solo admin, con motivo) en `src/features/prospects/ProspectDetail.tsx`
+- [X] T046 (hecho como ficha /cliente/$id con RPC get_prospect/update_prospect/void_prospect, 2026-10-29) [US2] Ficha `/gestion/$id`: datos editables, historial de etapas, auditoría, anular (solo admin, con motivo) en `src/features/prospects/ProspectDetail.tsx`
 - [ ] T047 [P] [US2] `/gestion/nuevo`: reutiliza `CaptureForm` en modo online con selector de sucursal (gerente y admin) en `src/features/prospects/ManageCreate.tsx`
 - [ ] T048 [P] [US2] `/gestion/duplicados`: lista de `duplicate_rejected` con fecha y autor del original en `src/features/prospects/DuplicatesList.tsx`
 
@@ -151,17 +151,17 @@ Migraciones: `supabase/migrations/2026102800NN00_<nombre>.sql`, en el orden de l
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T049 [P] [US3] pgTAP: transiciones válidas e inválidas de `change_stage`, motivo obligatorio en `lost`, `sale`/`lost` finales, `stage_events` inmutable, en `supabase/tests/stages_test.sql`
-- [ ] T050 [P] [US3] pgTAP: `assign_prospect` (solo destinatarios `can_follow_up` de la misma sucursal), el responsable solo ve sus asignados, `add_followup` idempotente y que pasa `capture` → `followup`, en `supabase/tests/followup_test.sql`
-- [ ] T051 [P] [US3] E2E: asignar → bandeja del auxiliar → gestión → Venta, en `tests/e2e/followup.spec.ts`
+- [X] T049 [P] [US3] pgTAP: transiciones válidas e inválidas de `change_stage`, motivo obligatorio en `lost`, `sale`/`lost` finales, `stage_events` inmutable, en `supabase/tests/stages_test.sql`
+- [X] T050 [P] [US3] pgTAP: `assign_prospect` (solo destinatarios `can_follow_up` de la misma sucursal), el responsable solo ve sus asignados, `add_followup` idempotente y que pasa `capture` → `followup`, en `supabase/tests/followup_test.sql`
+- [X] T051 [P] [US3] E2E: asignar → bandeja del auxiliar → gestión → Venta, en `tests/e2e/followup.spec.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T052 [US3] Migración de `followups` y `assignment_events` (solo inserción), trigger de `next_contact_at`, política SELECT por `assigned_to`, y RPC `change_stage`, `add_followup`, `assign_prospect` y `assign_prospects_bulk`, en `supabase/migrations/20261028000900_followup.sql`
-- [ ] T053 [P] [US3] Hooks de bandeja, gestiones, cambio de etapa y asignación en `src/features/followup/api.ts`
-- [ ] T054 [US3] Bandeja `/seguimiento` (hoy, vencidos, próximos) en `src/features/followup/Inbox.tsx`
-- [ ] T055 [US3] Ficha `/seguimiento/$id`: datos de solo lectura, historial, formulario de gestión y cambio de etapa (motivo obligatorio en Sin interés) en `src/features/followup/FollowupDetail.tsx`
-- [ ] T056 [US3] Asignar y reasignar desde la ficha de gestión, y la página `/gestion/sin-asignar` con asignación masiva, en `src/features/prospects/AssignControl.tsx` y `src/features/prospects/Unassigned.tsx`
+- [X] T052 [US3] Migración de `followups` y `assignment_events` (solo inserción), trigger de `next_contact_at`, política SELECT por `assigned_to`, y RPC `change_stage`, `add_followup`, `assign_prospect` y `assign_prospects_bulk`, en `supabase/migrations/20261028000900_followup.sql`
+- [X] T053 [P] [US3] Hooks de bandeja, gestiones, cambio de etapa y asignación en `src/features/followup/api.ts`
+- [X] T054 [US3] Bandeja `/seguimiento` (hoy, vencidos, próximos) en `src/features/followup/Inbox.tsx`
+- [X] T055 [US3] (ficha con historial y venta desde el registro de contacto, 2026-10-29) Ficha `/seguimiento/$id`: datos de solo lectura, historial, formulario de gestión y cambio de etapa (motivo obligatorio en Sin interés) en `src/features/followup/FollowupDetail.tsx`
+- [X] T056 [US3] Asignar y reasignar desde la ficha de gestión, y la página `/gestion/sin-asignar` con asignación masiva, en `src/features/prospects/AssignControl.tsx` y `src/features/prospects/Unassigned.tsx`
 
 **Checkpoint**: El embudo completo funciona
 
@@ -194,13 +194,13 @@ Migraciones: `supabase/migrations/2026102800NN00_<nombre>.sql`, en el orden de l
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T062 [P] [US4] pgTAP: el encargado solo escribe en su sucursal, el gerente solo lee, `copy_agenda` crea las actividades en pendiente y sin resultado, check de meta, en `supabase/tests/agenda_test.sql`
+- [X] T062 [P] [US4] pgTAP (versión simple: arman encargado, gerente y Sistemas; el resto del personal de la sucursal solo ve): `copy_agenda` crea las actividades en pendiente y sin resultado, check de meta, en `supabase/tests/agenda_test.sql`
 
 ### Implementation for User Story 4
 
-- [ ] T063 [US4] Migración de `agenda_activities` con RLS, trigger de auditoría y RPC `copy_agenda` en `supabase/migrations/20261028001100_agenda.sql`
-- [ ] T064 [P] [US4] Hooks de agenda en `src/features/agenda/api.ts`
-- [ ] T065 [US4] Pantalla `/agenda`: grilla por fecha y turno, formulario de actividad (responsables de la sucursal + nota, meta numérica o texto, lugares), copiar, cerrar con resultado y % de cumplimiento, en `src/features/agenda/AgendaPage.tsx`
+- [X] T063 [US4] Migración de `agenda_activities` y RPCs `agenda_day`, `save_activity`, `set_activity_result`, `delete_activity`, `copy_agenda` en `supabase/migrations/20261029000600_agenda.sql` (+ `000700` limpia estrategias duplicadas)
+- [X] T064 [P] [US4] Hooks de agenda en `src/features/agenda/api.ts`
+- [X] T065 [US4] Pantalla `/planificacion` (versión simple): día con ‹ ›, turnos Mañana/Tarde, actividad con hora, estrategia, personal a cargo (texto), meta (texto) y lugares; copiar del día anterior / al siguiente; cerrar como Cumplida/No cumplida con lo logrado, en `src/features/agenda/PlanningPage.tsx` + `ActivityDialog.tsx`. E2E: `tests/e2e/planning.spec.ts`. Sin % de cumplimiento (meta en texto)
 
 ---
 

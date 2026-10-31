@@ -4,8 +4,10 @@ import { PostgrestClient } from '@supabase/postgrest-js'
 // Solo auth + rest (sin realtime/storage/functions de supabase-js): ~20 KB menos en el bundle inicial
 // (constitución II). La API usada (`auth`, `from`, `rpc`) es la misma de supabase-js.
 // `__HOST__` (modo LAN de desarrollo) = el host con el que se abrió la app, para probar desde el celular
-// sin depender de la IP de la red.
-const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace('__HOST__', location.hostname)
+// sin depender de la IP de la red. `__ORIGIN__` (modo túnel) = la misma dirección de la app; Vite hace de proxy.
+const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined)
+  ?.replace('__ORIGIN__', location.origin)
+  .replace('__HOST__', location.hostname)
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
 /** Corta cualquier consulta a los 8 s: con WiFi sin internet la app no puede quedar esperando (constitución I). */

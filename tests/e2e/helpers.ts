@@ -15,8 +15,15 @@ export function randomPhone(): string {
   return '7' + String(Math.floor(Math.random() * 1e7)).padStart(7, '0')
 }
 
+/** Va a Registrar después del login (auxiliar y supervisor entran a Mis contactos). */
+export async function openRegister(page: Page): Promise<void> {
+  await page.waitForURL((u) => !u.pathname.endsWith('/login'))
+  if (!page.url().endsWith('/registrar')) await page.goto('/registrar')
+}
+
 /** Abre el formulario; si el canal de hoy no está elegido, elige "Activación" (FR-011b). */
 export async function fillCapture(page: Page, name: string, phone: string): Promise<void> {
+  await openRegister(page)
   await page.getByRole('button', { name: 'Nuevo Registro' }).click()
   const picker = page.getByRole('dialog', { name: '¿Por qué canal captas hoy?' })
   const nameField = page.getByLabel(/Nombre completo/)
@@ -31,7 +38,7 @@ export async function todayCount(page: Page): Promise<number> {
   return Number(await page.getByTestId('today-count').innerText())
 }
 
-/** En gestión, "Salir" está en el menú lateral; en celular, dentro del menú ☰. */
+/** "Salir" está en la barra lateral (escritorio) o dentro del menú ☰ (celular), para todos los roles. */
 export async function logoutFromManage(page: Page): Promise<void> {
   const menu = page.getByRole('button', { name: 'Abrir menú' })
   if (await menu.isVisible()) await menu.click()

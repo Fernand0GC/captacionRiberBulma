@@ -47,26 +47,20 @@ Equipo: 9 personas por sucursal (~90 usuarios, confirmado), 2 turnos por día (m
 
 > `Unificado.xlsx` es el **modelo nuevo** que se va a usar. El Excel actual de captaciones está pedido; cuando llegue, se compara.
 
-## 4. Embudo (etapas)
+## 4. Embudo (etapas) — definido por el encargado de ventas (2026-10-28)
 
-La **planificación no es una etapa**: es la agenda diaria de actividades.
+Por la mañana se volantea; por la tarde se reparten los números a las auxiliares para llamar, escribir o atender en tienda.
 
-```
-1 Captación ─▶ 2 Recaptación ─▶ 3 Seguimiento ─▶ 4 Cliente interesado ─▶ 5 Venta
-      │               │                │                    │
-      └───────────────┴────────────────┴────────────────────┴──▶ 6 Sin interés
-```
+| # | Etapa | Definición |
+|---|---|---|
+| 1 | Captación | Se consigue el número (volanteo en la calle) |
+| 2 | Recaptación | Volver a tener contacto: llamada, mensaje o atención en tienda |
+| 3 | Seguimiento | Se sabe qué busca, quiere visitar la tienda, o hay que retomar en X días (ej.: viajó al monte) |
+| 4 | Cliente potencial | Muy interesado, probable venta |
+| 5 | Venta | Compró |
+| 6 | Sin interés | No quiere nada o cortó la comunicación |
 
-| # | Etapa | Definición | ❓ Por confirmar |
-|---|---|---|---|
-| 1 | Captación | Se registran los datos del posible cliente (persona). | — |
-| 2 | Recaptación | Sin definir; supuesto: volver a captar un prospecto ya registrado o frío. | **Qué es (nadie lo sabe todavía)** |
-| 3 | Seguimiento | Contactos siguientes, con resultado y próximo contacto. | **Quién lo hace (por verse)** |
-| 4 | Cliente interesado | Interés confirmado. | — |
-| 5 | Venta | Compró. Solo se marca que compró; no se registran unidades, monto ni comprobante. | — |
-| 6 | Sin interés | Cierre negativo con motivo. | Lista de motivos |
-
-Los números 50 · 100 · 200 · 80 de la nota: sin explicación (nadie sabe qué son).
+La planificación no es una etapa: es la agenda diaria de actividades.
 
 ## 5. Alcance
 

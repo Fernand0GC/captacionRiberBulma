@@ -8,6 +8,7 @@ import { isValidPhone } from '@/lib/phone'
 import { supabase } from '@/lib/supabase'
 import { uuidv7 } from '@/lib/uuidv7'
 import { Button } from '@/ui/Button'
+import { PageTitle } from '@/ui/PageTitle'
 import { Field, TextInput } from '@/ui/Field'
 import { useToast } from '@/ui/Toast'
 import { getDayChannel } from './channel'
@@ -94,22 +95,22 @@ export function CaptureForm() {
   }
 
   return (
-    <div className="min-h-dvh">
-      <header className="bg-ink-gradient text-white">
-        <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
-          <div>
-            <h1 className="font-display text-xl font-semibold text-gold-light">Nueva captación</h1>
-            <p className="text-sm text-white/60">Canal: {channelName ?? 'sin elegir'}</p>
-          </div>
-          <button
-            type="button"
-            className="min-h-11 rounded-full px-4 text-sm font-semibold text-white/80 ring-1 ring-white/20 active:bg-white/10"
-            onClick={() => void navigate({ to: '/registrar' })}
-          >
-            Cancelar
-          </button>
-        </div>
-      </header>
+    <div>
+      <div className="mx-auto max-w-md px-4 pt-4">
+        <PageTitle
+          title="Nueva captación"
+          subtitle={`Canal: ${channelName ?? 'sin elegir'}`}
+          actions={
+            <button
+              type="button"
+              className="min-h-11 rounded-full px-4 text-sm font-semibold text-ink/70 ring-1 ring-ink/15 active:bg-ink/5"
+              onClick={() => void navigate({ to: '/registrar' })}
+            >
+              Cancelar
+            </button>
+          }
+        />
+      </div>
 
       <form onSubmit={onSubmit} className="mx-auto flex max-w-md flex-col gap-5 px-4 pb-10 pt-5" noValidate>
         <Field label="Nombre completo" required error={errors.full_name}>
@@ -143,7 +144,9 @@ export function CaptureForm() {
         </Field>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-semibold text-ink/80">Actividad u oficio</span>
+          <span className="text-sm font-semibold text-ink/80">
+            Ocupación del cliente <span className="font-normal text-ink/40">(opcional)</span>
+          </span>
           <div className="flex flex-col gap-2">
             {RUBROS.map((rubro) => (
               <button
@@ -173,7 +176,7 @@ export function CaptureForm() {
           )}
         </div>
 
-        <Field label="Dirección o referencia">
+        <Field label="Dirección o referencia" optional>
           {(id) => <TextInput id={id} autoComplete="off" value={form.address} onChange={(e) => set('address')(e.target.value)} />}
         </Field>
 

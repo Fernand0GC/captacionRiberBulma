@@ -9,7 +9,10 @@ export type ManageSearch = {
   hasta?: string
   sucursal?: number
   autor?: string
-  canal?: number
+  canal?: number | 'sin'
+  responsable?: string // 'sin' (sin asignar) o uuid
+  etapa?: string
+  ver?: 'visitas'
   pagina?: number
 }
 
@@ -24,7 +27,13 @@ export function validateManageSearch(raw: Record<string, unknown>): ManageSearch
     hasta: isDate(raw.hasta) ? raw.hasta : undefined,
     sucursal: toInt(raw.sucursal),
     autor: typeof raw.autor === 'string' && /^[0-9a-f-]{36}$/.test(raw.autor) ? raw.autor : undefined,
-    canal: toInt(raw.canal),
+    canal: raw.canal === 'sin' ? 'sin' : toInt(raw.canal),
+    responsable:
+      raw.responsable === 'sin' || (typeof raw.responsable === 'string' && /^[0-9a-f-]{36}$/.test(raw.responsable))
+        ? (raw.responsable as string)
+        : undefined,
+    etapa: ['capture', 'recapture', 'followup', 'interested', 'sale', 'lost'].includes(raw.etapa as string) ? (raw.etapa as string) : undefined,
+    ver: raw.ver === 'visitas' ? 'visitas' : undefined,
     pagina: toInt(raw.pagina),
   }
 }

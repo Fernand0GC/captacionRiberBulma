@@ -4,7 +4,16 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath } from 'node:url'
 
+// Modo túnel (pnpm tunnel): Supabase local entra por la misma dirección HTTPS del túnel.
+const supabaseProxy = {
+  '/auth/v1': { target: 'http://127.0.0.1:54321', changeOrigin: true },
+  '/rest/v1': { target: 'http://127.0.0.1:54321', changeOrigin: true },
+  '/functions/v1': { target: 'http://127.0.0.1:54321', changeOrigin: true },
+}
+
 export default defineConfig({
+  server: { proxy: supabaseProxy, allowedHosts: ['.trycloudflare.com'] },
+  preview: { proxy: supabaseProxy, allowedHosts: ['.trycloudflare.com'] },
   plugins: [
     react(),
     tailwindcss(),
@@ -33,6 +42,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,webp,woff2}', 'icon-192.png'],
         navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/(auth|rest|functions)\/v1\//],
         cleanupOutdatedCaches: true,
       },
     }),

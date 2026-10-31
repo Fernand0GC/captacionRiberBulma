@@ -32,5 +32,7 @@ export const CAPTURE_ROLES: AppRole[] = [...FIELD_ROLES, 'branch_manager']
 export const FOLLOWUP_ROLES: AppRole[] = ['field_assistant', 'field_supervisor', 'branch_manager']
 
 export function homePath(role: AppRole): string {
-  return MANAGER_ROLES.includes(role) ? '/gestion' : '/registrar'
+  if (MANAGER_ROLES.includes(role)) return '/panel'
+  // Auxiliar y supervisor trabajan sobre todo la recaptación: entran a Mis contactos.
+  return FOLLOWUP_ROLES.includes(role) ? '/seguimiento' : '/registrar'
 }

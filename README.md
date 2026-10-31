@@ -18,6 +18,10 @@ pnpm dev               # http://localhost:5173
 ```
 Usuarios de prueba (solo local): ver `supabase/seed.sql`.
 
+**Limpiar datos de prueba:** `pnpm db:clean` borra captaciones, contactos y usuarios creados por las pruebas, y conserva
+catálogos (canales, productos, sucursales) y lo que hayas editado en Studio. **No uses `pnpm db:reset` para limpiar**:
+borra toda la base y vuelve al seed, perdiendo esos cambios. Los catálogos reales viven en migraciones, no en el seed.
+
 > Si `supabase start` falla con `docker-credential-desktop: executable file not found`, agregá
 > `/Applications/Docker.app/Contents/Resources/bin` al `PATH` de la terminal.
 

@@ -12,5 +12,6 @@ otra BD (Supabase nuevo), otro deploy.
 - Git (commit/branch/push/merge) lo ejecuta el usuario; solo proponer los comandos.
 - No tocar bases de riber-bulma (Firebase/Supabase) ni su repo desde acá.
 - No aplicar migraciones ni deploy en el Supabase de producción sin autorización explícita.
+- Base local: **nunca `supabase db reset` sin preguntar** (el usuario edita catálogos en Studio y el reset los pisa). Limpiar datos de prueba con `pnpm db:clean`; aplicar migraciones nuevas con `supabase migration up`. Los catálogos reales van en migraciones, no en `seed.sql`.
 - Código y BD en inglés; UI en español.
 - Antes de agregar una dependencia, justificar su peso (presupuesto: ≤170 KB gzip de JS inicial).

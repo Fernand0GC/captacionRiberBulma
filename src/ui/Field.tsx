@@ -5,12 +5,15 @@ export function Field({
   error,
   hint,
   required,
+  optional,
   children,
 }: {
   label: string
   error?: string
   hint?: string
   required?: boolean
+  /** Muestra "(opcional)" junto al nombre, igual que el resto de los campos no obligatorios. */
+  optional?: boolean
   children: (id: string, describedBy: string | undefined) => ReactNode
 }) {
   const id = useId()
@@ -20,6 +23,7 @@ export function Field({
       <label htmlFor={id} className="text-sm font-semibold text-ink/80">
         {label}
         {required && <span className="text-gold-dark"> *</span>}
+        {optional && <span className="font-normal text-ink/40"> (opcional)</span>}
       </label>
       {children(id, describedBy)}
       {error ? (

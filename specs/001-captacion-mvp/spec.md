@@ -58,6 +58,15 @@ la editan y también pueden registrar captaciones desde ahí. Solo el administra
 
 ### User Story 3 - Seguimiento y avance por etapas (Priority: P2)
 
+> **Definición del negocio (encargado de ventas, 2026-10-28):** por la mañana se volantea (captación); por la tarde se
+> reparten los números a las auxiliares, que llaman, escriben o atienden en tienda (recaptación = volver a tener contacto).
+> Seguimiento = se sabe qué busca, quiere visitar la tienda o hay que retomar en X días (p. ej. viajó). Cliente potencial = muy
+> interesado, probable venta. Sin interés = no quiere nada o cortó la comunicación.
+>
+> **Insumo 2026-10-28:** la planilla en papel de llamadas (auxiliar Paula: cliente, teléfono, producto, resultado,
+> ¿pasará?, fecha, hora, observación). Los clientes que se llaman son las **captaciones de los volanteros**; quien llama es
+> **auxiliar**; **3 intentos** sin respuesta cierran el prospecto.
+
 El encargado asigna cada prospecto de su sucursal a una persona responsable del seguimiento. Esa persona ve **solo
 los prospectos que tiene asignados**, en una bandeja con los contactos pendientes para hoy y los vencidos. Registra cada gestión
 (canal, resultado, observación, próxima acción y fecha) y mueve al prospecto por las etapas:
@@ -101,23 +110,23 @@ alcanzado y su estado (pendiente, en curso, completada, bloqueada, cancelada).
 
 ---
 
-### User Story 5 - Metas mensuales (Priority: P3)
+### User Story 5 - Metas diarias y mensuales (Priority: P3)
 
-El gerente o el administrador carga la meta mensual por sucursal y línea (CELULARES, ELECTROS). El sistema muestra el avance contra las ventas registradas y el objetivo diario necesario según el saldo y los días que faltan.
+> **Redefinida 2026-10-28 (encargado de ventas):** las metas del trabajo diario son **por día y por sucursal en cada etapa
+> del embudo**. Ej.: los volanteros consiguen 50 captaciones; de esas 50 se necesitan hoy 20 clientes potenciales, y se
+> recaptan las 50 para lograrlo. Hoy se usa en captación; probablemente se sumen ventas después.
 
-**Why this priority**: Es la vista de gerencia; necesita ventas registradas (US3) para tener sentido.
-
-**Independent Test**: Cargar metas de un mes para 2 sucursales, marcar ventas y ver el avance y el objetivo diario.
+El encargado (su sucursal), el gerente y Sistemas (todas) cargan una **meta base diaria** por sucursal para captaciones,
+contactos de recaptación, clientes potenciales y ventas (cada una opcional), y **ajustan días puntuales** (feria, campaña).
+El Panel muestra **"Metas de hoy"** con lo logrado contra la meta. Además, gerencia mantiene la **meta mensual de ventas por
+línea** (CELULARES/ELECTROS) con avance, saldo y objetivo diario.
 
 **Acceptance Scenarios**:
 
-1. **Given** un gerente, **When** carga la meta de octubre para VERDOLAGO/CELULARES, **Then** queda guardada y editable solo por gerente o administrador.
-2. **Given** metas y ventas registradas, **When** se consulta el avance, **Then** se muestra avance = ventas ÷ meta y objetivo diario = saldo ÷ días restantes.
-3. **Given** 3 prospectos de VERDOLAGO con producto de la línea CELULARES marcados como Venta en octubre, **When** se consulta el avance de octubre, **Then** VERDOLAGO/CELULARES suma 3 unidades.
-
-Cómo se cuentan las ventas: cada prospecto que pasa a Venta cuenta como **1 unidad** de la línea de su producto de interés, en la sucursal y el mes en que se marcó la venta. Las ventas de tienda que no vienen de una captación no se cuentan.
-
----
+1. **Given** base de 50 captaciones y 20 potenciales, **When** se consulta hoy, **Then** la meta es 50/20 y lo logrado cuenta las captaciones registradas hoy y los pasos a cliente potencial de hoy.
+2. **Given** un ajuste de 80 para hoy, **When** se consulta hoy, **Then** la meta es 80; mañana vuelve a 50.
+3. **Given** una meta mensual de 230 celulares, **When** se marcan ventas de productos de la línea CELULARES, **Then** el avance, el saldo y el objetivo diario se recalculan.
+4. **Given** un encargado, **When** intenta poner metas de otra sucursal, **Then** el sistema no lo permite.
 
 ### User Story 6 - Reporte en Excel (Priority: P2)
 
@@ -194,12 +203,17 @@ El administrador da de alta usuarios con nombre, rol (volantero, auxiliar, super
 - **FR-022**: Las captaciones anuladas MUST excluirse de listados, conteos y exportaciones, y conservarse para auditoría.
 
 **Seguimiento y etapas**
-- **FR-030**: Cada prospecto MUST estar en una etapa: Captación, Seguimiento, Cliente interesado, Venta o Sin interés. Venta y Sin interés son etapas finales en la v1.
+- **FR-030**: Cada prospecto MUST estar en una etapa: **1 Captación, 2 Recaptación, 3 Seguimiento, 4 Cliente potencial, 5 Venta, 6 Sin interés**. Venta y Sin interés son etapas finales en la v1. Las etapas positivas no retroceden por un resultado (p. ej. un Cliente potencial que "busca un producto" sigue siendo Cliente potencial).
 - **FR-031**: Cada cambio de etapa MUST registrarse como evento inmutable con autor, fecha, etapa de origen y destino y motivo (obligatorio en Sin interés).
 - **FR-032**: El sistema MUST permitir registrar gestiones (fecha, canal, resultado del contacto, contacto efectivo sí/no, observación, próxima acción, fecha de próximo contacto).
 - **FR-033**: El sistema MUST ofrecer a cada responsable una bandeja con sus prospectos asignados de contacto pendiente para hoy y vencidos; encargado y gerente ven además la bandeja de toda su sucursal o de todas.
 - **FR-035**: El encargado MUST poder asignar y reasignar cada prospecto de su sucursal a un responsable de seguimiento (auxiliar, supervisor o encargado activo de esa sucursal). El responsable MUST ver solo sus prospectos asignados, registrar gestiones y cambiar la etapa, sin poder editar los datos de la captación ni anularla.
 - **FR-036**: Los prospectos sin responsable asignado MUST aparecer en una lista "sin asignar" para el encargado.
+- **FR-037**: La bandeja del responsable (Mis contactos) MUST separar **No recaptados** (sin contactos) y **Recaptados** (subpestañas **Seguimiento**, con lo que se hizo, y **No contestó**, con sus strikes); en la misma tabla, marcar en verde lo resuelto hoy y en amarillo lo que toca contactar (llegó la fecha u hora de volver a llamar, o el cliente pasa hoy por la tienda); el celular se muestra solo como número y al tocarlo ofrece llamar o escribir por WhatsApp y registrar el contacto: **cómo** (llamada por WhatsApp, mensaje, en tienda; no se llama por teléfono), el **resultado** con botones y una observación opcional. Resultados: **No contestó**, **Busca un producto**, **Visitará la tienda**, **Volver a contactar el…**, **Muy interesado**, **Compró**, **No le interesa**, **Número equivocado**.
+- **FR-038**: "Visitará la tienda" MUST exigir fecha y hora (aparece en **visitas pactadas**); "Volver a contactar el…" MUST exigir fecha (p. ej. viajó al monte) y el prospecto vuelve a la bandeja ese día; "Compró" MUST pedir el producto si el prospecto no lo tiene.
+- **FR-039**: Etapa según el resultado: No contestó → Recaptación (suma un intento, vuelve mañana; al **tercero** → Sin interés "No contesta (3 intentos)"); Busca un producto, Visitará la tienda y Volver a contactar → Seguimiento; Muy interesado → Cliente potencial; Compró → Venta; No le interesa y Número equivocado → Sin interés. Todo contacto efectivo reinicia los intentos.
+- **FR-039b**: El encargado MUST tener una pantalla **Repartir** (reparto de la tarde): ve cuántas captaciones del día (y opcionalmente de días anteriores) están sin asignar y de qué volantero vienen; ve a cada persona que puede recibir (auxiliares, supervisor, encargado) con sus pendientes; ajusta cuántas recibe cada una (por defecto partes iguales entre auxiliares, el resto a quien tiene menos pendientes) y confirma; el reparto se hace de una vez, intercalado por hora. Gerente y Sistemas eligen la sucursal.
+- **FR-039c**: La app MUST ser una sola para todos los roles: barra lateral en escritorio y barra superior con menú en celular; cada rol ve solo sus secciones (Captaciones, Repartir, Mis contactos, Registrar, Usuarios).
 - **FR-034**: Marcar Venta MUST registrar solo que el prospecto compró (sin unidades, monto ni comprobante). Si el prospecto no tiene producto de interés, MUST pedirse al marcar la Venta (la meta cuenta por línea, FR-052).
 
 **Agenda**
@@ -207,7 +221,8 @@ El administrador da de alta usuarios con nombre, rol (volantero, auxiliar, super
 - **FR-041**: Cada actividad MUST tener hora de inicio y fin, estrategia/área, descripción, responsables, meta (cantidad + unidad, o texto), lugares, estado y resultado.
 
 **Metas**
-- **FR-050**: Gerente y administrador MUST poder cargar y editar metas mensuales por sucursal y línea (CELULARES, ELECTROS).
+- **FR-050**: Encargado (su sucursal), gerente y Sistemas MUST poder cargar una meta base diaria por sucursal (captaciones, contactos, potenciales, ventas; cada una opcional) y ajustes por día; y metas mensuales de ventas por línea (CELULARES, ELECTROS).
+- **FR-050b**: El Panel MUST mostrar "Metas de hoy" (logrado / meta y % por etapa con meta).
 - **FR-051**: El sistema MUST calcular avance del mes, saldo y objetivo diario según saldo y días restantes.
 - **FR-052**: Cada prospecto en Venta MUST contar como 1 unidad de la línea de su producto de interés, en la sucursal del prospecto y el mes de la venta; cada producto del catálogo MUST pertenecer a una línea.
 
@@ -227,7 +242,7 @@ El administrador da de alta usuarios con nombre, rol (volantero, auxiliar, super
 - **Gestión**: cada contacto de seguimiento con un prospecto.
 - **Actividad de agenda**: tarea planificada de una sucursal en una fecha y turno, con meta y resultado.
 - **Meta mensual**: cantidad objetivo por sucursal, línea y mes.
-- **Catálogos**: canales (TikTok, Facebook, Activación, Llamadas, Marketplace, E-commerce, Visitas, Messenger, Otro), productos de interés (grupo → categoría; Celulares es una sola; cada uno cuenta para la línea CELULARES o ELECTROS de las metas), motivos de sin interés, estrategias de la agenda.
+- **Catálogos**: canales de captación (Volantes, Activación, Visitas de negociación, TikTok, Facebook, Messenger, Marketplace, E-commerce, Otro; Llamadas es recaptación, no captación), productos de interés (grupo → categoría; Celulares es una sola; cada uno cuenta para la línea CELULARES o ELECTROS de las metas), motivos de sin interés, estrategias de la agenda.
 
 ## Success Criteria *(mandatory)*
 

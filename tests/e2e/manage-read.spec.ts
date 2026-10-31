@@ -21,7 +21,8 @@ test('panel de captaciones: el encargado ve solo su sucursal con autor, fecha y 
 
   // Encargado Verdolago
   await login(page, 'enc.verdolago')
-  await expect(page).toHaveURL(/\/gestion/)
+  await expect(page).toHaveURL(/\/panel/)
+  await page.goto('/gestion')
   // En celular (proyecto de prueba) el panel muestra tarjetas; en escritorio, tabla.
   const row = page.getByRole('listitem').filter({ hasText: verdolago.name })
   await expect(row).toBeVisible()
@@ -38,7 +39,8 @@ test('panel de captaciones: el encargado ve solo su sucursal con autor, fecha y 
 
   // Gerente: ambas sucursales
   await login(page, 'gerente')
-  await expect(page).toHaveURL(/\/gestion/)
+  await expect(page).toHaveURL(/\/panel/)
+  await page.goto('/gestion')
   await expect(page.getByRole('listitem').filter({ hasText: verdolago.name })).toContainText('VERDOLAGO')
   await expect(page.getByRole('listitem').filter({ hasText: trinidad.name })).toContainText('TRINIDAD')
 })
