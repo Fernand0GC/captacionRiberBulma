@@ -37,7 +37,8 @@ begin
       ('00000000-0000-4000-8000-000000000005'::uuid, 'sup.verdolago',  'Supervisor Verdolago', 'field_supervisor'::public.app_role, 5::smallint,    'permanent'::public.contract_type),
       ('00000000-0000-4000-8000-000000000006'::uuid, 'vol.verdolago',  'Volantera Verdolago',  'field_volunteer'::public.app_role,  5::smallint,    'temporary'::public.contract_type),
       ('00000000-0000-4000-8000-000000000007'::uuid, 'enc.trinidad',   'Encargado Trinidad',   'branch_manager'::public.app_role,   7::smallint,    'permanent'::public.contract_type),
-      ('00000000-0000-4000-8000-000000000008'::uuid, 'vol.trinidad',   'Volantera Trinidad',   'field_volunteer'::public.app_role,  7::smallint,    'temporary'::public.contract_type)
+      ('00000000-0000-4000-8000-000000000008'::uuid, 'vol.trinidad',   'Volantera Trinidad',   'field_volunteer'::public.app_role,  7::smallint,    'temporary'::public.contract_type),
+      ('00000000-0000-4000-8000-000000000009'::uuid, 'jefe.ventas',    'Jefe de Ventas Prueba', 'sales_lead'::public.app_role,      null::smallint, 'permanent'::public.contract_type)
     ) as t(id, username, full_name, role, branch_id, contract_type)
   loop
     insert into auth.users (
@@ -58,4 +59,6 @@ begin
     insert into public.profiles (id, username, full_name, role, branch_id, contract_type)
     values (u.id, u.username, u.full_name, u.role, u.branch_id, u.contract_type);
   end loop;
+  -- Jefe de ventas de prueba: Verdolago y Trinidad
+  insert into public.profile_branches values ('00000000-0000-4000-8000-000000000009', 5), ('00000000-0000-4000-8000-000000000009', 7);
 end $$;

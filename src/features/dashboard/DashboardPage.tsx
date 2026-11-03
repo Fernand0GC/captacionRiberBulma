@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { useBranchScope } from '@/features/auth/useBranchScope'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { totalsByGroup } from '@/features/capture/channelGroups'
 import { useBranches, useChannels } from '@/features/prospects/api'
@@ -27,9 +28,11 @@ const dayLabel = (iso: string) => {
 /** Panel de métricas para encargado, gerente y Sistemas (pantalla inicial de gestión). */
 export function DashboardPage() {
   const { profile } = useAuth()
-  const isGlobal = profile?.role === 'general_manager' || profile?.role === 'admin'
+  const scope = useBranchScope()
+  const isGlobal = scope.canPick
   const [period, setPeriod] = useState<Period>('hoy')
-  const [branch, setBranch] = useState<number | undefined>(undefined)
+  const [branchSel, setBranch] = useState<number | undefined>(undefined)
+  const branch = branchSel ?? scope.fallback
   const branches = useBranches()
   const channels = useChannels()
   const { from, to } = periodRange({ periodo: period })
@@ -57,8 +60,8 @@ export function DashboardPage() {
                 onChange={(e) => setBranch(e.target.value ? Number(e.target.value) : undefined)}
                 className="min-h-10 rounded-full border border-ink/15 bg-white px-3 text-sm"
               >
-                <option value="">Todas las sucursales</option>
-                {branches.data?.map((b) => (
+                {scope.allowAll && <option value="">Todas las sucursales</option>}
+                {scope.options?.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
                   </option>

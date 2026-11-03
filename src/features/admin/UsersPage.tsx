@@ -61,6 +61,7 @@ export function UsersPage() {
       full_name: v.full_name,
       role: v.role,
       branch_id: v.branch_id,
+      branch_ids: v.role === 'sales_lead' ? v.branch_ids : undefined,
       contract_type: v.contract_type,
     })
     toast('✓ Usuario actualizado', 'success')
@@ -143,7 +144,13 @@ export function UsersPage() {
               {u.active ? <Badge tone="success">Activo</Badge> : <Badge tone="danger">Baja</Badge>}
             </div>
             <p className="text-sm text-ink/70">
-              {ROLE_LABEL[u.role]} · {u.branch_id ? branchName(u.branch_id) : 'Todas las sucursales'} ·{' '}
+              {ROLE_LABEL[u.role]} ·{' '}
+              {u.branch_id
+                ? branchName(u.branch_id)
+                : u.role === 'sales_lead'
+                  ? (u.branch_ids ?? []).map(branchName).join(', ')
+                  : 'Todas las sucursales'}{' '}
+              ·{' '}
               {u.contract_type === 'temporary' ? 'Temporal' : 'Con contrato'}
             </p>
             <div className="flex flex-wrap gap-2 border-t border-ink/5 pt-3">

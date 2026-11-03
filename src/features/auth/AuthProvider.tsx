@@ -31,18 +31,24 @@ function readCachedProfile(uid: string): Profile | null {
 async function fetchProfile(uid: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, full_name, role, branch_id, contract_type, active, deactivated_at')
+    .select('id, username, full_name, role, branch_id, contract_type, active, deactivated_at, profile_branches(branch_id)')
     .eq('id', uid)
     .maybeSingle()
   if (error) throw error
-  if (data) {
+  const profile = data ? toProfile(data) : null
+  if (profile) {
     try {
-      localStorage.setItem(cacheKey(uid), JSON.stringify(data))
+      localStorage.setItem(cacheKey(uid), JSON.stringify(profile))
     } catch {
       /* almacenamiento lleno o bloqueado: seguimos sin caché */
     }
   }
-  return data as Profile | null
+  return profile
+}
+
+/** La relación profile_branches llega anidada: se aplana a branch_ids (jefe de ventas). */
+export function toProfile({ profile_branches, ...p }: Record<string, unknown> & { profile_branches?: { branch_id: number }[] }): Profile {
+  return { ...(p as unknown as Profile), branch_ids: (profile_branches ?? []).map((b) => b.branch_id) }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

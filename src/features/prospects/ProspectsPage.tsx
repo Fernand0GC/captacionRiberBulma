@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { useBranchScope } from '@/features/auth/useBranchScope'
 import { groupChannels } from '@/features/capture/channelGroups'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { Badge } from '@/ui/Badge'
@@ -43,7 +44,8 @@ function useDebounced<T>(value: T, ms = 300): T {
 
 export function ProspectsPage() {
   const { profile } = useAuth()
-  const isGlobal = profile?.role === 'general_manager' || profile?.role === 'admin'
+  const branchScope = useBranchScope()
+  const isGlobal = branchScope.canPick
   const search = validateManageSearch(useSearch({ strict: false }) as Record<string, unknown>)
   const navigate = useNavigate()
   const setSearch = (patch: Partial<ManageSearch>) =>
@@ -55,12 +57,13 @@ export function ProspectsPage() {
 
   const { from, to } = periodRange(search)
   const page = search.pagina ?? 1
-  const branchId = isGlobal ? search.sucursal : (profile?.branch_id ?? undefined)
+  const sucursal = search.sucursal ?? branchScope.fallback
+  const branchId = isGlobal ? sucursal : (profile?.branch_id ?? undefined)
   // React Query compara la clave por valor: no hace falta memoizar.
   const filters = {
     from,
     to,
-    branch_id: isGlobal ? search.sucursal : undefined,
+    branch_id: isGlobal ? sucursal : undefined,
     created_by: search.autor,
     channel_id: search.canal === 'sin' ? ('none' as const) : search.canal,
     q: qDebounced.length >= 2 ? qDebounced : undefined,
@@ -86,7 +89,7 @@ export function ProspectsPage() {
     try {
       const { exportProspects } = await import('@/features/export/exportProspects')
       const scope = isGlobal
-        ? (branches.data?.find((b) => b.id === search.sucursal)?.name ?? 'TODAS')
+        ? (branches.data?.find((b) => b.id === sucursal)?.name ?? 'TODAS')
         : (branchName ?? 'sucursal')
       const n = await exportProspects(filters, scope)
       toast(`✓ Excel descargado: ${n} captaciones`, 'success')
@@ -140,7 +143,7 @@ export function ProspectsPage() {
     <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6">
       <PageTitle
         title={search.ver === 'visitas' ? 'Visitas pactadas' : 'Captaciones'}
-        subtitle={isGlobal ? 'Todas las sucursales' : branchName}
+        subtitle={isGlobal ? (branches.data?.find((b) => b.id === sucursal)?.name ?? 'Todas las sucursales') : branchName}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -231,13 +234,13 @@ export function ProspectsPage() {
             <select
               aria-label="Sucursal"
               className={selectCls}
-              value={search.sucursal ?? ''}
+              value={sucursal ?? ''}
               onChange={(e) =>
                 setSearch({ sucursal: e.target.value ? Number(e.target.value) : undefined, autor: undefined })
               }
             >
-              <option value="">Todas las sucursales</option>
-              {branches.data?.map((b) => (
+              {branchScope.allowAll && <option value="">Todas las sucursales</option>}
+              {branchScope.options?.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
                 </option>

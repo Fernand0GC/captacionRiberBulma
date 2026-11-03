@@ -11,6 +11,8 @@ export type UserFormValues = {
   full_name: string
   role: AppRole
   branch_id: number | null
+  /** Jefe de ventas: sus sucursales. */
+  branch_ids: number[]
   contract_type: 'temporary' | 'permanent'
   /** Solo al crear. */
   password?: string
@@ -21,10 +23,11 @@ const ROLES: AppRole[] = [
   'field_assistant',
   'field_supervisor',
   'branch_manager',
+  'sales_lead',
   'general_manager',
   'admin',
 ]
-const GLOBAL: AppRole[] = ['general_manager', 'admin']
+const GLOBAL: AppRole[] = ['general_manager', 'admin', 'sales_lead']
 
 export function UserForm({
   initial,
@@ -46,11 +49,13 @@ export function UserForm({
     full_name: initial?.full_name ?? '',
     role: initial?.role ?? 'field_volunteer',
     branch_id: initial?.branch_id ?? null,
+    branch_ids: initial?.branch_ids ?? [],
     contract_type: initial?.contract_type ?? 'temporary',
     password: initial ? undefined : generatePassword(),
   })
   const [errs, setErrs] = useState<Partial<Record<keyof UserFormValues, string>>>({})
   const needsBranch = !GLOBAL.includes(v.role)
+  const isLead = v.role === 'sales_lead'
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -59,10 +64,11 @@ export function UserForm({
       x.username = '3 a 30 caracteres: minúsculas, números, punto o guion bajo.'
     if (v.full_name.trim().length < 3) x.full_name = 'Escribe el nombre completo.'
     if (needsBranch && !v.branch_id) x.branch_id = 'Elige la sucursal.'
+    if (isLead && v.branch_ids.length === 0) x.branch_ids = 'Elige al menos una sucursal.'
     if (!initial && (v.password ?? '').trim().length < 8) x.password = 'Mínimo 8 caracteres.'
     setErrs(x)
     if (Object.keys(x).length === 0)
-      onSubmit({ ...v, password: v.password?.trim(), branch_id: needsBranch ? v.branch_id : null })
+      onSubmit({ ...v, password: v.password?.trim(), branch_id: needsBranch ? v.branch_id : null, branch_ids: isLead ? v.branch_ids : [] })
   }
 
   return (
@@ -151,6 +157,34 @@ export function UserForm({
             />
           )}
         </Field>
+      )}
+      {isLead && (
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1 text-sm font-semibold text-ink/80">
+            Sucursales a cargo <span className="text-gold-dark">*</span>
+          </legend>
+          <div className="grid grid-cols-2 gap-2">
+            {branches.map((b) => {
+              const on = v.branch_ids.includes(b.id)
+              return (
+                <label key={b.id} className={`flex min-h-11 items-center gap-2 rounded-xl px-3 ring-1 ${on ? 'bg-gold/10 ring-gold/50' : 'bg-white ring-ink/15'}`}>
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-gold"
+                    checked={on}
+                    onChange={() => setV({ ...v, branch_ids: on ? v.branch_ids.filter((x) => x !== b.id) : [...v.branch_ids, b.id] })}
+                  />
+                  {b.name}
+                </label>
+              )
+            })}
+          </div>
+          {errs.branch_ids && (
+            <p role="alert" className="text-sm font-medium text-rb-red">
+              {errs.branch_ids}
+            </p>
+          )}
+        </fieldset>
       )}
       <Field label="Contrato" required>
         {(id) => (

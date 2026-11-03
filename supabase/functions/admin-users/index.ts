@@ -3,7 +3,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 
 const USERNAME_DOMAIN = 'captacion.riberbulma.local'
-const ROLES = ['field_volunteer', 'field_assistant', 'field_supervisor', 'branch_manager', 'general_manager', 'admin']
+const ROLES = ['field_volunteer', 'field_assistant', 'field_supervisor', 'branch_manager', 'sales_lead', 'general_manager', 'admin']
+// Sin sucursal propia: gerencia y Sistemas ven todas; el jefe de ventas trabaja con su lista (branch_ids).
+const NO_BRANCH = ['general_manager', 'admin', 'sales_lead']
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -23,13 +25,18 @@ type CreateInput = {
   branch_id: number | null
   contract_type: 'temporary' | 'permanent'
   password: string
+  branch_ids?: number[]
 }
+
+const validBranchIds = (v: unknown) => Array.isArray(v) && v.length > 0 && v.every((x) => Number.isInteger(x) && x > 0)
 
 function validateCreate(b: CreateInput): string | null {
   if (!/^[a-z0-9._]{3,30}$/.test(b.username ?? '')) return 'username'
   if (!b.full_name || b.full_name.trim().length < 3) return 'full_name'
   if (!ROLES.includes(b.role)) return 'role'
-  if (!['general_manager', 'admin'].includes(b.role) && !b.branch_id) return 'branch_id'
+  if (b.role === 'sales_lead') {
+    if (!validBranchIds(b.branch_ids)) return 'branch_ids'
+  } else if (!NO_BRANCH.includes(b.role) && !b.branch_id) return 'branch_id'
   if (!['temporary', 'permanent'].includes(b.contract_type)) return 'contract_type'
   if (!b.password || b.password.length < 8) return 'password'
   return null
@@ -79,11 +86,17 @@ Deno.serve(async (req) => {
         username: input.username,
         full_name: input.full_name.trim(),
         role: input.role,
-        branch_id: ['general_manager', 'admin'].includes(input.role) ? null : input.branch_id,
+        branch_id: NO_BRANCH.includes(input.role) ? null : input.branch_id,
         contract_type: input.contract_type,
       })
-      if (pErr) {
-        await admin.auth.admin.deleteUser(created.user.id) // no dejar cuentas sin perfil
+      const bErr =
+        !pErr && input.role === 'sales_lead'
+          ? (await admin.from('profile_branches').insert(input.branch_ids!.map((b) => ({ profile_id: created.user.id, branch_id: b })))).error
+          : null
+      if (pErr || bErr) {
+        // No dejar cuentas a medias: el perfil impide borrar la cuenta (on delete restrict), se borra primero.
+        if (!pErr) await admin.from('profiles').delete().eq('id', created.user.id)
+        await admin.auth.admin.deleteUser(created.user.id)
         return json(500, { code: 'unknown' })
       }
       return json(201, { id: created.user.id })
@@ -106,7 +119,10 @@ Deno.serve(async (req) => {
         patch.contract_type = body.contract_type
       }
       const role = String(patch.role ?? (await admin.from('profiles').select('role').eq('id', id).maybeSingle()).data?.role ?? '')
-      if (['general_manager', 'admin'].includes(role)) patch.branch_id = null
+      if (role === 'sales_lead' && body.branch_ids !== undefined && !validBranchIds(body.branch_ids)) {
+        return json(400, { code: 'invalid_input', details: { field: 'branch_ids' } })
+      }
+      if (NO_BRANCH.includes(role)) patch.branch_id = null
       else if (body.branch_id !== undefined) {
         if (!body.branch_id) return json(400, { code: 'invalid_input', details: { field: 'branch_id' } })
         patch.branch_id = body.branch_id
@@ -117,6 +133,15 @@ Deno.serve(async (req) => {
       const { data, error } = await admin.from('profiles').update(patch).eq('id', id).select('id').maybeSingle()
       if (error) return json(400, { code: 'invalid_input', details: { field: 'branch_id' } })
       if (!data) return json(404, { code: 'not_found' })
+      // Sucursales del jefe: se reemplaza la lista; si deja de ser jefe, se limpia.
+      if (role !== 'sales_lead' || body.branch_ids !== undefined) {
+        await admin.from('profile_branches').delete().eq('profile_id', id)
+        if (role === 'sales_lead') {
+          const ids = body.branch_ids as number[]
+          const { error: bErr } = await admin.from('profile_branches').insert(ids.map((b) => ({ profile_id: id, branch_id: b })))
+          if (bErr) return json(400, { code: 'invalid_input', details: { field: 'branch_ids' } })
+        }
+      }
       return json(200, { id })
     }
     case 'deactivate':

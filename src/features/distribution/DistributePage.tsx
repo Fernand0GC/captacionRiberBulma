@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { useBranchScope } from '@/features/auth/useBranchScope'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { useBranches } from '@/features/prospects/api'
 import { laPazDate } from '@/lib/dates'
@@ -40,10 +41,11 @@ function Stepper({ value, onChange, label }: { value: number; onChange: (n: numb
 export function DistributePage() {
   const { profile } = useAuth()
   const toast = useToast()
-  const isGlobal = profile?.role === 'general_manager' || profile?.role === 'admin'
+  const scope = useBranchScope()
+  const isGlobal = scope.canPick
   const branches = useBranches()
   const [branchSel, setBranchSel] = useState<number | undefined>(undefined)
-  const branch = isGlobal ? branchSel : (profile?.branch_id ?? undefined)
+  const branch = isGlobal ? (branchSel ?? scope.fallback) : (profile?.branch_id ?? undefined)
   const today = laPazDate(new Date())
   const [day, setDay] = useState(today)
   const [includeOlder, setIncludeOlder] = useState(false)
@@ -83,9 +85,9 @@ export function DistributePage() {
 
       <section className="flex flex-wrap items-center gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5" aria-label="Qué repartir">
         {isGlobal && (
-          <select aria-label="Sucursal" value={branchSel ?? ''} onChange={(e) => setBranchSel(e.target.value ? Number(e.target.value) : undefined)} className="min-h-11 rounded-xl border border-ink/15 bg-white px-3">
-            <option value="">Elegir sucursal…</option>
-            {branches.data?.map((b) => (
+          <select aria-label="Sucursal" value={branch ?? ''} onChange={(e) => setBranchSel(e.target.value ? Number(e.target.value) : undefined)} className="min-h-11 rounded-xl border border-ink/15 bg-white px-3">
+            {scope.allowAll && (<option value="">Elegir sucursal…</option>)}
+            {scope.options?.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
               </option>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { useBranchScope } from '@/features/auth/useBranchScope'
 import { Card } from '@/features/dashboard/charts'
 import { useBranches } from '@/features/prospects/api'
 import { fmtDate } from '@/features/prospects/format'
@@ -228,10 +229,11 @@ function MonthlyTab({ branch, isGlobal }: { branch: number | undefined; isGlobal
 /** Metas: diarias por sucursal y etapa (base + ajustes) y mensuales de ventas por línea. */
 export function GoalsPage() {
   const { profile } = useAuth()
-  const isGlobal = profile?.role === 'general_manager' || profile?.role === 'admin'
+  const scope = useBranchScope()
+  const isGlobal = scope.canPick
   const branches = useBranches()
   const [branchSel, setBranchSel] = useState<number | undefined>(undefined)
-  const branch = isGlobal ? branchSel : (profile?.branch_id ?? undefined)
+  const branch = isGlobal ? (branchSel ?? scope.fallback) : (profile?.branch_id ?? undefined)
   const [tab, setTab] = useState<'daily' | 'monthly'>('daily')
   const branchName = branches.data?.find((b) => b.id === branch)?.name
 
@@ -243,9 +245,9 @@ export function GoalsPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {isGlobal && (
-              <select aria-label="Sucursal" value={branchSel ?? ''} onChange={(e) => setBranchSel(e.target.value ? Number(e.target.value) : undefined)} className="min-h-10 rounded-full border border-ink/15 bg-white px-3 text-sm">
-                <option value="">{tab === 'monthly' ? 'Todas las sucursales' : 'Elegir sucursal…'}</option>
-                {branches.data?.map((b) => (
+              <select aria-label="Sucursal" value={branch ?? ''} onChange={(e) => setBranchSel(e.target.value ? Number(e.target.value) : undefined)} className="min-h-10 rounded-full border border-ink/15 bg-white px-3 text-sm">
+                {scope.allowAll && (<option value="">{tab === 'monthly' ? 'Todas las sucursales' : 'Elegir sucursal…'}</option>)}
+                {scope.options?.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
                   </option>
