@@ -1,0 +1,5 @@
+# Cloudflare Pages: el service worker nunca se cachea (así la app se actualiza); los assets llevan hash y son inmutables.
+/sw.js
+  Cache-Control: no-cache
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
