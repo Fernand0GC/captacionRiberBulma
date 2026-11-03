@@ -13,7 +13,7 @@ declare
   tri_authors uuid[] := array['00000000-0000-4000-8000-000000000008','00000000-0000-4000-8000-000000000008','00000000-0000-4000-8000-000000000007']::uuid[];
   aux_ver constant uuid := '00000000-0000-4000-8000-000000000004';
   enc_tri constant uuid := '00000000-0000-4000-8000-000000000007';
-  ch_names text[] := array['Volantes','Volantes','Volantes','Volantes','Activación','Activación','Activación','Visitas de negociación','TikTok','TikTok','Facebook','Messenger','Otro'];
+  ch_names text[] := array['Volanteo','Volanteo','Convenio','Visita','Activación','Activación','Activación','Negociación','TikTok','TikTok','Facebook','Messenger','Tienda'];
   i int; v_chname text; v_phone text; v_id uuid; v_branch smallint; v_author uuid; v_agent uuid; v_day int; v_at timestamptz; v_ch smallint; v_prod int;
   r float; v_stage public.prospect_stage; v_next timestamptz; v_visit timestamptz; v_c timestamptz; v_attempts int; v_reason int;
 begin

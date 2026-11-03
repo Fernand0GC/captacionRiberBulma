@@ -70,6 +70,7 @@ export async function exportProspects(filters: ProspectFilters, scopeName: strin
     { header: 'Fecha de captación', width: 18, value: (r) => laPazWallClock(r.client_created_at) },
     { header: 'Sucursal', width: 14, value: (r) => r.branch_name },
     { header: 'Canal', width: 18, value: (r) => r.channel_name },
+    { header: 'Descripción del canal', width: 28, value: (r) => r.channel_detail },
     { header: 'Registró', width: 24, value: (r) => r.created_by_name },
     { header: 'Etapa', width: 16, value: (r) => STAGE_LABEL[r.stage] ?? r.stage },
     { header: 'Responsable seguimiento', width: 24, value: (r) => r.assigned_to_name },

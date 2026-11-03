@@ -11,7 +11,7 @@ import { Button } from '@/ui/Button'
 import { PageTitle } from '@/ui/PageTitle'
 import { Field, TextInput } from '@/ui/Field'
 import { useToast } from '@/ui/Toast'
-import { getDayChannel } from './channel'
+import { getDayChannel, getDayChannelDetail } from './channel'
 import { InterestToggle } from './InterestToggle'
 import { ProductPicker } from './ProductPicker'
 import { useCatalogs } from './useCatalogs'
@@ -53,6 +53,7 @@ export function CaptureForm() {
   const [saving, setSaving] = useState(false)
   const [productId, setProductId] = useState<number | null>(null)
   const channelId = getDayChannel(profile!.id)
+  const channelDetail = getDayChannelDetail(profile!.id)
   const channelName = catalogs?.channels.find((c) => Number(c.value) === channelId)?.label
 
   const set = (k: keyof Form) => (v: string) => {
@@ -77,6 +78,7 @@ export function CaptureForm() {
         phone: form.phone.trim(),
         product_id: productId ?? undefined,
         channel_id: channelId ?? undefined,
+        channel_detail: channelDetail || undefined,
         interest: (form.interest || undefined) as 'high' | 'medium' | 'low' | undefined,
         occupation: form.occupation.trim() || undefined,
         address: form.address.trim() || undefined,
@@ -99,7 +101,7 @@ export function CaptureForm() {
       <div className="mx-auto max-w-md px-4 pt-4">
         <PageTitle
           title="Nueva captación"
-          subtitle={`Canal: ${channelName ?? 'sin elegir'}`}
+          subtitle={`Canal: ${channelName ?? 'sin elegir'}${channelName && channelDetail ? ` · ${channelDetail}` : ''}`}
           actions={
             <button
               type="button"

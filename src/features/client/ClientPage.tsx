@@ -19,6 +19,7 @@ const FIELD_LABEL: Record<string, string> = {
   phone_raw: 'Celular',
   product_id: 'Producto',
   channel_id: 'Canal',
+  channel_detail: 'Descripción del canal',
   interest: 'Interés',
   occupation: 'Oficio',
   address: 'Dirección',
@@ -37,7 +38,7 @@ function TimelineEntry({ t }: { t: TimelineItem }) {
     case 'capture':
       icon = '＋'
       title = <>Captado por {t.actor}</>
-      body = t.data.channel ? `Canal: ${t.data.channel}` : 'Sin canal'
+      body = t.data.channel ? `Canal: ${t.data.channel}${t.data.detail ? ` · ${t.data.detail}` : ''}` : 'Sin canal'
       break
     case 'assignment':
       icon = '⇄'
@@ -213,7 +214,7 @@ export function ClientPage() {
           <h2 className="font-display text-lg font-semibold">Datos</h2>
           <dl className="grid grid-cols-2 gap-4">
             <Info label="Producto">{c.product_name}</Info>
-            <Info label="Canal">{c.channel_name}</Info>
+            <Info label="Canal">{c.channel_name ? [c.channel_name, c.channel_detail].filter(Boolean).join(' · ') : null}</Info>
             <Info label="Interés">{c.interest ? <Badge tone={c.interest === 'high' ? 'success' : c.interest === 'medium' ? 'warning' : 'neutral'}>{INTEREST_LABEL[c.interest]}</Badge> : null}</Info>
             <Info label="Oficio">{c.occupation}</Info>
             <div className="col-span-2">

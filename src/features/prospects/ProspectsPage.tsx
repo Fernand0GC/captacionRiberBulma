@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { groupChannels } from '@/features/capture/channelGroups'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { Badge } from '@/ui/Badge'
 import { useToast } from '@/ui/Toast'
@@ -218,7 +219,7 @@ export function ProspectsPage() {
           <input
             type="search"
             aria-label="Buscar por nombre o celular"
-            placeholder="Buscar nombre o celular…"
+            placeholder="Buscar nombre, celular o lugar…"
             value={q}
             onChange={(e) => {
               setQ(e.target.value)
@@ -302,10 +303,14 @@ export function ProspectsPage() {
           >
             <option value="">Canal: todos</option>
             <option value="sin">Sin canal</option>
-            {channels.data?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+            {groupChannels(channels.data ?? []).map((block) => (
+              <optgroup key={block.label} label={block.label}>
+                {block.items.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
@@ -377,26 +382,39 @@ export function ProspectsPage() {
               {prospects.data.by_channel.reduce((a, c) => a + c.n, 0)}
             </span>
           </button>
-          {prospects.data.by_channel.map((c) => {
-            const value = c.channel_id ?? ('sin' as const)
-            const active = search.canal === value
-            return (
-              <button
-                key={c.name}
-                type="button"
-                aria-pressed={active}
-                data-testid={`chip-${c.name}`}
-                onClick={() => setSearch({ canal: active ? undefined : value })}
-                className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${
-                  active
-                    ? 'bg-gold-gradient text-ink shadow-gold'
-                    : 'bg-white text-ink/70 ring-1 ring-ink/10 active:bg-sand'
-                }`}
-              >
-                {c.name} <span className="tabular-nums opacity-70">{c.n}</span>
-              </button>
-            )
-          })}
+          {groupChannels(
+            prospects.data.by_channel.map((c) => ({
+              ...c,
+              group: channels.data?.find((x) => x.id === c.channel_id)?.group ?? null,
+            })),
+          ).map((block) => (
+            <span key={block.label} className="contents" data-testid={`group-${block.label}`}>
+              <span className="flex min-h-10 items-center pl-2 text-xs font-bold uppercase tracking-widest text-ink/55">
+                {block.label}{' '}
+                <span className="ml-1 tabular-nums">{block.items.reduce((a, c) => a + c.n, 0)}</span>
+              </span>
+              {block.items.map((c) => {
+                const value = c.channel_id ?? ('sin' as const)
+                const active = search.canal === value
+                return (
+                  <button
+                    key={c.name}
+                    type="button"
+                    aria-pressed={active}
+                    data-testid={`chip-${c.name}`}
+                    onClick={() => setSearch({ canal: active ? undefined : value })}
+                    className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${
+                      active
+                        ? 'bg-gold-gradient text-ink shadow-gold'
+                        : 'bg-white text-ink/70 ring-1 ring-ink/10 active:bg-sand'
+                    }`}
+                  >
+                    {c.name} <span className="tabular-nums opacity-70">{c.n}</span>
+                  </button>
+                )
+              })}
+            </span>
+          ))}
         </div>
       )}
 
@@ -578,7 +596,10 @@ function ProspectsTable({
               <td className="px-4 py-3">
                 <Interest v={r.interest} />
               </td>
-              <td className="px-4 py-3">{r.channel_name ?? <span className="text-ink/30">—</span>}</td>
+              <td className="px-4 py-3">
+                {r.channel_name ?? <span className="text-ink/30">—</span>}
+                {r.channel_detail && <span className="block text-sm text-ink/55">{r.channel_detail}</span>}
+              </td>
               {showBranch && <td className="px-4 py-3">{r.branch_name}</td>}
               <td className="px-4 py-3">
                 <span className="font-medium">{r.created_by_name}</span>
@@ -637,6 +658,7 @@ function ProspectsCards({
             >
               Canal: {r.channel_name ?? 'sin canal'}
             </span>
+            {r.channel_detail && <span className="text-ink/70">{r.channel_detail}</span>}
             {[r.product_name, showBranch ? r.branch_name : null].filter(Boolean).join(' · ')}
           </p>
           <p className="mt-2 border-t border-ink/5 pt-2 text-sm text-ink/55">

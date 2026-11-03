@@ -11,12 +11,12 @@ select tests.login_as('00000000-0000-4000-8000-000000000003');
 insert into m values ('before', public.dashboard_metrics(jsonb_build_object('from', (select today from d))));
 insert into m values ('list_before', public.list_prospects(jsonb_build_object('from', (select today from d)), 1));
 
--- Datos: 3 captaciones (2 Volantes, 1 sin canal); la auxiliar contacta 2: una visita y una venta
+-- Datos: 3 captaciones (2 Volanteo, 1 sin canal); la auxiliar contacta 2: una visita y una venta
 select tests.login_as('00000000-0000-4000-8000-000000000006');
 select public.submit_capture(jsonb_build_object('id','01900000-0000-7000-8000-000000000401','full_name','Metrica Uno','phone','74000401',
-  'channel_id',(select id from public.channels where name = 'Volantes')));
+  'channel_id',(select id from public.channels where name = 'Volanteo')));
 select public.submit_capture(jsonb_build_object('id','01900000-0000-7000-8000-000000000402','full_name','Metrica Dos','phone','74000402',
-  'channel_id',(select id from public.channels where name = 'Volantes')));
+  'channel_id',(select id from public.channels where name = 'Volanteo')));
 select public.submit_capture('{"id":"01900000-0000-7000-8000-000000000403","full_name":"Metrica Tres","phone":"74000403"}');
 select tests.login_as('00000000-0000-4000-8000-000000000003');
 select public.assign_prospects(array['01900000-0000-7000-8000-000000000401','01900000-0000-7000-8000-000000000402']::uuid[], '00000000-0000-4000-8000-000000000004');
@@ -49,9 +49,9 @@ select ok((select bool_or(x ->> 'name' = 'Auxiliar Verdolago' and (x ->> 'sales'
 select ok((select v -> 'by_branch' from m where k = 'after') = 'null'::jsonb, 'el encargado no ve comparación entre sucursales');
 
 -- Chips por canal en list_prospects
-select is((select (x ->> 'n')::int from jsonb_array_elements((select v -> 'by_channel' from m where k = 'list_after')) x where x ->> 'name' = 'Volantes')
-  - coalesce((select (x ->> 'n')::int from jsonb_array_elements((select v -> 'by_channel' from m where k = 'list_before')) x where x ->> 'name' = 'Volantes'), 0),
-  2, 'chips: +2 en Volantes');
+select is((select (x ->> 'n')::int from jsonb_array_elements((select v -> 'by_channel' from m where k = 'list_after')) x where x ->> 'name' = 'Volanteo')
+  - coalesce((select (x ->> 'n')::int from jsonb_array_elements((select v -> 'by_channel' from m where k = 'list_before')) x where x ->> 'name' = 'Volanteo'), 0),
+  2, 'chips: +2 en Volanteo');
 
 -- Gerente ve comparación por sucursal; volantero no ve métricas
 select tests.login_as('00000000-0000-4000-8000-000000000002');

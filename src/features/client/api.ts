@@ -15,6 +15,7 @@ export type Client = {
   product_group: ProductGroup | null
   channel_id: number | null
   channel_name: string | null
+  channel_detail: string | null
   interest: 'high' | 'medium' | 'low' | null
   occupation: string | null
   address: string | null
@@ -39,7 +40,7 @@ export type Client = {
 }
 
 export type TimelineItem =
-  | { type: 'capture'; at: string; actor: string; data: { channel: string | null } }
+  | { type: 'capture'; at: string; actor: string; data: { channel: string | null; detail?: string | null } }
   | { type: 'assignment'; at: string; actor: string; data: { to: string | null; from: string | null } }
   | {
       type: 'contact'

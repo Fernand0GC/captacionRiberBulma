@@ -6,6 +6,7 @@ import { Select } from '@/ui/Select'
 import { useToast } from '@/ui/Toast'
 import { useChannels } from '@/features/prospects/api'
 import { useAgendaMutation, useStrategies, type Activity, type Shift } from './api'
+import { CHANNEL_GROUP_LABEL } from '@/features/capture/channelGroups'
 
 /** Crear o editar una actividad del plan (misma forma que las planillas de las sucursales). */
 export function ActivityDialog({
@@ -91,7 +92,7 @@ export function ActivityDialog({
         <div className="grid grid-cols-2 gap-2">
           <Field label="Canal">
             {(id) => (
-              <Select id={id} value={v.channel_id} onChange={set('channel_id')} placeholder="Todos" options={(channels.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))} />
+              <Select id={id} value={v.channel_id} onChange={set('channel_id')} placeholder="Todos" options={(channels.data ?? []).map((c) => ({ value: String(c.id), label: c.name, group: c.group ? CHANNEL_GROUP_LABEL[c.group] : undefined }))} />
             )}
           </Field>
           <Field label="Meta de captaciones">
@@ -106,9 +107,10 @@ export function ActivityDialog({
         <Field label="Otra meta (ventas, visitas…)">
           {(id) => <TextInput id={id} value={v.goal} placeholder="Ej.: 5 ventas · 20 visitas pactadas" onChange={(e) => set('goal')(e.target.value)} />}
         </Field>
-        <Field label="Lugares">
-          {(id) => <TextInput id={id} value={v.places} placeholder="Ej.: Ferretería La Paz, Ferretería Mi Casa" onChange={(e) => set('places')(e.target.value)} />}
+        <Field label="Descripción del canal (dónde)">
+          {(id) => <TextInput id={id} value={v.places} maxLength={120} placeholder="Ej.: Colegio Don Bosco, barrio Litoral" onChange={(e) => set('places')(e.target.value)} />}
         </Field>
+        <p className="-mt-2 text-xs text-ink/50">El personal la recibe sola en Registrar junto con el canal.</p>
         {err && <p className="text-sm font-medium text-rb-red">{err}</p>}
         <div className="sticky bottom-0 flex gap-2 bg-cream pt-1">
           <Button variant="secondary" className="flex-1" onClick={onClose}>

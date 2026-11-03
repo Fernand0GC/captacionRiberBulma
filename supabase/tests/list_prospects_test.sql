@@ -4,7 +4,7 @@ select plan(17);
 -- Datos: 2 captaciones en Verdolago (volantera y encargado), 1 en Trinidad, 1 duplicada, 1 anulada.
 select tests.login_as('00000000-0000-4000-8000-000000000006');
 select public.submit_capture(jsonb_build_object('id','01900000-0000-7000-8000-0000000000c1','full_name','Rosa Verdolago','phone','76000001',
-  'channel_id',(select id from public.channels where name = 'Volantes')));
+  'channel_id',(select id from public.channels where name = 'Volanteo')));
 select tests.login_as('00000000-0000-4000-8000-000000000003');
 select public.submit_capture('{"id":"01900000-0000-7000-8000-0000000000c2","full_name":"Mario Encargado","phone":"76000002"}');
 select tests.login_as('00000000-0000-4000-8000-000000000008');
@@ -30,7 +30,7 @@ select is((public.list_prospects('{"from":"2026-10-20","to":"2026-10-21"}') ->> 
 select is(public.list_prospects('{"from":"2026-10-20","to":"2026-10-21"}') -> 'rows' -> 0 ->> 'full_name', 'Mario Encargado', 'orden: más reciente primero');
 select is(public.list_prospects('{"from":"2026-10-20","to":"2026-10-21"}') -> 'rows' -> 1 ->> 'created_by_name', 'Volantera Verdolago', 'incluye quién lo registró');
 select is(public.list_prospects('{"from":"2026-10-20","to":"2026-10-21"}') -> 'rows' -> 1 ->> 'branch_name', 'VERDOLAGO', 'incluye la sucursal');
-select is(public.list_prospects('{"from":"2026-10-20","to":"2026-10-21"}') -> 'rows' -> 1 ->> 'channel_name', 'Volantes', 'incluye el canal');
+select is(public.list_prospects('{"from":"2026-10-20","to":"2026-10-21"}') -> 'rows' -> 1 ->> 'channel_name', 'Volanteo', 'incluye el canal');
 select throws_ok($$ select public.list_prospects('{"branch_id":7,"from":"2026-10-20","to":"2026-10-21"}') $$, 'P0001', 'forbidden', 'encargado no consulta otra sucursal');
 select is((public.list_prospects('{"from":"2026-10-21","to":"2026-10-21"}') ->> 'total')::int, 1, 'filtro por día en hora de La Paz');
 select is((public.list_prospects('{"from":"2026-10-20","to":"2026-10-21","created_by":"00000000-0000-4000-8000-000000000006"}') ->> 'total')::int, 1, 'filtro por quién registró');

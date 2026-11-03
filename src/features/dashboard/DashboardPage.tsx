@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { ROLE_LABEL } from '@/features/auth/types'
-import { useBranches } from '@/features/prospects/api'
+import { totalsByGroup } from '@/features/capture/channelGroups'
+import { useBranches, useChannels } from '@/features/prospects/api'
 import { STAGE_LABEL } from '@/features/prospects/format'
 import { periodRange, type Period } from '@/features/prospects/search'
 import { PageTitle } from '@/ui/PageTitle'
@@ -30,6 +31,7 @@ export function DashboardPage() {
   const [period, setPeriod] = useState<Period>('hoy')
   const [branch, setBranch] = useState<number | undefined>(undefined)
   const branches = useBranches()
+  const channels = useChannels()
   const { from, to } = periodRange({ periodo: period })
   const m = useMetrics({ from, to, branch_id: isGlobal ? branch : undefined })
   const goals = useGoalsForDay(isGlobal ? branch : undefined)
@@ -127,9 +129,18 @@ export function DashboardPage() {
                 data={FUNNEL.map((s, i) => ({ label: `${i + 1}. ${STAGE_LABEL[s]}`, value: m.data!.funnel[s] }))}
               />
             </Card>
-            <Card title="Por canal de captación">
+            <Card title="Por canal de captación" subtitle="Primero Calle y Tienda; abajo, cada canal">
               {m.data.by_channel.length ? (
-                <HBars total={k.captures} data={m.data.by_channel.map((c) => ({ label: c.name, value: c.n }))} />
+                <>
+                  <div data-testid="by-group">
+                    <HBars
+                      total={k.captures}
+                      data={totalsByGroup(m.data.by_channel, (c) => channels.data?.find((x) => x.name === c.name)?.group ?? null)}
+                    />
+                  </div>
+                  <hr className="border-ink/10" />
+                  <HBars total={k.captures} data={m.data.by_channel.map((c) => ({ label: c.name, value: c.n }))} />
+                </>
               ) : (
                 <p className="text-ink/45">Sin captaciones en el período.</p>
               )}

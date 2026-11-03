@@ -8,7 +8,7 @@ import { useSyncStatus } from '@/features/sync/useSyncStatus'
 import { SHIFT_LABEL, shiftFor } from '@/lib/dates'
 import { PageTitle } from '@/ui/PageTitle'
 import { ChannelPicker } from './ChannelPicker'
-import { getDayChannel, getDayChannelSource, setDayChannel, type ChannelSource } from './channel'
+import { getDayChannel, getDayChannelDetail, getDayChannelSource, setDayChannel, type ChannelSource } from './channel'
 import { loadTodayPlan, pickActivity } from '@/features/agenda/currentActivity'
 import type { Activity } from '@/features/agenda/api'
 import { useCaptureStats } from './useCaptureStats'
@@ -25,6 +25,7 @@ export function RegisterHome() {
   const { confirmed, rejections, dismiss } = useCaptureStats(userId, refreshKey + status.pending)
   const [channelId, setChannelId] = useState<number | null>(() => getDayChannel(userId))
   const [source, setSource] = useState<ChannelSource | null>(() => getDayChannelSource(userId))
+  const [detail, setDetail] = useState(() => getDayChannelDetail(userId))
   const [picking, setPicking] = useState<null | 'change' | 'then-register'>(null)
   const [plan, setPlan] = useState<{ activity: Activity; current: boolean } | null>(null)
   const branch = profile!.branch_id
@@ -44,9 +45,11 @@ export function RegisterHome() {
         // El canal sale del plan: si la persona no eligió uno a mano, se usa el de la actividad en curso.
         const fromPlan = picked?.current ? picked.activity.channel_id : null
         if (fromPlan !== null && getDayChannelSource(userId) !== 'manual' && getDayChannel(userId) !== fromPlan) {
-          setDayChannel(userId, fromPlan, 'plan')
+          const planDetail = planDetailOf(picked!.activity)
+          setDayChannel(userId, fromPlan, 'plan', planDetail)
           setChannelId(fromPlan)
           setSource('plan')
+          setDetail(planDetail)
         }
       })
     load()
@@ -65,14 +68,15 @@ export function RegisterHome() {
   const channelName = catalogs?.channels.find((c) => Number(c.value) === channelId)?.label
 
   function onRegister() {
-    if (channelId === null && catalogs?.channels.length) setPicking('then-register')
+    if ((channelId === null || !channelName || !detail) && catalogs?.channels.length) setPicking('then-register')
     else void navigate({ to: '/registrar/nuevo' })
   }
 
-  function onPick(id: number) {
-    setDayChannel(userId, id)
+  function onPick(id: number, newDetail: string) {
+    setDayChannel(userId, id, 'manual', newDetail)
     setChannelId(id)
     setSource('manual')
+    setDetail(newDetail)
     const next = picking
     setPicking(null)
     if (next === 'then-register') void navigate({ to: '/registrar/nuevo' })
@@ -105,6 +109,11 @@ export function RegisterHome() {
               <p className="truncate text-2xl font-semibold" data-testid="day-channel">
                 {channelName ?? 'Sin elegir'}
               </p>
+              {channelName && detail && (
+                <p className="truncate text-ink/70" data-testid="day-channel-detail">
+                  {detail}
+                </p>
+              )}
               {source === 'plan' && channelName && <p className="text-xs text-ink/50">Según el plan del día</p>}
             </div>
             <button
@@ -130,7 +139,7 @@ export function RegisterHome() {
               {planChannel !== null && planChannel !== channelId && plan.activity.channel && (
                 <button
                   type="button"
-                  onClick={() => onPick(planChannel)}
+                  onClick={() => onPick(planChannel, planDetailOf(plan.activity))}
                   className="ml-1 font-semibold text-gold-dark underline"
                 >
                   El plan es por {plan.activity.channel}: usar
@@ -174,9 +183,15 @@ export function RegisterHome() {
           onOpenChange={(o) => !o && setPicking(null)}
           channels={catalogs.channels}
           current={channelId}
+          currentDetail={detail}
           onPick={onPick}
         />
       )}
     </div>
   )
+}
+
+/** Descripción que trae la actividad del plan: sus lugares o, si no tiene, lo que se va a hacer. */
+function planDetailOf(a: Activity): string {
+  return (a.places || a.description || '').slice(0, 120)
 }

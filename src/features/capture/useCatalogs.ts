@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { normalizeText } from '@/lib/search'
 import { supabase } from '@/lib/supabase'
 import type { Option } from '@/ui/Select'
+import type { ChannelGroup } from './channelGroups'
 
 export type ProductGroup = 'phones' | 'major_appliances' | 'small_appliances'
 
@@ -12,15 +13,22 @@ export const GROUP_LABEL: Record<ProductGroup, string> = {
 }
 
 export type Product = { id: number; name: string; group: ProductGroup; search: string }
-export type Catalogs = { channels: Option[]; products: Product[] }
+export type ChannelOption = Omit<Option, 'group'> & { group: ChannelGroup | null }
+export type Catalogs = { channels: ChannelOption[]; products: Product[] }
 
 // Catálogos (no son datos de clientes): se cachean para poder registrar sin señal.
-const KEY = 'captacion.catalogs.v3'
+const KEY = 'captacion.catalogs.v4'
+// La versión anterior (sin grupo de canal) sirve de respaldo si la app se actualiza sin señal.
+const PREVIOUS_KEY = 'captacion.catalogs.v3'
 
 function readCache(): Catalogs | null {
   try {
     const raw = localStorage.getItem(KEY)
-    return raw ? (JSON.parse(raw) as Catalogs) : null
+    if (raw) return JSON.parse(raw) as Catalogs
+    const old = localStorage.getItem(PREVIOUS_KEY)
+    if (!old) return null
+    const c = JSON.parse(old) as Catalogs
+    return { ...c, channels: c.channels.map((ch) => ({ ...ch, group: ch.group ?? null })) }
   } catch {
     return null
   }
@@ -28,13 +36,17 @@ function readCache(): Catalogs | null {
 
 async function fetchCatalogs(): Promise<Catalogs> {
   const [ch, pr] = await Promise.all([
-    supabase.from('channels').select('id, name').eq('active', true).order('sort'),
+    supabase.from('channels').select('id, name, channel_group').eq('active', true).order('sort'),
     supabase.from('products').select('id, name, product_group').eq('active', true).order('sort'),
   ])
   if (ch.error) throw ch.error
   if (pr.error) throw pr.error
   return {
-    channels: ch.data.map((c) => ({ value: String(c.id), label: c.name })),
+    channels: ch.data.map((c) => ({
+      value: String(c.id),
+      label: c.name,
+      group: c.channel_group as ChannelGroup | null,
+    })),
     products: pr.data.map((p) => ({
       id: p.id,
       name: p.name,

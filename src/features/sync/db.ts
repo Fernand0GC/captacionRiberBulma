@@ -7,6 +7,7 @@ export type CapturePayload = {
   phone: string
   product_id?: number
   channel_id?: number
+  channel_detail?: string
   interest?: 'high' | 'medium' | 'low'
   occupation?: string
   address?: string

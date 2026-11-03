@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { toAppError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 import type { AppRole } from '@/features/auth/types'
+import type { ChannelGroup } from '@/features/capture/channelGroups'
 import type { ProductGroup } from '@/features/capture/useCatalogs'
 
 export const PAGE_SIZE = 50
@@ -23,6 +24,7 @@ export type ProspectRow = {
   created_by_name: string
   created_by_role: AppRole
   channel_name: string | null
+  channel_detail: string | null
   product_name: string | null
   product_group: ProductGroup | null
   assigned_to: string | null
@@ -91,9 +93,9 @@ export function useChannels() {
     queryKey: ['channels'],
     staleTime: Infinity,
     queryFn: async () => {
-      const { data, error } = await supabase.from('channels').select('id, name').eq('active', true).order('sort')
+      const { data, error } = await supabase.from('channels').select('id, name, channel_group').eq('active', true).order('sort')
       if (error) throw toAppError(error)
-      return data as { id: number; name: string }[]
+      return data.map((c) => ({ id: c.id as number, name: c.name as string, group: c.channel_group as ChannelGroup | null }))
     },
   })
 }

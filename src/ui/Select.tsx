@@ -1,4 +1,13 @@
-export type Option = { value: string; label: string }
+/** `group` (opcional) agrupa las opciones en <optgroup>, en el orden en que aparecen. */
+export type Option = { value: string; label: string; group?: string }
+
+function renderOption(o: Option) {
+  return (
+    <option key={o.value} value={o.value} className="text-ink">
+      {o.label}
+    </option>
+  )
+}
 
 /** Select nativo: cero JS extra y el selector del sistema en Android (dedo, accesible). */
 export function Select({
@@ -34,11 +43,13 @@ export function Select({
       }}
     >
       <option value="">{placeholder}</option>
-      {options.map((o) => (
-        <option key={o.value} value={o.value} className="text-ink">
-          {o.label}
-        </option>
-      ))}
+      {options.some((o) => o.group)
+        ? [...new Set(options.map((o) => o.group ?? ''))].map((g) => (
+            <optgroup key={g} label={g || 'Otros'}>
+              {options.filter((o) => (o.group ?? '') === g).map(renderOption)}
+            </optgroup>
+          ))
+        : options.map(renderOption)}
     </select>
   )
 }

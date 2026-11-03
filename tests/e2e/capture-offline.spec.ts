@@ -19,6 +19,8 @@ test('registro de campo: online, sin señal, recarga sin red y sincronización (
   await page.getByRole('button', { name: 'Guardar' }).click()
   await expect(page).toHaveURL(/\/registrar$/)
   await expect(page.getByTestId('today-count')).toHaveText(String(base + 1))
+  // Con todas las pruebas en paralelo la subida puede tardar: que suba antes de cortar la red
+  await expect(page.getByText('Todo subido')).toBeVisible({ timeout: 15_000 })
 
   // 2) Sin señal: dos captaciones quedan pendientes
   await context.setOffline(true)

@@ -23,10 +23,20 @@ export function getDayChannelSource(userId: string): ChannelSource | null {
   }
 }
 
-export function setDayChannel(userId: string, channelId: number, source: ChannelSource = 'manual'): void {
+/** Descripción del canal de hoy (dónde o qué: colegio, universidad, barrio, publicación…). */
+export function getDayChannelDetail(userId: string): string {
+  try {
+    return localStorage.getItem(`${key(userId)}.detail`) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+export function setDayChannel(userId: string, channelId: number, source: ChannelSource = 'manual', detail = ''): void {
   try {
     localStorage.setItem(key(userId), String(channelId))
     localStorage.setItem(`${key(userId)}.source`, source)
+    localStorage.setItem(`${key(userId)}.detail`, detail.trim())
   } catch {
     /* sin almacenamiento: se volverá a pedir */
   }

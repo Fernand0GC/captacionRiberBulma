@@ -4,7 +4,7 @@ select plan(18);
 -- Datos: captación de la volantera Verdolago, asignada a la auxiliar, con un contacto; un duplicado desde Trinidad
 select tests.login_as('00000000-0000-4000-8000-000000000006');
 select public.submit_capture(jsonb_build_object('id','01900000-0000-7000-8000-000000000601','full_name','Ficha Uno','phone','76000601',
-  'channel_id',(select id from public.channels where name = 'Volantes')));
+  'channel_id',(select id from public.channels where name = 'Volanteo')));
 select tests.login_as('00000000-0000-4000-8000-000000000008');
 select public.submit_capture('{"id":"01900000-0000-7000-8000-000000000602","full_name":"Repetido Trinidad","phone":"76000601"}');
 select tests.login_as('00000000-0000-4000-8000-000000000003');

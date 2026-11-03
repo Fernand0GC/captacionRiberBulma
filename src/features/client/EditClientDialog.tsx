@@ -10,6 +10,7 @@ import { Field, TextInput } from '@/ui/Field'
 import { Select } from '@/ui/Select'
 import { useToast } from '@/ui/Toast'
 import { useUpdateClient, type Client } from './api'
+import { CHANNEL_GROUP_LABEL } from '@/features/capture/channelGroups'
 
 export function EditClientDialog({ client, onClose }: { client: Client; onClose: () => void }) {
   const { catalogs } = useCatalogs()
@@ -20,6 +21,7 @@ export function EditClientDialog({ client, onClose }: { client: Client; onClose:
     phone: client.phone_raw,
     product_id: client.product_id,
     channel_id: client.channel_id ? String(client.channel_id) : '',
+    channel_detail: client.channel_detail ?? '',
     interest: client.interest ?? '',
     occupation: client.occupation ?? '',
     address: client.address ?? '',
@@ -38,6 +40,7 @@ export function EditClientDialog({ client, onClose }: { client: Client; onClose:
         phone: v.phone.trim(),
         product_id: v.product_id ?? '',
         channel_id: v.channel_id,
+        channel_detail: v.channel_detail,
         interest: v.interest,
         occupation: v.occupation,
         address: v.address,
@@ -66,7 +69,10 @@ export function EditClientDialog({ client, onClose }: { client: Client; onClose:
           {catalogs && <ProductPicker catalogs={catalogs} value={v.product_id} onChange={(p) => setV({ ...v, product_id: p })} />}
         </div>
         <Field label="Canal">
-          {(id) => <Select id={id} value={v.channel_id} onChange={(c) => setV({ ...v, channel_id: c })} options={catalogs?.channels ?? []} placeholder="Sin canal" />}
+          {(id) => <Select id={id} value={v.channel_id} onChange={(c) => setV({ ...v, channel_id: c })} options={(catalogs?.channels ?? []).map((c) => ({ ...c, group: c.group ? CHANNEL_GROUP_LABEL[c.group] : undefined }))} placeholder="Sin canal" />}
+        </Field>
+        <Field label="Descripción del canal">
+          {(id) => <TextInput id={id} maxLength={120} value={v.channel_detail} placeholder="Ej.: Colegio Don Bosco" onChange={(e) => setV({ ...v, channel_detail: e.target.value })} />}
         </Field>
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-semibold text-ink/80">Nivel de interés</span>

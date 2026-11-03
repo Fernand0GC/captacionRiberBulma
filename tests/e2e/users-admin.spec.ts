@@ -15,7 +15,8 @@ test('Sistemas crea un volantero, el volantero entra; al darlo de baja ya no pue
   await dialog.getByRole('button', { name: 'Crear usuario' }).click()
 
   const created = page.getByRole('dialog', { name: 'Usuario creado' })
-  await expect(created.getByTestId('new-username')).toHaveText(username)
+  // Crear la cuenta pasa por el servidor de autenticación: con las demás pruebas en paralelo tarda más de 5 s
+  await expect(created.getByTestId('new-username')).toHaveText(username, { timeout: 15_000 })
   let password = (await created.getByTestId('new-password').innerText()).trim()
   await created.getByRole('button', { name: 'Listo' }).click()
   await logoutFromManage(page)
