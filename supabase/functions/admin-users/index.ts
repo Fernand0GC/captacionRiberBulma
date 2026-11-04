@@ -1,4 +1,4 @@
-// Edge Function admin-users (contracts/rpc.md). Solo administradores activos.
+// Edge Function admin-users (contracts/rpc.md). Sistemas gestiona a todos; los gestores, sus volanteras (team_*).
 // La service role se usa solo dentro de esta función; nunca llega al navegador.
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 
@@ -42,6 +42,129 @@ function validateCreate(b: CreateInput): string | null {
   return null
 }
 
+type Admin = ReturnType<typeof createClient>
+type Caller = { id: string; role: string; branch_id: number | null }
+
+const TEAM_ROLES = ['branch_manager', 'sales_lead', 'general_manager', 'admin']
+const GLOBAL = ['general_manager', 'admin']
+
+// Texto en minúsculas, sin tildes ni símbolos (para armar el usuario).
+const plain = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim()
+
+// Clave de 6 números: fácil de dictar a una volantera; se cambia con "Nueva clave" si se comparte.
+function pin(): string {
+  return String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, '0')
+}
+
+async function managesBranch(admin: Admin, caller: Caller, branch: number): Promise<boolean> {
+  if (GLOBAL.includes(caller.role)) return true
+  if (caller.role === 'branch_manager') return caller.branch_id === branch
+  const { data } = await admin.from('profile_branches').select('branch_id').eq('profile_id', caller.id).eq('branch_id', branch)
+  return (data ?? []).length > 0
+}
+
+// vol.<sucursal>.<nombre>, con número si ya existe (vol.trini.maria2). Las volanteras rotan: los nombres se repiten.
+async function teamUsername(admin: Admin, branch: number, fullName: string): Promise<string | null> {
+  const { data: b } = await admin.from('branches').select('code').eq('id', branch).maybeSingle()
+  const first = plain(fullName).split(/\s+/)[0]?.slice(0, 12)
+  if (!b || !first) return null
+  const base = `vol.${plain(b.code).replace(/ /g, '').slice(0, 5)}.${first}`
+  const { data: taken } = await admin.from('profiles').select('username').like('username', `${base}%`)
+  const used = new Set((taken ?? []).map((t) => t.username))
+  for (let n = 1; n < 100; n++) {
+    const u = n === 1 ? base : `${base}${n}`
+    if (!used.has(u)) return u
+  }
+  return null
+}
+
+async function audit(admin: Admin, actor: string, rowId: string, old: unknown, next: unknown) {
+  await admin.from('audit_log').insert({ table_name: 'profiles', row_id: rowId, actor_id: actor, old, new: next })
+}
+
+async function team(admin: Admin, caller: Caller, body: Record<string, unknown>): Promise<Response> {
+  if (body.action === 'team_create') {
+    const branch = Number(body.branch_id)
+    const fullName = String(body.full_name ?? '').trim().replace(/\s+/g, ' ')
+    if (!Number.isInteger(branch) || branch <= 0) return json(400, { code: 'invalid_input', details: { field: 'branch_id' } })
+    if (fullName.length < 3 || fullName.length > 120) return json(400, { code: 'invalid_input', details: { field: 'full_name' } })
+    if (!(await managesBranch(admin, caller, branch))) return json(403, { code: 'forbidden' })
+    const username = await teamUsername(admin, branch, fullName)
+    if (!username) return json(400, { code: 'invalid_input', details: { field: 'full_name' } })
+    const password = pin()
+    const { data: created, error } = await admin.auth.admin.createUser({
+      email: `${username}@${USERNAME_DOMAIN}`,
+      password,
+      email_confirm: true,
+    })
+    if (error || !created.user) return json(500, { code: 'unknown' })
+    const profile = { id: created.user.id, username, full_name: fullName, role: 'field_volunteer', branch_id: branch, contract_type: 'temporary' }
+    const { error: pErr } = await admin.from('profiles').insert(profile)
+    if (pErr) {
+      await admin.auth.admin.deleteUser(created.user.id)
+      return json(500, { code: 'unknown' })
+    }
+    await audit(admin, caller.id, created.user.id, null, profile)
+    return json(201, { id: created.user.id, username, password })
+  }
+
+  // El resto actúa sobre una volantera existente de una sucursal que gestiona quien llama.
+  const id = String(body.id ?? '')
+  const { data: target } = await admin.from('profiles').select('id, role, branch_id, active, full_name').eq('id', id).maybeSingle()
+  if (!target) return json(404, { code: 'not_found' })
+  if (target.role !== 'field_volunteer' || !target.branch_id || !(await managesBranch(admin, caller, target.branch_id))) {
+    return json(403, { code: 'forbidden' })
+  }
+
+  switch (body.action) {
+    case 'team_rename': {
+      const fullName = String(body.full_name ?? '').trim().replace(/\s+/g, ' ')
+      if (fullName.length < 3 || fullName.length > 120) return json(400, { code: 'invalid_input', details: { field: 'full_name' } })
+      const { error } = await admin.from('profiles').update({ full_name: fullName }).eq('id', id)
+      if (error) return json(500, { code: 'unknown' })
+      await audit(admin, caller.id, id, { full_name: target.full_name }, { full_name: fullName })
+      return json(200, { id })
+    }
+    case 'team_deactivate':
+    case 'team_reactivate': {
+      // Igual que la baja de Sistemas: perfil inactivo, sin ban; lo guardado sin señal antes de la baja aún sube.
+      const active = body.action === 'team_reactivate'
+      const { error } = await admin
+        .from('profiles')
+        .update({ active, deactivated_at: active ? null : new Date().toISOString() })
+        .eq('id', id)
+      if (error) return json(500, { code: 'unknown' })
+      await audit(admin, caller.id, id, { active: target.active }, { active })
+      return json(200, { id })
+    }
+    case 'team_password': {
+      const password = pin()
+      const { error } = await admin.auth.admin.updateUserById(id, { password })
+      if (error) return json(500, { code: 'unknown' })
+      await audit(admin, caller.id, id, null, { password: 'changed' })
+      return json(200, { id, password })
+    }
+    case 'team_delete': {
+      // Solo se borra de verdad si no registró nada (error de tipeo). Con registros se archiva: su autoría se conserva.
+      const { error } = await admin.from('profiles').delete().eq('id', id)
+      if (error) {
+        if (error.code !== '23503') return json(500, { code: 'unknown' })
+        if (target.active) {
+          await admin.from('profiles').update({ active: false, deactivated_at: new Date().toISOString() }).eq('id', id)
+          await audit(admin, caller.id, id, { active: true }, { active: false })
+        }
+        return json(200, { id, archived: true })
+      }
+      await admin.auth.admin.deleteUser(id)
+      await audit(admin, caller.id, id, { full_name: target.full_name }, null)
+      return json(200, { id, archived: false })
+    }
+    default:
+      return json(400, { code: 'invalid_input', details: { field: 'action' } })
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json(405, { code: 'invalid_input' })
@@ -56,8 +179,8 @@ Deno.serve(async (req) => {
   })
   const { data: userData } = await caller.auth.getUser()
   if (!userData.user) return json(401, { code: 'forbidden' })
-  const { data: me } = await caller.from('profiles').select('role, active').eq('id', userData.user.id).maybeSingle()
-  if (!me || !me.active || me.role !== 'admin') return json(403, { code: 'forbidden' })
+  const { data: me } = await caller.from('profiles').select('role, active, branch_id').eq('id', userData.user.id).maybeSingle()
+  if (!me || !me.active) return json(403, { code: 'forbidden' })
 
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
   let body: { action?: string } & Record<string, unknown>
@@ -66,6 +189,13 @@ Deno.serve(async (req) => {
   } catch {
     return json(400, { code: 'invalid_input' })
   }
+
+  // Mi equipo: encargado y jefe de ventas (y gerencia/Sistemas) gestionan solo volanteras de sus sucursales.
+  if (String(body.action ?? '').startsWith('team_')) {
+    if (!TEAM_ROLES.includes(me.role)) return json(403, { code: 'forbidden' })
+    return team(admin, { id: userData.user.id, role: me.role, branch_id: me.branch_id }, body)
+  }
+  if (me.role !== 'admin') return json(403, { code: 'forbidden' })
 
   switch (body.action) {
     case 'create': {

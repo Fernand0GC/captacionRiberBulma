@@ -9,6 +9,7 @@ import {
   MdPersonAdd,
   MdManageAccounts,
   MdEventNote,
+  MdGroups,
 } from 'react-icons/md'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { LogoutButton } from '@/features/auth/LogoutButton'
@@ -25,6 +26,7 @@ const MANAGE_NAV: NavItem[] = [
   { to: '/repartir', label: 'Repartir', icon: <MdSwapHoriz />, roles: MANAGER_ROLES },
   { to: '/planificacion', label: 'Planificación', icon: <MdEventNote />, roles: MANAGER_ROLES },
   { to: '/metas', label: 'Metas', icon: <MdFlag />, roles: MANAGER_ROLES },
+  { to: '/equipo', label: 'Mi equipo', icon: <MdGroups />, roles: MANAGER_ROLES },
   { to: '/seguimiento', label: 'Mis contactos', icon: <MdPhone />, roles: FOLLOWUP_ROLES },
   { to: '/registrar', label: 'Registrar', icon: <MdPersonAdd />, roles: CAPTURE_ROLES },
   { to: '/admin/usuarios', label: 'Usuarios', icon: <MdManageAccounts />, roles: ['admin'] },

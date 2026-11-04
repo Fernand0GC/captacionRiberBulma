@@ -119,6 +119,13 @@ const distributeRoute = createRoute({
   component: lazyRouteComponent(() => import('@/features/distribution/DistributePage'), 'DistributePage'),
 })
 
+// Mi equipo: volanteras de la sucursal (el servidor limita a las sucursales que gestiona cada uno).
+const teamRoute = createRoute({
+  getParentRoute: () => manageLayout,
+  path: '/equipo',
+  component: lazyRouteComponent(() => import('@/features/team/TeamPage'), 'TeamPage'),
+})
+
 // Sistemas (admin): usuarios y catálogos.
 const adminLayout = createRoute({
   getParentRoute: () => manageLayout,
@@ -143,7 +150,7 @@ const routeTree = rootRoute.addChildren([
     followupLayout.addChildren([followupRoute]),
     clientLayout.addChildren([clientRoute]),
     planningLayout.addChildren([planningRoute]),
-    manageLayout.addChildren([dashboardRoute, manageRoute, distributeRoute, goalsRoute, adminLayout.addChildren([usersRoute])]),
+    manageLayout.addChildren([dashboardRoute, manageRoute, distributeRoute, goalsRoute, teamRoute, adminLayout.addChildren([usersRoute])]),
   ]),
 ])
 
