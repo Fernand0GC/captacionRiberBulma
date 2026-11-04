@@ -41,3 +41,23 @@ export function setDayChannel(userId: string, channelId: number, source: Channel
     /* sin almacenamiento: se volverá a pedir */
   }
 }
+
+// Sucursal donde registra quien no tiene una propia (jefe de ventas, gerencia, Sistemas): queda elegida en el equipo.
+const branchKey = (userId: string) => `captacion.branch.${userId}`
+
+export function getCaptureBranch(userId: string): number | null {
+  try {
+    const v = localStorage.getItem(branchKey(userId))
+    return v ? Number(v) : null
+  } catch {
+    return null
+  }
+}
+
+export function setCaptureBranch(userId: string, branchId: number): void {
+  try {
+    localStorage.setItem(branchKey(userId), String(branchId))
+  } catch {
+    /* sin almacenamiento: se volverá a pedir */
+  }
+}

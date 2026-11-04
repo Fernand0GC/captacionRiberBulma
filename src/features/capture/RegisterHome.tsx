@@ -7,8 +7,17 @@ import { onSyncEvent } from '@/features/sync/syncLoop'
 import { useSyncStatus } from '@/features/sync/useSyncStatus'
 import { SHIFT_LABEL, shiftFor } from '@/lib/dates'
 import { PageTitle } from '@/ui/PageTitle'
+import { Select } from '@/ui/Select'
 import { ChannelPicker } from './ChannelPicker'
-import { getDayChannel, getDayChannelDetail, getDayChannelSource, setDayChannel, type ChannelSource } from './channel'
+import {
+  getCaptureBranch,
+  getDayChannel,
+  getDayChannelDetail,
+  getDayChannelSource,
+  setCaptureBranch,
+  setDayChannel,
+  type ChannelSource,
+} from './channel'
 import { loadTodayPlan, pickActivity } from '@/features/agenda/currentActivity'
 import type { Activity } from '@/features/agenda/api'
 import { useCaptureStats } from './useCaptureStats'
@@ -28,7 +37,16 @@ export function RegisterHome() {
   const [detail, setDetail] = useState(() => getDayChannelDetail(userId))
   const [picking, setPicking] = useState<null | 'change' | 'then-register'>(null)
   const [plan, setPlan] = useState<{ activity: Activity; current: boolean } | null>(null)
-  const branch = profile!.branch_id
+  // Sin sucursal propia (jefe de ventas, gerencia, Sistemas): elige dónde registra; el jefe solo entre las suyas.
+  const ownBranch = profile!.branch_id
+  const branchOptions =
+    ownBranch !== null
+      ? []
+      : (catalogs?.branches ?? []).filter((b) => profile!.role !== 'sales_lead' || profile!.branch_ids?.includes(b.id))
+  const [pickedBranch, setPickedBranch] = useState(() => getCaptureBranch(userId))
+  const chosenBranch = branchOptions.find((b) => b.id === pickedBranch) ?? (branchOptions.length === 1 ? branchOptions[0] : undefined)
+  const branch = ownBranch ?? chosenBranch?.id ?? null
+  const needsBranch = ownBranch === null && !chosenBranch
 
   // Cada confirmación del servidor refresca el conteo y los avisos de duplicado.
   useEffect(() => onSyncEvent(() => setRefreshKey((k) => k + 1)), [])
@@ -68,6 +86,8 @@ export function RegisterHome() {
   const channelName = catalogs?.channels.find((c) => Number(c.value) === channelId)?.label
 
   function onRegister() {
+    if (needsBranch) return
+    if (chosenBranch) setCaptureBranch(userId, chosenBranch.id)
     if ((channelId === null || !channelName || !detail) && catalogs?.channels.length) setPicking('then-register')
     else void navigate({ to: '/registrar/nuevo' })
   }
@@ -101,6 +121,26 @@ export function RegisterHome() {
             </button>
           </div>
         ))}
+
+        {ownBranch === null && branchOptions.length > 1 && (
+          <section className="flex flex-col gap-1.5 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-ink/5">
+            <label htmlFor="capture-branch" className="text-sm font-bold uppercase tracking-wide text-ink/55">
+              Sucursal donde registras
+            </label>
+            <Select
+              id="capture-branch"
+              value={chosenBranch ? String(chosenBranch.id) : ''}
+              onChange={(v) => {
+                if (!v) return
+                setCaptureBranch(userId, Number(v))
+                setPickedBranch(Number(v))
+              }}
+              options={branchOptions.map((b) => ({ value: String(b.id), label: b.name }))}
+              placeholder="Elegir sucursal…"
+              invalid={needsBranch}
+            />
+          </section>
+        )}
 
         <section className="flex flex-col gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-ink/5" aria-label="Canal de hoy">
           <div className="flex items-center justify-between gap-3">
@@ -159,13 +199,15 @@ export function RegisterHome() {
           <button
             type="button"
             onClick={onRegister}
-            className="bg-gold-gradient flex min-h-24 w-full items-center justify-center gap-3 rounded-3xl font-display text-3xl font-bold text-ink shadow-gold transition active:scale-[0.98]"
+            disabled={needsBranch}
+            className="bg-gold-gradient flex min-h-24 disabled:opacity-50 w-full items-center justify-center gap-3 rounded-3xl font-display text-3xl font-bold text-ink shadow-gold transition active:scale-[0.98]"
           >
             <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-2xl text-gold-light">
               +
             </span>
             Nuevo Registro
           </button>
+          {needsBranch && <p className="-mt-6 text-center text-sm text-ink/55">Elige arriba la sucursal donde registras.</p>}
           {FOLLOWUP_ROLES.includes(profile!.role) && (
             <Link
               to="/seguimiento"

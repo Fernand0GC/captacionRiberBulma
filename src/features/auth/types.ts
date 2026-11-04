@@ -34,7 +34,8 @@ export const FIELD_ROLES: AppRole[] = ['field_volunteer', 'field_assistant', 'fi
 export const MANAGER_ROLES: AppRole[] = ['branch_manager', 'sales_lead', 'general_manager', 'admin']
 /** Ven todas las sucursales (sin sucursal propia). */
 export const GLOBAL_ROLES: AppRole[] = ['general_manager', 'admin']
-export const CAPTURE_ROLES: AppRole[] = [...FIELD_ROLES, 'branch_manager']
+/** Todos registran clientes; quien no tiene sucursal propia (jefe, gerencia, Sistemas) elige en cuál. */
+export const CAPTURE_ROLES: AppRole[] = [...FIELD_ROLES, ...MANAGER_ROLES]
 export const FOLLOWUP_ROLES: AppRole[] = ['field_assistant', 'field_supervisor', 'branch_manager']
 
 export function homePath(role: AppRole): string {

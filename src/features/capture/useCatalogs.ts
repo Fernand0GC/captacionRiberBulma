@@ -14,7 +14,8 @@ export const GROUP_LABEL: Record<ProductGroup, string> = {
 
 export type Product = { id: number; name: string; group: ProductGroup; search: string }
 export type ChannelOption = Omit<Option, 'group'> & { group: ChannelGroup | null }
-export type Catalogs = { channels: ChannelOption[]; products: Product[] }
+/** branches: para quien elige sucursal al registrar (puede faltar en cachés viejas). */
+export type Catalogs = { channels: ChannelOption[]; products: Product[]; branches?: { id: number; name: string }[] }
 
 // Catálogos (no son datos de clientes): se cachean para poder registrar sin señal.
 const KEY = 'captacion.catalogs.v4'
@@ -35,13 +36,16 @@ function readCache(): Catalogs | null {
 }
 
 async function fetchCatalogs(): Promise<Catalogs> {
-  const [ch, pr] = await Promise.all([
+  const [ch, pr, br] = await Promise.all([
     supabase.from('channels').select('id, name, channel_group').eq('active', true).order('sort'),
     supabase.from('products').select('id, name, product_group').eq('active', true).order('sort'),
+    supabase.from('branches').select('id, name').eq('active', true).order('id'),
   ])
   if (ch.error) throw ch.error
   if (pr.error) throw pr.error
+  if (br.error) throw br.error
   return {
+    branches: br.data,
     channels: ch.data.map((c) => ({
       value: String(c.id),
       label: c.name,

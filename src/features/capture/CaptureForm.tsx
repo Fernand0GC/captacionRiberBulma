@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { Navigate, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { enqueue } from '@/features/sync/sender'
 import { requestFlush } from '@/features/sync/syncLoop'
@@ -11,7 +11,7 @@ import { Button } from '@/ui/Button'
 import { PageTitle } from '@/ui/PageTitle'
 import { Field, TextInput } from '@/ui/Field'
 import { useToast } from '@/ui/Toast'
-import { getDayChannel, getDayChannelDetail } from './channel'
+import { getCaptureBranch, getDayChannel, getDayChannelDetail } from './channel'
 import { InterestToggle } from './InterestToggle'
 import { ProductPicker } from './ProductPicker'
 import { useCatalogs } from './useCatalogs'
@@ -82,6 +82,8 @@ export function CaptureForm() {
         interest: (form.interest || undefined) as 'high' | 'medium' | 'low' | undefined,
         occupation: form.occupation.trim() || undefined,
         address: form.address.trim() || undefined,
+        // Sin sucursal propia: la elegida en Registrar (el servidor valida que pueda registrar ahí).
+        branch_id: profile!.branch_id === null ? (getCaptureBranch(profile!.id) ?? undefined) : undefined,
         client_created_at: new Date().toISOString(),
       })
       requestFlush()
@@ -95,6 +97,9 @@ export function CaptureForm() {
       setSaving(false)
     }
   }
+
+  // Sin sucursal propia ni elegida: primero se elige en Registrar (si no, el servidor la rechazaría).
+  if (profile!.branch_id === null && getCaptureBranch(profile!.id) === null) return <Navigate to="/registrar" replace />
 
   return (
     <div>
