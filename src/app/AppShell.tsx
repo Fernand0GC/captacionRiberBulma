@@ -13,6 +13,7 @@ import {
 } from 'react-icons/md'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { LogoutButton } from '@/features/auth/LogoutButton'
+import { InstallCard } from '@/features/install/InstallCard'
 import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
 import { SyncRunner } from '@/features/sync/SyncRunner'
 
@@ -152,7 +153,7 @@ export function AppShell() {
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Menú">
           <button type="button" aria-label="Cerrar menú" className="absolute inset-0 bg-ink/60" onClick={() => setOpen(false)} />
-          <div className="bg-ink-gradient absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col justify-between p-4">
+          <div className="bg-ink-gradient absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col justify-between gap-4 overflow-y-auto p-4">
             <div className="flex flex-col gap-6">
               <div className="flex items-center justify-between">
                 <Brand />
@@ -162,7 +163,10 @@ export function AppShell() {
               </div>
               <NavLinks onNavigate={() => setOpen(false)} />
             </div>
-            <UserCard />
+            <div className="flex flex-col gap-3">
+              <InstallCard />
+              <UserCard />
+            </div>
           </div>
         </div>
       )}

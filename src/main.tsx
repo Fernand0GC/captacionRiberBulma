@@ -4,6 +4,7 @@ import { RouterProvider } from '@tanstack/react-router'
 import { Providers } from '@/app/providers'
 import { router } from '@/app/router'
 import { setupPwa } from '@/app/pwa'
+import { setupInstall } from '@/features/install/install'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
@@ -14,4 +15,5 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
+setupInstall()
 setupPwa()
