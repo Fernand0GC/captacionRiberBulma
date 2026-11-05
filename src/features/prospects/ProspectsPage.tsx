@@ -6,6 +6,8 @@ import { groupChannels } from '@/features/capture/channelGroups'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { Badge } from '@/ui/Badge'
 import { useToast } from '@/ui/Toast'
+import { followupRowOf, useClient } from '@/features/client/api'
+import { ResultDialog } from '@/features/followup/ResultDialog'
 import {
   PAGE_SIZE,
   useAssign,
@@ -101,16 +103,40 @@ export function ProspectsPage() {
   }
   const assign = useAssign()
   const assignees = useAssignees(branchId)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [assignTo, setAssignTo] = useState('')
+  const [contactId, setContactId] = useState<string | null>(null)
+  const closeContact = () => setContactId(null)
   const rowsOnPage = prospects.data?.rows ?? []
+  // Modo "Seleccionar": recién ahí salen las casillas y la barra para asignar.
+  const [selecting, setSelecting] = useState(false)
+  // La selección vale solo para los filtros y la página en que se hizo: al cambiarlos se limpia sola.
+  const selectionKey = JSON.stringify([filters, page])
+  const [selection, setSelection] = useState<{ key: string; ids: Set<string> }>({ key: selectionKey, ids: new Set() })
+  const selected = selection.key === selectionKey ? selection.ids : new Set<string>()
+  const setSelected = (ids: Set<string>) => setSelection({ key: selectionKey, ids })
   const toggle = (id: string) =>
-    setSelected((s) => {
-      const n = new Set(s)
+    setSelection((cur) => {
+      const n = new Set(cur.key === selectionKey ? cur.ids : [])
       if (n.has(id)) n.delete(id)
       else n.add(id)
-      return n
+      return { key: selectionKey, ids: n }
     })
+  const stopSelecting = () => {
+    setSelecting(false)
+    setSelection({ key: selectionKey, ids: new Set() })
+    setAssignTo('')
+  }
+  useEffect(() => {
+    if (!selecting) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelecting(false)
+        setSelection((s) => ({ ...s, ids: new Set() }))
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selecting])
   const allOnPage = rowsOnPage.length > 0 && rowsOnPage.every((r) => selected.has(r.id))
   const toggleAll = () => setSelected(allOnPage ? new Set() : new Set(rowsOnPage.map((r) => r.id)))
   // Reparto de la tarde (FR-039b): en partes iguales entre las auxiliares de la sucursal.
@@ -125,14 +151,12 @@ export function ProspectsPage() {
         }))
         for (const b of buckets) if (b.ids.length) await assign.mutateAsync({ ids: b.ids, to: b.to })
         toast(`✓ ${ids.length} repartidas entre ${auxiliaries.length} auxiliares`, 'success')
-        setSelected(new Set())
-        setAssignTo('')
+        stopSelecting()
         return
       }
       const n = await assign.mutateAsync({ ids: [...selected], to: assignTo === 'none' ? null : assignTo })
       toast(assignTo === 'none' ? `✓ ${n} sin responsable` : `✓ ${n} asignadas`, 'success')
-      setSelected(new Set())
-      setAssignTo('')
+      stopSelecting()
     } catch (e) {
       toast((e as Error).message, 'error')
     }
@@ -140,12 +164,23 @@ export function ProspectsPage() {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6">
+    <main className={`mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 ${selecting ? 'pb-36' : ''}`}>
       <PageTitle
         title={search.ver === 'visitas' ? 'Visitas pactadas' : 'Captaciones'}
         subtitle={isGlobal ? (branches.data?.find((b) => b.id === sucursal)?.name ?? 'Todas las sucursales') : branchName}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              aria-pressed={selecting}
+              onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
+              disabled={!rowsOnPage.length}
+              className={`min-h-11 rounded-full px-4 text-sm font-semibold ring-1 disabled:opacity-50 ${
+                selecting ? 'bg-ink text-gold-light ring-ink' : 'bg-white text-ink ring-ink/15 active:bg-sand'
+              }`}
+            >
+              {selecting ? 'Cancelar selección' : 'Seleccionar'}
+            </button>
             <button
               type="button"
               onClick={() => void onExport()}
@@ -319,54 +354,6 @@ export function ProspectsPage() {
         </div>
       </section>
 
-      {selected.size > 0 && (
-        <div
-          className="sticky top-2 z-20 flex flex-wrap items-center gap-3 rounded-2xl bg-ink p-3 text-white shadow-xl"
-          role="region"
-          aria-label="Asignar"
-        >
-          <span className="font-semibold">{selected.size} seleccionadas</span>
-          {branchId === undefined ? (
-            <span className="text-sm text-white/70">Elige una sucursal en el filtro para asignar.</span>
-          ) : (
-            <>
-              <select
-                aria-label="Asignar a"
-                value={assignTo}
-                onChange={(e) => setAssignTo(e.target.value)}
-                className="min-h-10 rounded-xl bg-white px-3 text-ink"
-              >
-                <option value="">Asignar a…</option>
-                {auxiliaries.length > 1 && (
-                  <option value="split">Repartir entre las {auxiliaries.length} auxiliares</option>
-                )}
-                {assignees.data?.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.full_name} ({ROLE_LABEL[a.role]})
-                  </option>
-                ))}
-                <option value="none">— Quitar responsable</option>
-              </select>
-              <button
-                type="button"
-                disabled={!assignTo || assign.isPending}
-                onClick={() => void doAssign()}
-                className="bg-gold-gradient min-h-10 rounded-xl px-4 font-semibold text-ink disabled:opacity-50"
-              >
-                {assign.isPending ? 'Asignando…' : 'Asignar'}
-              </button>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={() => setSelected(new Set())}
-            className="ml-auto text-sm text-white/70 underline"
-          >
-            Limpiar
-          </button>
-        </div>
-      )}
-
       {/* Cantidad por canal: chips que además filtran (con todos los demás filtros aplicados). */}
       {prospects.data && prospects.data.by_channel.length > 0 && (
         <div className="flex flex-wrap gap-2" role="group" aria-label="Por canal">
@@ -446,13 +433,63 @@ export function ProspectsPage() {
           <ProspectsTable
             rows={rowsOnPage}
             showBranch={isGlobal}
+            selecting={selecting}
             selected={selected}
             onToggle={toggle}
+            onContact={setContactId}
             allSelected={allOnPage}
             onToggleAll={toggleAll}
           />
-          <ProspectsCards rows={rowsOnPage} showBranch={isGlobal} selected={selected} onToggle={toggle} />
+          <ProspectsCards rows={rowsOnPage} showBranch={isGlobal} selecting={selecting} selected={selected} onToggle={toggle} onContact={setContactId} />
         </>
+      )}
+
+      {contactId && <ContactDialog id={contactId} onClose={closeContact} />}
+
+      {selecting && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-ink px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 text-white shadow-2xl lg:left-64"
+          role="region"
+          aria-label="Asignar"
+        >
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3">
+            <span className="font-semibold" data-testid="selected-count">
+              {selected.size === 0 ? 'Marca las captaciones' : `${selected.size} ${selected.size === 1 ? 'seleccionada' : 'seleccionadas'}`}
+            </span>
+            {branchId === undefined ? (
+              <span className="text-sm text-white/70">Elige una sucursal en el filtro para asignar.</span>
+            ) : (
+              <>
+                <select
+                  aria-label="Asignar a"
+                  value={assignTo}
+                  onChange={(e) => setAssignTo(e.target.value)}
+                  className="min-h-11 rounded-xl bg-white px-3 text-ink"
+                >
+                  <option value="">Asignar a…</option>
+                  {auxiliaries.length > 1 && <option value="split">Repartir entre las {auxiliaries.length} auxiliares</option>}
+                  {assignees.data?.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.full_name} ({ROLE_LABEL[a.role]})
+                    </option>
+                  ))}
+                  <option value="none">— Quitar responsable</option>
+                </select>
+                <button
+                  type="button"
+                  disabled={!assignTo || selected.size === 0 || assign.isPending}
+                  onClick={() => void doAssign()}
+                  className="bg-gold-gradient min-h-11 rounded-xl px-5 font-semibold text-ink disabled:opacity-50"
+                >
+                  {assign.isPending ? 'Asignando…' : 'Asignar'}
+                </button>
+              </>
+            )}
+            <button type="button" onClick={stopSelecting} className="ml-auto min-h-11 px-2 text-sm text-white/70 underline">
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
 
       {pages > 1 && (
@@ -496,28 +533,36 @@ function Interest({ v }: { v: ProspectRow['interest'] }) {
   )
 }
 
-type SelectProps = { selected: Set<string>; onToggle: (id: string) => void }
+type SelectProps = { selecting: boolean; selected: Set<string>; onToggle: (id: string) => void; onContact: (id: string) => void }
 
-/** Sin responsable: "Hacer seguimiento" abre la ficha para registrar el contacto, y quien lo registra queda como responsable. */
-function Assigned({ r }: { r: ProspectRow }) {
+/** Sin responsable: directo el botón "Seguimiento" (abre el registro de contacto; quien lo registra queda como responsable). */
+function Assigned({ r, onContact }: { r: ProspectRow; onContact?: (id: string) => void }) {
   if (r.assigned_to_name) return <span>{r.assigned_to_name}</span>
-  const open = r.stage !== 'sale' && r.stage !== 'lost'
+  if (!onContact || r.stage === 'sale' || r.stage === 'lost') return <span className="text-ink/30">—</span>
   return (
-    <span className="flex flex-wrap items-center gap-2">
-      <span className="text-ink/35">Sin asignar</span>
-      {open && (
-        <Link
-          to="/cliente/$id"
-          params={{ id: r.id }}
-          search={{ contactar: true }}
-          aria-label={`Hacer seguimiento a ${r.full_name}`}
-          className="whitespace-nowrap rounded-full bg-ink px-3 py-1 text-xs font-semibold text-gold-light active:bg-charcoal"
-        >
-          Hacer seguimiento
-        </Link>
-      )}
-    </span>
+    <button
+      type="button"
+      onClick={() => onContact(r.id)}
+      aria-label={`Seguimiento a ${r.full_name}`}
+      className="inline-flex whitespace-nowrap rounded-full bg-ink px-3 py-1 text-xs font-semibold text-gold-light active:bg-charcoal"
+    >
+      Seguimiento
+    </button>
   )
+}
+
+/** Registro de contacto sobre la misma tabla: trae la ficha y abre el mismo modal que en Mis contactos. */
+function ContactDialog({ id, onClose }: { id: string; onClose: () => void }) {
+  const q = useClient(id)
+  const toast = useToast()
+  const failed = q.isError ? (q.error as Error).message : null
+  useEffect(() => {
+    if (!failed) return
+    toast(failed, 'error')
+    onClose()
+  }, [failed, toast, onClose])
+  if (!q.data) return null
+  return <ResultDialog row={followupRowOf(q.data.prospect)} onClose={onClose} />
 }
 
 function StageCell({ r }: { r: ProspectRow }) {
@@ -539,8 +584,10 @@ function StageCell({ r }: { r: ProspectRow }) {
 function ProspectsTable({
   rows,
   showBranch,
+  selecting,
   selected,
   onToggle,
+  onContact,
   allSelected,
   onToggleAll,
 }: {
@@ -549,34 +596,25 @@ function ProspectsTable({
   allSelected: boolean
   onToggleAll: () => void
 } & SelectProps) {
+  const headers = ['Fecha', 'Cliente', 'Producto', 'Canal', ...(showBranch ? ['Sucursal'] : []), 'Registrado por', 'Etapa', 'Responsable']
   return (
     <div className="hidden overflow-x-auto rounded-3xl bg-white shadow-sm ring-1 ring-ink/5 md:block">
-      <table className="w-full min-w-[56rem] text-left text-sm">
+      <table className="w-full min-w-[48rem] text-left text-sm">
         <thead className="bg-ink text-gold-light">
           <tr>
-            <th scope="col" className="w-10 rounded-tl-3xl px-4 py-3">
-              <input
-                type="checkbox"
-                aria-label="Seleccionar todas"
-                checked={allSelected}
-                onChange={onToggleAll}
-                className="h-4 w-4 accent-gold"
-              />
-            </th>
-            {[
-              'Fecha',
-              'Hora',
-              'Cliente',
-              'Celular',
-              'Producto',
-              'Interés',
-              'Canal',
-              ...(showBranch ? ['Sucursal'] : []),
-              'Registrado por',
-              'Etapa',
-              'Responsable',
-            ].map((h) => (
-              <th key={h} scope="col" className="px-4 py-3 font-semibold last:rounded-tr-3xl">
+            {selecting && (
+              <th scope="col" className="w-10 px-4 py-3">
+                <input
+                  type="checkbox"
+                  aria-label="Seleccionar todas"
+                  checked={allSelected}
+                  onChange={onToggleAll}
+                  className="h-4 w-4 accent-gold"
+                />
+              </th>
+            )}
+            {headers.map((h) => (
+              <th key={h} scope="col" className="px-4 py-3 font-semibold">
                 {h}
               </th>
             ))}
@@ -586,36 +624,46 @@ function ProspectsTable({
           {rows.map((r) => (
             <tr
               key={r.id}
-              className={`border-t border-ink/5 ${selected.has(r.id) ? 'bg-gold/10' : 'even:bg-cream/60'}`}
+              onClick={selecting ? () => onToggle(r.id) : undefined}
+              className={`border-t border-ink/5 align-top ${selected.has(r.id) ? 'bg-gold/10' : 'even:bg-cream/60'} ${selecting ? 'cursor-pointer' : ''}`}
             >
-              <td className="px-4 py-3">
-                <input
-                  type="checkbox"
-                  aria-label={`Seleccionar ${r.full_name}`}
-                  checked={selected.has(r.id)}
-                  onChange={() => onToggle(r.id)}
-                  className="h-4 w-4 accent-gold"
-                />
+              {selecting && (
+                <td className="px-4 py-3">
+                  <input
+                    type="checkbox"
+                    aria-label={`Seleccionar ${r.full_name}`}
+                    checked={selected.has(r.id)}
+                    onChange={() => onToggle(r.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-4 w-4 accent-gold"
+                  />
+                </td>
+              )}
+              <td className="whitespace-nowrap px-4 py-3 tabular-nums">
+                {fmtDate(r.client_created_at)}
+                <span className="block text-xs text-ink/50">{fmtTime(r.client_created_at)}</span>
               </td>
-              <td className="whitespace-nowrap px-4 py-3 tabular-nums">{fmtDate(r.client_created_at)}</td>
-              <td className="whitespace-nowrap px-4 py-3 tabular-nums">{fmtTime(r.client_created_at)}</td>
-              <td className="px-4 py-3 font-semibold">
-                <Link
-                  to="/cliente/$id"
-                  params={{ id: r.id }}
-                  className="hover:text-gold-dark hover:underline"
-                >
-                  {r.full_name}
-                </Link>
-              </td>
-              <td className="whitespace-nowrap px-4 py-3 tabular-nums">{r.phone_raw}</td>
-              <td className="px-4 py-3">{r.product_name ?? <span className="text-ink/30">—</span>}</td>
               <td className="px-4 py-3">
-                <Interest v={r.interest} />
+                {selecting ? (
+                  <span className="font-semibold">{r.full_name}</span>
+                ) : (
+                  <Link to="/cliente/$id" params={{ id: r.id }} className="font-semibold hover:text-gold-dark hover:underline">
+                    {r.full_name}
+                  </Link>
+                )}
+                <span className="block tabular-nums text-ink/60">{r.phone_raw}</span>
+              </td>
+              <td className="px-4 py-3">
+                {r.product_name ?? <span className="text-ink/30">—</span>}
+                {r.interest && (
+                  <span className="mt-1 block">
+                    <Interest v={r.interest} />
+                  </span>
+                )}
               </td>
               <td className="px-4 py-3">
                 {r.channel_name ?? <span className="text-ink/30">—</span>}
-                {r.channel_detail && <span className="block text-sm text-ink/55">{r.channel_detail}</span>}
+                {r.channel_detail && <span className="block text-xs text-ink/55">{r.channel_detail}</span>}
               </td>
               {showBranch && <td className="px-4 py-3">{r.branch_name}</td>}
               <td className="px-4 py-3">
@@ -626,7 +674,7 @@ function ProspectsTable({
                 <StageCell r={r} />
               </td>
               <td className="px-4 py-3">
-                <Assigned r={r} />
+                <Assigned r={r} onContact={selecting ? undefined : onContact} />
               </td>
             </tr>
           ))}
@@ -639,32 +687,38 @@ function ProspectsTable({
 function ProspectsCards({
   rows,
   showBranch,
+  selecting,
   selected,
   onToggle,
+  onContact,
 }: { rows: ProspectRow[]; showBranch: boolean } & SelectProps) {
   return (
     <ul className="flex flex-col gap-3 md:hidden">
       {rows.map((r) => (
         <li
           key={r.id}
-          className={`rounded-3xl p-4 shadow-sm ring-1 ${selected.has(r.id) ? 'bg-gold/10 ring-gold/40' : 'bg-white ring-ink/5'}`}
+          onClick={selecting ? () => onToggle(r.id) : undefined}
+          className={`rounded-3xl p-4 shadow-sm ring-1 ${selected.has(r.id) ? 'bg-gold/10 ring-gold/40' : 'bg-white ring-ink/5'} ${selecting ? 'cursor-pointer' : ''}`}
         >
           <div className="flex items-start justify-between gap-3">
-            <input
-              type="checkbox"
-              aria-label={`Seleccionar ${r.full_name}`}
-              checked={selected.has(r.id)}
-              onChange={() => onToggle(r.id)}
-              className="mt-1 h-5 w-5 shrink-0 accent-gold"
-            />
+            {selecting && (
+              <input
+                type="checkbox"
+                aria-label={`Seleccionar ${r.full_name}`}
+                checked={selected.has(r.id)}
+                onChange={() => onToggle(r.id)}
+                onClick={(e) => e.stopPropagation()}
+                className="mt-1 h-5 w-5 shrink-0 accent-gold"
+              />
+            )}
             <div className="min-w-0 flex-1">
-              <Link
-                to="/cliente/$id"
-                params={{ id: r.id }}
-                className="font-semibold hover:text-gold-dark hover:underline"
-              >
-                {r.full_name}
-              </Link>
+              {selecting ? (
+                <p className="font-semibold">{r.full_name}</p>
+              ) : (
+                <Link to="/cliente/$id" params={{ id: r.id }} className="font-semibold hover:text-gold-dark hover:underline">
+                  {r.full_name}
+                </Link>
+              )}
               <p className="tabular-nums text-ink/70">{r.phone_raw}</p>
             </div>
             <Interest v={r.interest} />
@@ -684,10 +738,10 @@ function ProspectsCards({
             </span>{' '}
             · {r.created_by_name} ({ROLE_LABEL[r.created_by_role]})
           </p>
-          <p className="mt-1 flex flex-wrap justify-between gap-2 text-sm">
+          <div className="mt-1 flex flex-wrap justify-between gap-2 text-sm">
             <StageCell r={r} />
-            <Assigned r={r} />
-          </p>
+            <Assigned r={r} onContact={selecting ? undefined : onContact} />
+          </div>
         </li>
       ))}
     </ul>

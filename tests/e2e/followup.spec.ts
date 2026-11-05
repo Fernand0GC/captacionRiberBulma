@@ -26,6 +26,9 @@ test('embudo: el encargado asigna; la auxiliar recaptura, hace seguimiento y cie
   await expect(page).toHaveURL(/\/panel/)
   await page.goto('/gestion')
   await page.getByLabel('Responsable').selectOption('sin')
+  // Las casillas salen recién con "Seleccionar"
+  await expect(page.getByLabel(`Seleccionar ${a}`)).toHaveCount(0)
+  await page.getByRole('button', { name: 'Seleccionar', exact: true }).click()
   // Hay tabla (escritorio) y tarjetas (celular) en el DOM: solo la visible.
   await page.getByLabel(`Seleccionar ${a}`).filter({ visible: true }).check()
   await page.getByLabel(`Seleccionar ${b}`).filter({ visible: true }).check()

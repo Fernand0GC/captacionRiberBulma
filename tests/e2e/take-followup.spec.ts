@@ -12,7 +12,7 @@ async function capture(browser: Browser, user: string, name: string) {
   await ctx.close()
 }
 
-test('Hacer seguimiento: sin responsable, quien registra el contacto queda como responsable', async ({ browser, page }) => {
+test('Seguimiento: sin responsable, quien registra el contacto queda como responsable', async ({ browser, page }) => {
   const tag = String(Date.now()).slice(-5)
   const fromVol = `Toma Vol ${tag}`
   // Trinidad: no choca con el conteo del día de vol.verdolago (capture-offline)
@@ -21,15 +21,13 @@ test('Hacer seguimiento: sin responsable, quien registra el contacto queda como 
   await login(page, 'enc.trinidad')
   await expect(page).toHaveURL(/\/panel/)
   await page.goto('/gestion')
-  await page.getByRole('link', { name: `Hacer seguimiento a ${fromVol}` }).click()
+  await page.getByRole('button', { name: `Seguimiento a ${fromVol}` }).click()
 
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('radio', { name: /Busca un producto/ }).click()
   await dialog.getByRole('button', { name: 'Guardar' }).click()
   await expect(dialog).toHaveCount(0)
-  await expect(page).toHaveURL(/\/cliente\/[^?]+$/)
-  await expect(page.getByRole('combobox', { name: 'Responsable' })).toHaveValue('00000000-0000-4000-8000-000000000007')
-
-  await page.goto('/gestion')
+  // Se queda en Captaciones: la fila se actualiza sola con el nuevo responsable
+  await expect(page).toHaveURL(/\/gestion/)
   await expect(page.getByRole('listitem').filter({ hasText: fromVol })).toContainText('Encargado Trinidad')
 })

@@ -82,8 +82,6 @@ const clientLayout = createRoute({
 const clientRoute = createRoute({
   getParentRoute: () => clientLayout,
   path: '/cliente/$id',
-  // ?contactar=true: abre "Registrar contacto" al entrar (botón "Hacer seguimiento" de Captaciones).
-  validateSearch: (s: Record<string, unknown>): { contactar?: boolean } => (s.contactar === true || s.contactar === 'true' ? { contactar: true } : {}),
   component: lazyRouteComponent(() => import('@/features/client/ClientPage'), 'ClientPage'),
 })
 

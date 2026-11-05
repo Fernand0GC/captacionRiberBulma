@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toAppError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 import type { AppRole } from '@/features/auth/types'
-import type { ContactMethod, ContactResult } from '@/features/followup/api'
+import type { ContactMethod, ContactResult, FollowupRow } from '@/features/followup/api'
 import type { ProductGroup } from '@/features/capture/useCatalogs'
 
 export type Client = {
@@ -90,4 +90,28 @@ export function useVoidClient(id: string) {
     const { error } = await supabase.rpc('void_prospect', { p_id: id, p_reason: reason })
     if (error) throw toAppError(error)
   })
+}
+
+/** La ficha en el formato del registro de contacto (ResultDialog). */
+export function followupRowOf(c: Client): FollowupRow {
+  return {
+    id: c.id,
+    full_name: c.full_name,
+    phone_raw: c.phone_raw,
+    phone_norm: c.phone_norm,
+    stage: c.stage as FollowupRow['stage'],
+    contact_attempts: c.contact_attempts,
+    next_contact_at: c.next_contact_at,
+    visit_at: c.visit_at,
+    client_created_at: c.client_created_at,
+    interest: c.interest,
+    product_id: c.product_id,
+    product_name: c.product_name,
+    channel_name: c.channel_name,
+    created_by_name: c.created_by_name,
+    last_result: null,
+    last_method: null,
+    last_note: null,
+    last_contacted_at: null,
+  }
 }

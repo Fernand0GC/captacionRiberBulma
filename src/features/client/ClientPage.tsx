@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
+import { Link, useParams } from '@tanstack/react-router'
 import { ROLE_LABEL } from '@/features/auth/types'
-import { METHOD_LABEL, RESULT_LABEL, type FollowupRow } from '@/features/followup/api'
+import { METHOD_LABEL, RESULT_LABEL } from '@/features/followup/api'
 import { rememberMethod } from '@/features/followup/lastAction'
 import { ResultDialog } from '@/features/followup/ResultDialog'
 import { useAssign, useAssignees } from '@/features/prospects/api'
@@ -11,7 +11,7 @@ import { Badge } from '@/ui/Badge'
 import { Button } from '@/ui/Button'
 import { Dialog } from '@/ui/Dialog'
 import { useToast } from '@/ui/Toast'
-import { useClient, useVoidClient, type Client, type TimelineItem } from './api'
+import { followupRowOf, useClient, useVoidClient, type TimelineItem } from './api'
 import { EditClientDialog } from './EditClientDialog'
 
 const FIELD_LABEL: Record<string, string> = {
@@ -104,28 +104,6 @@ function TimelineEntry({ t }: { t: TimelineItem }) {
   )
 }
 
-function asRow(c: Client): FollowupRow {
-  return {
-    id: c.id,
-    full_name: c.full_name,
-    phone_raw: c.phone_raw,
-    phone_norm: c.phone_norm,
-    stage: c.stage as FollowupRow['stage'],
-    contact_attempts: c.contact_attempts,
-    next_contact_at: c.next_contact_at,
-    visit_at: c.visit_at,
-    client_created_at: c.client_created_at,
-    interest: c.interest,
-    product_id: c.product_id,
-    product_name: c.product_name,
-    channel_name: c.channel_name,
-    created_by_name: c.created_by_name,
-    last_result: null,
-    last_method: null,
-    last_note: null,
-    last_contacted_at: null,
-  }
-}
 
 function Info({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -147,14 +125,7 @@ export function ClientPage() {
   const toast = useToast()
   const c = q.data?.prospect
   const assignees = useAssignees(q.data?.can_edit ? c?.branch_id : undefined)
-  const navigate = useNavigate()
-  const { contactar } = useSearch({ strict: false }) as { contactar?: boolean }
 
-  // Llegó desde "Hacer seguimiento" (Captaciones): el registro de contacto se abre solo; al cerrarlo se limpia la URL.
-  const closeModal = () => {
-    setModal(null)
-    if (contactar) void navigate({ to: '/cliente/$id', params: { id }, search: {}, replace: true })
-  }
 
   if (q.isError) {
     return (
@@ -170,8 +141,8 @@ export function ClientPage() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-5 px-4 py-5 sm:px-6">
-      <Link to="/gestion" className="text-sm font-semibold text-gold-dark hover:underline">
-        ← Captaciones
+      <Link to="/gestion" className="text-xxl font-semibold text-gold-dark hover:underline">
+        ← Retroceder
       </Link>
 
       <section className="bg-ink-gradient flex flex-col gap-4 rounded-3xl p-5 text-white sm:p-6">
@@ -274,7 +245,7 @@ export function ClientPage() {
         </section>
       </div>
 
-      {(modal === 'contact' || (contactar && q.data.can_contact)) && <ResultDialog row={asRow(c)} onClose={closeModal} />}
+      {modal === 'contact' && <ResultDialog row={followupRowOf(c)} onClose={() => setModal(null)} />}
       {modal === 'edit' && <EditClientDialog client={c} onClose={() => setModal(null)} />}
       {modal === 'void' && (
         <Dialog open onOpenChange={(o) => !o && setModal(null)} title={`¿Anular a ${c.full_name}?`} description="Sale de las listas y reportes. No se borra: queda guardado con el motivo.">
