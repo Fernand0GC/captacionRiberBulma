@@ -10,6 +10,7 @@ import {
   MdManageAccounts,
   MdEventNote,
   MdGroups,
+  MdListAlt,
 } from 'react-icons/md'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { LogoutButton } from '@/features/auth/LogoutButton'
@@ -35,6 +36,7 @@ const MANAGE_NAV: NavItem[] = [
 const FIELD_NAV: NavItem[] = [
   { to: '/seguimiento', label: 'Mis contactos', icon: <MdPhone />, roles: FOLLOWUP_ROLES },
   { to: '/registrar', label: 'Registrar', icon: <MdPersonAdd />, roles: CAPTURE_ROLES },
+  { to: '/mis-registros', label: 'Mis registros', icon: <MdListAlt />, roles: ['field_assistant'] },
   { to: '/planificacion', label: 'Plan del día', icon: <MdEventNote />, roles: CAPTURE_ROLES },
 ]
 

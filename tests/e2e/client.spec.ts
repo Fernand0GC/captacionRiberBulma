@@ -19,7 +19,7 @@ test('ficha del cliente: historial, edición auditada, contacto desde la ficha y
   await login(page, 'enc.trinidad')
   await expect(page).toHaveURL(/\/panel/)
   await page.goto('/gestion')
-  await page.getByRole('link', { name }).filter({ visible: true }).click()
+  await page.getByRole('link', { name, exact: true }).filter({ visible: true }).click()
   await expect(page).toHaveURL(/\/cliente\//)
   await expect(page.getByTestId('client-name')).toHaveText(name)
   await expect(page.getByTestId('timeline-capture')).toContainText('Captado por Volantera Trinidad')

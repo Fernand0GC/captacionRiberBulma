@@ -498,11 +498,25 @@ function Interest({ v }: { v: ProspectRow['interest'] }) {
 
 type SelectProps = { selected: Set<string>; onToggle: (id: string) => void }
 
+/** Sin responsable: "Hacer seguimiento" abre la ficha para registrar el contacto, y quien lo registra queda como responsable. */
 function Assigned({ r }: { r: ProspectRow }) {
-  return r.assigned_to_name ? (
-    <span>{r.assigned_to_name}</span>
-  ) : (
-    <span className="text-ink/35">Sin asignar</span>
+  if (r.assigned_to_name) return <span>{r.assigned_to_name}</span>
+  const open = r.stage !== 'sale' && r.stage !== 'lost'
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <span className="text-ink/35">Sin asignar</span>
+      {open && (
+        <Link
+          to="/cliente/$id"
+          params={{ id: r.id }}
+          search={{ contactar: true }}
+          aria-label={`Hacer seguimiento a ${r.full_name}`}
+          className="whitespace-nowrap rounded-full bg-ink px-3 py-1 text-xs font-semibold text-gold-light active:bg-charcoal"
+        >
+          Hacer seguimiento
+        </Link>
+      )}
+    </span>
   )
 }
 

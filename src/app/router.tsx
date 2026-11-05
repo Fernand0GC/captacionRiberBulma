@@ -47,6 +47,22 @@ const followupLayout = createRoute({
     </RequireRole>
   ),
 })
+// Mis registros: la auxiliar ve solo lo que ella registró.
+const mineLayout = createRoute({
+  getParentRoute: () => shellLayout,
+  id: 'mine',
+  component: () => (
+    <RequireRole roles={['field_assistant']}>
+      <ManagedOutlet />
+    </RequireRole>
+  ),
+})
+const mineRoute = createRoute({
+  getParentRoute: () => mineLayout,
+  path: '/mis-registros',
+  component: lazyRouteComponent(() => import('@/features/mine/MyCapturesPage'), 'MyCapturesPage'),
+})
+
 const followupRoute = createRoute({
   getParentRoute: () => followupLayout,
   path: '/seguimiento',
@@ -66,6 +82,8 @@ const clientLayout = createRoute({
 const clientRoute = createRoute({
   getParentRoute: () => clientLayout,
   path: '/cliente/$id',
+  // ?contactar=true: abre "Registrar contacto" al entrar (botón "Hacer seguimiento" de Captaciones).
+  validateSearch: (s: Record<string, unknown>): { contactar?: boolean } => (s.contactar === true || s.contactar === 'true' ? { contactar: true } : {}),
   component: lazyRouteComponent(() => import('@/features/client/ClientPage'), 'ClientPage'),
 })
 
@@ -148,6 +166,7 @@ const routeTree = rootRoute.addChildren([
   shellLayout.addChildren([
     captureLayout.addChildren([registerRoute, registerNewRoute]),
     followupLayout.addChildren([followupRoute]),
+    mineLayout.addChildren([mineRoute]),
     clientLayout.addChildren([clientRoute]),
     planningLayout.addChildren([planningRoute]),
     manageLayout.addChildren([dashboardRoute, manageRoute, distributeRoute, goalsRoute, teamRoute, adminLayout.addChildren([usersRoute])]),

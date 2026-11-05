@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from '@tanstack/react-router'
+import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { METHOD_LABEL, RESULT_LABEL, type FollowupRow } from '@/features/followup/api'
 import { rememberMethod } from '@/features/followup/lastAction'
@@ -147,6 +147,14 @@ export function ClientPage() {
   const toast = useToast()
   const c = q.data?.prospect
   const assignees = useAssignees(q.data?.can_edit ? c?.branch_id : undefined)
+  const navigate = useNavigate()
+  const { contactar } = useSearch({ strict: false }) as { contactar?: boolean }
+
+  // Llegó desde "Hacer seguimiento" (Captaciones): el registro de contacto se abre solo; al cerrarlo se limpia la URL.
+  const closeModal = () => {
+    setModal(null)
+    if (contactar) void navigate({ to: '/cliente/$id', params: { id }, search: {}, replace: true })
+  }
 
   if (q.isError) {
     return (
@@ -266,7 +274,7 @@ export function ClientPage() {
         </section>
       </div>
 
-      {modal === 'contact' && <ResultDialog row={asRow(c)} onClose={() => setModal(null)} />}
+      {(modal === 'contact' || (contactar && q.data.can_contact)) && <ResultDialog row={asRow(c)} onClose={closeModal} />}
       {modal === 'edit' && <EditClientDialog client={c} onClose={() => setModal(null)} />}
       {modal === 'void' && (
         <Dialog open onOpenChange={(o) => !o && setModal(null)} title={`¿Anular a ${c.full_name}?`} description="Sale de las listas y reportes. No se borra: queda guardado con el motivo.">

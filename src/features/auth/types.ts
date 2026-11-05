@@ -36,7 +36,8 @@ export const MANAGER_ROLES: AppRole[] = ['branch_manager', 'sales_lead', 'genera
 export const GLOBAL_ROLES: AppRole[] = ['general_manager', 'admin']
 /** Todos registran clientes; quien no tiene sucursal propia (jefe, gerencia, Sistemas) elige en cuál. */
 export const CAPTURE_ROLES: AppRole[] = [...FIELD_ROLES, ...MANAGER_ROLES]
-export const FOLLOWUP_ROLES: AppRole[] = ['field_assistant', 'field_supervisor', 'branch_manager']
+/** Tienen "Mis contactos". Gerencia también: queda como responsable de lo que toma con "Hacer seguimiento". */
+export const FOLLOWUP_ROLES: AppRole[] = ['field_assistant', 'field_supervisor', ...MANAGER_ROLES]
 
 export function homePath(role: AppRole): string {
   if (MANAGER_ROLES.includes(role)) return '/panel'
