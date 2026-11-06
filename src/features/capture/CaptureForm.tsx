@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react'
+import { lazy, Suspense, useState, type FormEvent } from 'react'
+import { MdClose, MdMap, MdPlace } from 'react-icons/md'
 import { Navigate, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { enqueue } from '@/features/sync/sender'
@@ -13,6 +14,7 @@ import { Field, TextInput } from '@/ui/Field'
 import { useToast } from '@/ui/Toast'
 import { getCaptureBranch, getDayChannel, getDayChannelDetail } from './channel'
 import { InterestToggle } from './InterestToggle'
+import type { LatLng } from './MapPicker'
 import { ProductPicker } from './ProductPicker'
 import { useCatalogs } from './useCatalogs'
 
@@ -20,6 +22,8 @@ type Form = { full_name: string; phone: string; interest: string; occupation: st
 type Errors = Partial<Record<'full_name' | 'phone', string>>
 
 const EMPTY: Form = { full_name: '', phone: '', interest: '', occupation: '', address: '' }
+// Leaflet solo se descarga al abrir el mapa: no pesa en la pantalla de registro.
+const MapPicker = lazy(() => import('./MapPicker'))
 const RUBROS = ['Independiente/Negocio/Microcrédito', "Dependiente/Asalariado"] 
 // Solo nombre y celular son obligatorios (FR-011).
 function validate(f: Form): Errors {
@@ -52,6 +56,8 @@ export function CaptureForm() {
   const [errors, setErrors] = useState<Errors>({})
   const [saving, setSaving] = useState(false)
   const [productId, setProductId] = useState<number | null>(null)
+  const [location, setLocation] = useState<LatLng | null>(null)
+  const [mapOpen, setMapOpen] = useState(false)
   const channelId = getDayChannel(profile!.id)
   const channelDetail = getDayChannelDetail(profile!.id)
   const channelName = catalogs?.channels.find((c) => Number(c.value) === channelId)?.label
@@ -82,6 +88,8 @@ export function CaptureForm() {
         interest: (form.interest || undefined) as 'high' | 'medium' | 'low' | undefined,
         occupation: form.occupation.trim() || undefined,
         address: form.address.trim() || undefined,
+        lat: location?.lat,
+        lng: location?.lng,
         // Sin sucursal propia: la elegida en Registrar (el servidor valida que pueda registrar ahí).
         branch_id: profile!.branch_id === null ? (getCaptureBranch(profile!.id) ?? undefined) : undefined,
         client_created_at: new Date().toISOString(),
@@ -184,8 +192,54 @@ export function CaptureForm() {
         </div>
 
         <Field label="Dirección o referencia" optional>
-          {(id) => <TextInput id={id} autoComplete="off" value={form.address} onChange={(e) => set('address')(e.target.value)} />}
+          {(id) => (
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <TextInput
+                  id={id}
+                  autoComplete="off"
+                  placeholder="Escribe la dirección"
+                  className="min-w-0 flex-1"
+                  value={form.address}
+                  onChange={(e) => set('address')(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setMapOpen(true)}
+                  aria-label={location ? 'Cambiar ubicación en el mapa' : 'Abrir mapa'}
+                  className={`grid size-13 shrink-0 place-items-center rounded-2xl ring-1 active:bg-ink/5 ${
+                    location ? 'bg-charcoal text-gold ring-gold-dark' : 'bg-white text-ink/70 ring-ink/15'
+                  }`}
+                >
+                  <MdMap className="size-6" />
+                </button>
+              </div>
+              {location && (
+                <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm ring-1 ring-ink/10" data-testid="location-chip">
+                  <MdPlace className="size-5 shrink-0 text-rb-red" />
+                  <button type="button" onClick={() => setMapOpen(true)} className="flex-1 text-left font-medium text-ink/80">
+                    Ubicación marcada en el mapa
+                  </button>
+                  <button type="button" onClick={() => setLocation(null)} aria-label="Quitar ubicación" className="grid size-8 place-items-center rounded-full text-ink/50 active:bg-ink/5">
+                    <MdClose className="size-5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </Field>
+        {mapOpen && (
+          <Suspense fallback={<div className="fixed inset-0 z-50 grid place-items-center bg-cream text-ink/60">Cargando mapa…</div>}>
+            <MapPicker
+              value={location}
+              onClose={() => setMapOpen(false)}
+              onPick={(p) => {
+                setLocation(p)
+                setMapOpen(false)
+              }}
+            />
+          </Suspense>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-semibold text-ink/80">

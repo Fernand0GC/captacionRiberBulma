@@ -1,3 +1,4 @@
+import { MdPlace } from 'react-icons/md'
 import { useState } from 'react'
 import { Link, useParams } from '@tanstack/react-router'
 import { ROLE_LABEL } from '@/features/auth/types'
@@ -197,7 +198,23 @@ export function ClientPage() {
             <Info label="Interés">{c.interest ? <Badge tone={c.interest === 'high' ? 'success' : c.interest === 'medium' ? 'warning' : 'neutral'}>{INTEREST_LABEL[c.interest]}</Badge> : null}</Info>
             <Info label="Oficio">{c.occupation}</Info>
             <div className="col-span-2">
-              <Info label="Dirección">{c.address}</Info>
+              <Info label="Dirección">
+                {c.address || c.lat !== null ? (
+                  <span className="flex flex-col gap-1">
+                    {c.address && <span>{c.address}</span>}
+                    {c.lat !== null && c.lng !== null && (
+                      <a
+                        href={`https://www.google.com/maps?q=${c.lat},${c.lng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex w-fit items-center gap-1 rounded-full bg-ink px-3 py-1 text-xs font-semibold text-gold-light active:bg-charcoal"
+                      >
+                        <MdPlace className="size-4" /> Ver en el mapa
+                      </a>
+                    )}
+                  </span>
+                ) : null}
+              </Info>
             </div>
             <Info label="Intentos sin respuesta">{c.stage === 'capture' || c.stage === 'recapture' ? `${c.contact_attempts} de 3` : null}</Info>
             <Info label="Próximo contacto">{c.next_contact_at ? when(c.next_contact_at) : null}</Info>

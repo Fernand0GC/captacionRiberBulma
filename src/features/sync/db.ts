@@ -11,6 +11,8 @@ export type CapturePayload = {
   interest?: 'high' | 'medium' | 'low'
   occupation?: string
   address?: string
+  lat?: number
+  lng?: number
   branch_id?: number
   client_created_at: string
 }

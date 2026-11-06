@@ -19,6 +19,8 @@ export type Client = {
   interest: 'high' | 'medium' | 'low' | null
   occupation: string | null
   address: string | null
+  lat: number | null
+  lng: number | null
   branch_id: number
   branch_name: string
   created_by_name: string
