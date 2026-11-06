@@ -13,7 +13,7 @@ describe('normalizePhone', () => {
 })
 
 describe('isValidPhone', () => {
-  it.each(['71234567', '+591 61234567', '4621234'])('%s válido', (p) => expect(isValidPhone(p)).toBe(true))
+  it.each(['71234567', '+591 61234567', '51234567', '4621234'])('%s válido', (p) => expect(isValidPhone(p)).toBe(true))
   it.each(['81234567', '7123456', ''])('%s inválido', (p) => expect(isValidPhone(p)).toBe(false))
 })
 

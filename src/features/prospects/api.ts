@@ -61,6 +61,22 @@ export function useProspects(filters: ProspectFilters, page: number) {
   })
 }
 
+/** Trae todas las captaciones del filtro (de a 200, el máximo que acepta list_prospects). Excel y "seleccionar todas". */
+export async function fetchAllProspects(filters: ProspectFilters): Promise<ProspectRow[]> {
+  const rows: ProspectRow[] = []
+  for (let offset = 0; ; offset += 200) {
+    const { data, error } = await supabase.rpc('list_prospects', {
+      f: filters,
+      p_limit: 200,
+      p_offset: offset,
+    })
+    if (error) throw toAppError(error)
+    const page = data as { total: number; rows: ProspectRow[] }
+    rows.push(...page.rows)
+    if (page.rows.length < 200 || rows.length >= page.total) return rows
+  }
+}
+
 export type Staff = { id: string; full_name: string; role: AppRole; branch_id: number | null; active: boolean }
 
 export function useStaff() {

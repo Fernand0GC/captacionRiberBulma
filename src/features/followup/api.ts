@@ -37,6 +37,14 @@ export type FollowupRow = {
   contacts_count?: number
 }
 
+/** Cerrado que se puede volver a contactar (check "Ver cerrados anteriores" de Mis contactos). */
+export type ClosedRow = Omit<FollowupRow, 'stage'> & {
+  stage: 'sale' | 'lost'
+  stage_changed_at: string
+  sold_at: string | null
+  lost_reason: string | null
+}
+
 
 export const RESULT_LABEL: Record<ContactResult, string> = {
   no_answer: 'No contestó',
@@ -88,6 +96,19 @@ export function useMyContacts() {
       const { data, error } = await supabase.rpc('my_contacts')
       if (error) throw toAppError(error)
       return data as FollowupRow[]
+    },
+  })
+}
+
+/** Mis cerrados (no le interesó, no contestó 3 veces o ya compró): solo se piden si se marca el check. */
+export function useMyClosedContacts(enabled: boolean) {
+  return useQuery({
+    queryKey: ['inbox', 'closed'],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('my_closed_contacts')
+      if (error) throw toAppError(error)
+      return data as ClosedRow[]
     },
   })
 }

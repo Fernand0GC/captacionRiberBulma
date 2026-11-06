@@ -6,7 +6,7 @@ export function normalizePhone(raw: string): string {
 }
 
 export function isValidPhone(raw: string): boolean {
-  return /^([67]\d{7}|[234]\d{6,7})$/.test(normalizePhone(raw))
+  return /^([567]\d{7}|[234]\d{6,7})$/.test(normalizePhone(raw))
 }
 
 /** 71234567 → 7123••67. Para avisos: nunca mostrar el número completo de otra ficha. */

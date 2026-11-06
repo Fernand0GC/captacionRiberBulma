@@ -17,7 +17,7 @@ export function PhoneMenu({ id, name, phoneRaw, phoneNorm }: { id: string; name:
     // Si no entra debajo del número, se abre hacia arriba.
     setPos(r.bottom + MENU_H + 8 > window.innerHeight ? { left, bottom: window.innerHeight - r.top + 4 } : { left, top: r.bottom + 4 })
   }
-  const isMobile = /^[67]\d{7}$/.test(phoneNorm)
+  const isMobile = /^[567]\d{7}$/.test(phoneNorm)
 
   useEffect(() => {
     if (!open) return

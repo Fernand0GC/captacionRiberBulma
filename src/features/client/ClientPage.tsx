@@ -136,7 +136,7 @@ export function ClientPage() {
   }
   if (!q.data || !c) return <p className="p-8 text-center text-ink/45">Cargando…</p>
 
-  const wa = /^[67]\d{7}$/.test(c.phone_norm) ? `https://wa.me/591${c.phone_norm}` : null
+  const wa = /^[567]\d{7}$/.test(c.phone_norm) ? `https://wa.me/591${c.phone_norm}` : null
   const voided = c.status !== 'active'
 
   return (

@@ -25,7 +25,7 @@ const RUBROS = ['Independiente/Negocio/Microcrédito', "Dependiente/Asalariado"]
 function validate(f: Form): Errors {
   const e: Errors = {}
   if (f.full_name.trim().length < 3) e.full_name = 'Escribe el nombre completo.'
-  if (!isValidPhone(f.phone)) e.phone = 'Celular de 8 dígitos (6… o 7…) o fijo con código de área.'
+  if (!isValidPhone(f.phone)) e.phone = 'Celular de 8 dígitos (5…, 6… o 7…) o fijo con código de área.'
   return e
 }
 

@@ -31,7 +31,7 @@ export function EditClientDialog({ client, onClose }: { client: Client; onClose:
   async function save() {
     const e: typeof err = {}
     if (v.full_name.trim().length < 3) e.full_name = 'Escribe el nombre completo.'
-    if (!isValidPhone(v.phone)) e.phone = 'Celular de 8 dígitos (6… o 7…) o fijo con código de área.'
+    if (!isValidPhone(v.phone)) e.phone = 'Celular de 8 dígitos (5…, 6… o 7…) o fijo con código de área.'
     setErr(e)
     if (Object.keys(e).length) return
     try {

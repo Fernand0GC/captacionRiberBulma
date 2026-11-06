@@ -4,7 +4,7 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { fmtDate, fmtTime } from '@/features/prospects/format'
 import { PageTitle } from '@/ui/PageTitle'
-import { METHOD_LABEL, RESULT_LABEL, useMyContacts, type FollowupRow } from './api'
+import { METHOD_LABEL, RESULT_LABEL, useMyClosedContacts, useMyContacts, type ClosedRow, type FollowupRow } from './api'
 import { DUE_ORDER, dueStatus, needsAttention, visitPassed, type DueKind, type DueStatus } from './dueStatus'
 import { takePendingContact } from './lastAction'
 import { PhoneMenu } from './PhoneMenu'
@@ -68,7 +68,7 @@ function StatusBadge({ s }: { s: DueStatus }) {
   )
 }
 
-function WhatDone({ r }: { r: FollowupRow }) {
+function WhatDone({ r }: { r: FollowupRow | ClosedRow }) {
   if (!r.last_result) return <span className="text-ink/35">Sin contactar</span>
   return (
     <span>
@@ -209,12 +209,109 @@ function ContactCards({ rows, tab, now, onResult }: { rows: FollowupRow[]; tab: 
   )
 }
 
+/** Cómo terminó el ciclo anterior: Completado (compró) o Interrumpido (no le interesó / no contestó). */
+function ClosedBadge({ r }: { r: ClosedRow }) {
+  const [label, cls] =
+    r.stage === 'sale'
+      ? ['✓ Ya compró', 'bg-emerald-50 text-emerald-700 ring-emerald-200']
+      : r.lost_reason === 'No contesta (3 intentos)'
+        ? ['No contestó 3 veces', 'bg-amber-50 text-amber-900 ring-amber-200']
+        : ['Sin interés', 'bg-ink/5 text-ink/60 ring-ink/10']
+  return (
+    <span className="inline-flex flex-col items-start gap-0.5">
+      <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${cls}`}>{label}</span>
+      <span className="text-xs text-ink/45">
+        {r.stage === 'sale' ? 'Completado' : 'Interrumpido'} el {fmtDate(r.stage_changed_at)}
+      </span>
+    </span>
+  )
+}
+
+function RegisterButton({ onClick, big }: { onClick: () => void; big?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`bg-gold-gradient whitespace-nowrap font-semibold text-ink shadow-gold ${big ? 'min-h-11 rounded-2xl px-4' : 'min-h-10 rounded-xl px-3'}`}
+    >
+      {big ? 'Registrar contacto' : 'Registrar'}
+    </button>
+  )
+}
+
+/** Cerrados anteriores: se pueden volver a contactar; registrar abre un ciclo nuevo en la misma ficha. */
+function ClosedList({ rows, onResult }: { rows: ClosedRow[]; onResult: (r: ClosedRow) => void }) {
+  return (
+    <>
+      <div className="hidden overflow-x-auto rounded-3xl bg-white shadow-sm ring-1 ring-ink/5 md:block">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-ink/80 text-gold-light">
+            <tr>
+              {['Cómo terminó', 'Cliente', 'Celular', 'Producto', 'Último contacto', ''].map((h, i) => (
+                <th key={i} scope="col" className="px-4 py-3 font-semibold first:rounded-tl-3xl last:rounded-tr-3xl">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className="border-t border-ink/5 align-top" data-testid="closed-row">
+                <td className="px-4 py-3">
+                  <ClosedBadge r={r} />
+                </td>
+                <td className="px-4 py-3">
+                  <Link to="/cliente/$id" params={{ id: r.id }} className="font-semibold text-ink hover:text-gold-dark hover:underline">
+                    {r.full_name}
+                  </Link>
+                  <span className="block text-xs text-ink/45">{r.channel_name ?? 'Sin canal'}</span>
+                </td>
+                <td className="px-2 py-1.5">
+                  <PhoneMenu id={r.id} name={r.full_name} phoneRaw={r.phone_raw} phoneNorm={r.phone_norm} />
+                </td>
+                <td className="px-4 py-3">{r.product_name ?? <span className="text-ink/30">—</span>}</td>
+                <td className="px-4 py-3">
+                  <WhatDone r={r} />
+                </td>
+                <td className="px-4 py-3">
+                  <RegisterButton onClick={() => onResult(r)} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ul className="flex flex-col gap-3 md:hidden">
+        {rows.map((r) => (
+          <li key={r.id} data-testid="closed-card" className="flex flex-col gap-2 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5">
+            <div className="flex items-start justify-between gap-2">
+              <Link to="/cliente/$id" params={{ id: r.id }} className="text-lg font-semibold leading-snug hover:underline">
+                {r.full_name}
+              </Link>
+            </div>
+            <ClosedBadge r={r} />
+            <p className="text-sm text-ink/55">
+              {[r.product_name, r.channel_name].filter(Boolean).join(' · ') || 'Sin producto'} · captó {r.created_by_name}
+            </p>
+            <div className="flex items-center justify-between gap-2">
+              <PhoneMenu id={r.id} name={r.full_name} phoneRaw={r.phone_raw} phoneNorm={r.phone_norm} />
+              <RegisterButton onClick={() => onResult(r)} big />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+
 /** Mis contactos: Captados (sin contactar) / Recaptados (Seguimiento, No contestó), con lo resuelto hoy y lo que toca ahora en la misma tabla. */
 export function InboxPage() {
   const { profile } = useAuth()
   const q = useMyContacts()
   const [tab, setTab] = useState<Tab>('pending')
-  const [active, setActive] = useState<{ row: FollowupRow; visit?: 'came' | 'missed' } | null>(null)
+  const [active, setActive] = useState<{ row: FollowupRow | ClosedRow; visit?: 'came' | 'missed' } | null>(null)
+  const [showClosed, setShowClosed] = useState(false)
+  const closedQ = useMyClosedContacts(showClosed)
   // El estado de cada fila (⚠ toca contactar) se recalcula cada minuto sin recargar.
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -229,13 +326,13 @@ export function InboxPage() {
     const check = () => {
       if (document.visibilityState !== 'visible') return
       const p = takePendingContact()
-      const row = p && q.data.find((r) => r.id === p.id)
+      const row = p && (q.data.find((r) => r.id === p.id) ?? closedQ.data?.find((r) => r.id === p.id))
       if (row) setActive({ row })
     }
     check()
     document.addEventListener('visibilitychange', check)
     return () => document.removeEventListener('visibilitychange', check)
-  }, [q.data])
+  }, [q.data, closedQ.data])
 
   const pending = all.filter((r) => !r.contacts_count)
   const recaptured = all.filter((r) => (r.contacts_count ?? 0) > 0)
@@ -307,6 +404,25 @@ export function InboxPage() {
           <ContactsTable rows={rows} tab={tab} now={now} onResult={(row, visit) => setActive({ row, visit })} />
           <ContactCards rows={rows} tab={tab} now={now} onResult={(row, visit) => setActive({ row, visit })} />
         </>
+      )}
+      <label className="flex min-h-12 cursor-pointer items-center gap-3 self-start rounded-2xl bg-white px-4 text-sm font-semibold text-ink/70 ring-1 ring-ink/10">
+        <input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} className="size-5 accent-ink" />
+        Ver cerrados anteriores
+        {closedQ.data && <span className="tabular-nums opacity-70">{closedQ.data.length}</span>}
+      </label>
+      {showClosed && (
+        <section className="flex flex-col gap-3" aria-label="Cerrados anteriores">
+          <p className="text-sm text-ink/55">Ya compraron, no les interesó o no contestaron. Registra un contacto para volver a captarlos.</p>
+          {closedQ.isError ? (
+            <p className="rounded-2xl bg-rb-red/10 p-4 text-rb-red">No se pudo cargar. {(closedQ.error as Error).message}</p>
+          ) : !closedQ.data ? (
+            <p className="p-8 text-center text-ink/45">Cargando…</p>
+          ) : closedQ.data.length === 0 ? (
+            <p className="rounded-3xl bg-white p-8 text-center text-ink/50 ring-1 ring-ink/5">No tienes cerrados.</p>
+          ) : (
+            <ClosedList rows={closedQ.data} onResult={(row) => setActive({ row })} />
+          )}
+        </section>
       )}
       {active && <ResultDialog row={active.row} visitAnswer={active.visit} onClose={() => setActive(null)} />}
     </main>

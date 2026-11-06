@@ -5,10 +5,13 @@ import { useBranchScope } from '@/features/auth/useBranchScope'
 import { groupChannels } from '@/features/capture/channelGroups'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { Badge } from '@/ui/Badge'
+import { Button } from '@/ui/Button'
+import { Dialog } from '@/ui/Dialog'
 import { useToast } from '@/ui/Toast'
 import { followupRowOf, useClient } from '@/features/client/api'
 import { ResultDialog } from '@/features/followup/ResultDialog'
 import {
+  fetchAllProspects,
   PAGE_SIZE,
   useAssign,
   useAssignees,
@@ -109,53 +112,88 @@ export function ProspectsPage() {
   const rowsOnPage = prospects.data?.rows ?? []
   // Modo "Seleccionar": recién ahí salen las casillas y la barra para asignar.
   const [selecting, setSelecting] = useState(false)
-  // La selección vale solo para los filtros y la página en que se hizo: al cambiarlos se limpia sola.
-  const selectionKey = JSON.stringify([filters, page])
-  const [selection, setSelection] = useState<{ key: string; ids: Set<string> }>({ key: selectionKey, ids: new Set() })
-  const selected = selection.key === selectionKey ? selection.ids : new Set<string>()
-  const setSelected = (ids: Set<string>) => setSelection({ key: selectionKey, ids })
+  // La selección vale para los filtros en que se hizo (se mantiene al cambiar de página; al cambiar filtros se limpia sola).
+  // Guarda el responsable actual de cada una para avisar a quién se le quitan al reasignar.
+  const selectionKey = JSON.stringify(filters)
+  const [selection, setSelection] = useState<{ key: string; ids: Selection }>({ key: selectionKey, ids: new Map() })
+  const selected = selection.key === selectionKey ? selection.ids : (new Map() as Selection)
+  const setSelected = (ids: Selection) => setSelection({ key: selectionKey, ids })
   const toggle = (id: string) =>
     setSelection((cur) => {
-      const n = new Set(cur.key === selectionKey ? cur.ids : [])
+      const n: Selection = new Map(cur.key === selectionKey ? cur.ids : [])
+      const r = rowsOnPage.find((x) => x.id === id)
       if (n.has(id)) n.delete(id)
-      else n.add(id)
+      else if (r) n.set(id, ownerOf(r))
       return { key: selectionKey, ids: n }
     })
+  const [confirming, setConfirming] = useState(false)
+  const [loadingAll, setLoadingAll] = useState(false)
   const stopSelecting = () => {
     setSelecting(false)
-    setSelection({ key: selectionKey, ids: new Set() })
+    setSelection({ key: selectionKey, ids: new Map() })
     setAssignTo('')
+    setConfirming(false)
   }
   useEffect(() => {
     if (!selecting) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setSelecting(false)
-        setSelection((s) => ({ ...s, ids: new Set() }))
+        setSelection((s) => ({ ...s, ids: new Map() }))
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [selecting])
   const allOnPage = rowsOnPage.length > 0 && rowsOnPage.every((r) => selected.has(r.id))
-  const toggleAll = () => setSelected(allOnPage ? new Set() : new Set(rowsOnPage.map((r) => r.id)))
+  const toggleAll = () => {
+    const n: Selection = new Map(selected)
+    for (const r of rowsOnPage) {
+      if (allOnPage) n.delete(r.id)
+      else n.set(r.id, ownerOf(r))
+    }
+    setSelected(n)
+  }
+  // La casilla "todas" de la tabla marca solo la página (50) y en celular no hay: esto trae todas las del filtro.
+  async function selectAllMatching() {
+    setLoadingAll(true)
+    try {
+      const rows = await fetchAllProspects(filters)
+      setSelected(new Map(rows.map((r) => [r.id, ownerOf(r)])))
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally {
+      setLoadingAll(false)
+    }
+  }
+  const allMatching = total > 0 && selected.size >= total
   // Reparto de la tarde (FR-039b): en partes iguales entre las auxiliares de la sucursal.
   const auxiliaries = (assignees.data ?? []).filter((a) => a.role === 'field_assistant')
+  // Las que hoy son de otra persona: se le quitan (reasignar). Se confirma antes.
+  const taken = [...selected.values()].filter((o) => o.id !== null && o.id !== assignTo)
+  const isReassign = assignTo !== '' && taken.length > 0
+  const targetLabel =
+    assignTo === 'split'
+      ? `repartirlas entre las ${auxiliaries.length} auxiliares`
+      : assignTo === 'none'
+        ? 'dejarlas sin responsable'
+        : `pasarlas a ${assignees.data?.find((a) => a.id === assignTo)?.full_name ?? ''}`
   async function doAssign() {
+    setConfirming(false)
     try {
       if (assignTo === 'split') {
-        const ids = [...selected]
+        const ids = [...selected.keys()]
         const buckets = auxiliaries.map((a, i) => ({
           to: a.id,
           ids: ids.filter((_, j) => j % auxiliaries.length === i),
         }))
         for (const b of buckets) if (b.ids.length) await assign.mutateAsync({ ids: b.ids, to: b.to })
-        toast(`✓ ${ids.length} repartidas entre ${auxiliaries.length} auxiliares`, 'success')
+        toast(`✓ ${ids.length} ${isReassign ? 'reasignadas' : 'repartidas'} entre ${auxiliaries.length} auxiliares`, 'success')
         stopSelecting()
         return
       }
-      const n = await assign.mutateAsync({ ids: [...selected], to: assignTo === 'none' ? null : assignTo })
-      toast(assignTo === 'none' ? `✓ ${n} sin responsable` : `✓ ${n} asignadas`, 'success')
+      const n = await assign.mutateAsync({ ids: [...selected.keys()], to: assignTo === 'none' ? null : assignTo })
+      toast(assignTo === 'none' ? `✓ ${n} sin responsable` : `✓ ${n} ${isReassign ? 'reasignadas' : 'asignadas'}`, 'success')
       stopSelecting()
     } catch (e) {
       toast((e as Error).message, 'error')
@@ -453,9 +491,30 @@ export function ProspectsPage() {
           aria-label="Asignar"
         >
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3">
-            <span className="font-semibold" data-testid="selected-count">
-              {selected.size === 0 ? 'Marca las captaciones' : `${selected.size} ${selected.size === 1 ? 'seleccionada' : 'seleccionadas'}`}
+            <span className="flex flex-col">
+              <span className="font-semibold" data-testid="selected-count">
+                {selected.size === 0
+                  ? 'Marca las captaciones'
+                  : allMatching
+                    ? `Las ${selected.size} del filtro`
+                    : `${selected.size} ${selected.size === 1 ? 'seleccionada' : 'seleccionadas'}`}
+              </span>
+              {selected.size > 0 && (
+                <span className="text-xs text-white/70" data-testid="selected-owners">
+                  {ownersSummary(selected)}
+                </span>
+              )}
             </span>
+            {!allMatching && total > 0 && (
+              <button
+                type="button"
+                onClick={() => void selectAllMatching()}
+                disabled={loadingAll}
+                className="min-h-11 rounded-xl px-3 text-sm font-semibold text-gold-light underline disabled:opacity-60"
+              >
+                {loadingAll ? 'Marcando…' : `Seleccionar las ${total} del filtro`}
+              </button>
+            )}
             {branchId === undefined ? (
               <span className="text-sm text-white/70">Elige una sucursal en el filtro para asignar.</span>
             ) : (
@@ -478,10 +537,10 @@ export function ProspectsPage() {
                 <button
                   type="button"
                   disabled={!assignTo || selected.size === 0 || assign.isPending}
-                  onClick={() => void doAssign()}
+                  onClick={() => (isReassign ? setConfirming(true) : void doAssign())}
                   className="bg-gold-gradient min-h-11 rounded-xl px-5 font-semibold text-ink disabled:opacity-50"
                 >
-                  {assign.isPending ? 'Asignando…' : 'Asignar'}
+                  {assign.isPending ? 'Asignando…' : isReassign ? 'Reasignar' : 'Asignar'}
                 </button>
               </>
             )}
@@ -490,6 +549,22 @@ export function ProspectsPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {confirming && (
+        <Dialog open onOpenChange={(o) => !o && setConfirming(false)} title="¿Reasignar?" description={`Vas a ${targetLabel}.`}>
+          <p className="text-sm text-ink/80">
+            Se les quitan a quien las tiene hoy: <b>{ownersSummary(new Map(taken.map((o, i) => [String(i), o])))}</b>. Queda en el historial de cada ficha.
+          </p>
+          <div className="mt-4 flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setConfirming(false)}>
+              Cancelar
+            </Button>
+            <Button className="flex-1" onClick={() => void doAssign()}>
+              Reasignar {selected.size}
+            </Button>
+          </div>
+        </Dialog>
       )}
 
       {pages > 1 && (
@@ -533,7 +608,24 @@ function Interest({ v }: { v: ProspectRow['interest'] }) {
   )
 }
 
-type SelectProps = { selecting: boolean; selected: Set<string>; onToggle: (id: string) => void; onContact: (id: string) => void }
+type Owner = { id: string | null; name: string | null }
+type Selection = Map<string, Owner>
+const ownerOf = (r: ProspectRow): Owner => ({ id: r.assigned_to, name: r.assigned_to_name })
+
+/** "5 sin responsable · 8 de Ana · 3 de Luis" (los 3 con más; el resto como "otros"). */
+function ownersSummary(sel: ReadonlyMap<string, Owner>): string {
+  const by = new Map<string, number>()
+  for (const o of sel.values()) {
+    const k = o.id === null ? '' : (o.name ?? '¿?')
+    by.set(k, (by.get(k) ?? 0) + 1)
+  }
+  const parts = [...by.entries()].sort((a, b) => b[1] - a[1])
+  const text = parts.slice(0, 3).map(([k, n]) => (k === '' ? `${n} sin responsable` : `${n} de ${k}`))
+  const rest = parts.slice(3).reduce((t, [, n]) => t + n, 0)
+  return [...text, ...(rest ? [`${rest} de otros`] : [])].join(' · ')
+}
+
+type SelectProps = { selecting: boolean; selected: ReadonlyMap<string, Owner>; onToggle: (id: string) => void; onContact: (id: string) => void }
 
 /** Sin responsable: directo el botón "Seguimiento" (abre el registro de contacto; quien lo registra queda como responsable). */
 function Assigned({ r, onContact }: { r: ProspectRow; onContact?: (id: string) => void }) {

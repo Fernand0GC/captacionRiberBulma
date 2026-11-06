@@ -6,7 +6,7 @@ import { Dialog } from '@/ui/Dialog'
 import { useToast } from '@/ui/Toast'
 import { fmtDate, fmtTime } from '@/features/prospects/format'
 import { suggestedMethod } from './lastAction'
-import { METHOD_LABEL, RESULT_LABEL, useAddFollowup, type ContactMethod, type ContactResult, type FollowupRow } from './api'
+import { METHOD_LABEL, RESULT_LABEL, useAddFollowup, type ContactMethod, type ClosedRow, type ContactResult, type FollowupRow } from './api'
 
 // Resultados agrupados según el embudo del negocio (FR-037…FR-039).
 const GROUPS: { title: string; tone: 'neutral' | 'good' | 'bad'; results: ContactResult[] }[] = [
@@ -36,7 +36,7 @@ function localInput(daysAhead: number, hour: number): string {
 }
 
 /** `visitAnswer`: respuesta a "¿vino a la tienda?" de una visita vencida (vino = contacto en tienda; no vino = reprogramar). */
-export function ResultDialog({ row, visitAnswer, onClose }: { row: FollowupRow; visitAnswer?: 'came' | 'missed'; onClose: () => void }) {
+export function ResultDialog({ row, visitAnswer, onClose }: { row: FollowupRow | ClosedRow; visitAnswer?: 'came' | 'missed'; onClose: () => void }) {
   const [method, setMethod] = useState<ContactMethod>(() => (visitAnswer === 'came' ? 'store' : suggestedMethod(row.id)))
   const [result, setResult] = useState<ContactResult | null>(null)
   const [visit, setVisit] = useState(() => localInput(1, 10))

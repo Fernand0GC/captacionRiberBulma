@@ -1,26 +1,7 @@
-import { toAppError } from '@/lib/errors'
-import { supabase } from '@/lib/supabase'
 import { INTEREST_LABEL, STAGE_LABEL } from '@/features/prospects/format'
-import type { ProspectFilters, ProspectRow } from '@/features/prospects/api'
+import { fetchAllProspects, type ProspectFilters, type ProspectRow } from '@/features/prospects/api'
 
-const BATCH = 200 // máximo que acepta list_prospects por página
 const LA_PAZ_OFFSET_MS = 4 * 3600_000 // Bolivia: UTC-4 todo el año, sin horario de verano
-
-/** Trae todas las captaciones del filtro (de a 200). */
-async function fetchAll(filters: ProspectFilters): Promise<ProspectRow[]> {
-  const rows: ProspectRow[] = []
-  for (let offset = 0; ; offset += BATCH) {
-    const { data, error } = await supabase.rpc('list_prospects', {
-      f: filters,
-      p_limit: BATCH,
-      p_offset: offset,
-    })
-    if (error) throw toAppError(error)
-    const page = data as { total: number; rows: ProspectRow[] }
-    rows.push(...page.rows)
-    if (page.rows.length < BATCH || rows.length >= page.total) return rows
-  }
-}
 
 /** Excel guarda la fecha "de pared": se corre a la hora de La Paz para que se vea igual que en la app. */
 const laPazWallClock = (iso: string) => new Date(new Date(iso).getTime() - LA_PAZ_OFFSET_MS)
@@ -33,7 +14,7 @@ function interestLabel(r: ProspectRow) {
 
 /** Hoja CLIENTES del modelo Unificado.xlsx (contracts/excel-export.md). Devuelve cuántas filas exportó. */
 export async function exportProspects(filters: ProspectFilters, scopeName: string): Promise<number> {
-  const [{ default: ExcelJS }, rows] = await Promise.all([import('exceljs'), fetchAll(filters)])
+  const [{ default: ExcelJS }, rows] = await Promise.all([import('exceljs'), fetchAllProspects(filters)])
   const wb = new ExcelJS.Workbook()
   wb.creator = 'Riber Captación'
   const ws = wb.addWorksheet('CLIENTES', { views: [{ state: 'frozen', ySplit: 6 }] })

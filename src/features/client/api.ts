@@ -100,7 +100,8 @@ export function followupRowOf(c: Client): FollowupRow {
     phone_raw: c.phone_raw,
     phone_norm: c.phone_norm,
     stage: c.stage as FollowupRow['stage'],
-    contact_attempts: c.contact_attempts,
+    // Cerrado: registrar abre un ciclo nuevo y los intentos empiezan de cero.
+    contact_attempts: c.stage === 'sale' || c.stage === 'lost' ? 0 : c.contact_attempts,
     next_contact_at: c.next_contact_at,
     visit_at: c.visit_at,
     client_created_at: c.client_created_at,

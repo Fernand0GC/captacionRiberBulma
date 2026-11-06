@@ -1,5 +1,5 @@
 begin;
-select plan(38);
+select plan(48);
 
 -- Datos: 3 captaciones de la volantera Verdolago, 1 de Trinidad
 select tests.login_as('00000000-0000-4000-8000-000000000006');
@@ -42,8 +42,7 @@ select is(public.add_followup('{"id":"01900000-0000-7000-8000-0000000000a1","pro
 select public.add_followup('{"id":"01900000-0000-7000-8000-0000000000a2","prospect_id":"01900000-0000-7000-8000-0000000000f1","result":"no_answer","method":"message"}');
 select is(public.add_followup('{"id":"01900000-0000-7000-8000-0000000000a5","prospect_id":"01900000-0000-7000-8000-0000000000f3","result":"no_answer","method":"whatsapp_call"}') ->> 'stage', 'recapture', 'acepta llamada por WhatsApp');
 select is(public.add_followup('{"id":"01900000-0000-7000-8000-0000000000a3","prospect_id":"01900000-0000-7000-8000-0000000000f1","result":"no_answer"}') ->> 'stage', 'lost', 'al tercer intento: Sin interés');
-select throws_ok($$ select public.add_followup('{"id":"01900000-0000-7000-8000-0000000000a4","prospect_id":"01900000-0000-7000-8000-0000000000f1","result":"looking_product"}') $$,
-  'P0001', 'invalid_transition', 'cerrado no se reabre');
+select ok((select bool_or(x ->> 'id' = '01900000-0000-7000-8000-0000000000f1') from jsonb_array_elements(public.my_closed_contacts()) x), 'cerrado por intentos pasa a Ver cerrados');
 
 -- 3 Seguimiento: visitará la tienda (exige fecha) y volver a contactar (exige fecha)
 select throws_ok($$ select public.add_followup('{"id":"01900000-0000-7000-8000-0000000000b1","prospect_id":"01900000-0000-7000-8000-0000000000f2","result":"visit_store"}') $$,
@@ -93,6 +92,26 @@ select throws_ok($$ update public.followups set note = 'x' $$, '42501', null, 'l
 -- Panel de gestión: filtro sin asignar
 select tests.login_as('00000000-0000-4000-8000-000000000007');
 select ok((select bool_or(x ->> 'id' = '01900000-0000-7000-8000-0000000000f4') from jsonb_array_elements(public.list_prospects(jsonb_build_object('assigned','none','from',(now() at time zone 'America/La_Paz')::date::text), 200) -> 'rows') x), 'encargado Trinidad: el suyo aparece sin asignar');
+
+-- Recaptar cerrados: registrar sobre un cerrado abre un ciclo nuevo (salvo número equivocado)
+select tests.login_as('00000000-0000-4000-8000-000000000004');
+select is((select count(*) from jsonb_array_elements(public.my_closed_contacts()) x
+  where x ->> 'id' in ('01900000-0000-7000-8000-0000000000f1','01900000-0000-7000-8000-0000000000f2','01900000-0000-7000-8000-0000000000f3'))::int, 3, 'Ver cerrados: sin interés, no contesta y vendido');
+select ok(coalesce((select bool_and(x ->> 'id' <> '01900000-0000-7000-8000-0000000000f1') from jsonb_array_elements(public.my_contacts()) x), true), 'cerrados no están en Mis contactos abiertos');
+select is(public.add_followup('{"id":"01900000-0000-7000-8000-0000000000e1","prospect_id":"01900000-0000-7000-8000-0000000000f1","result":"looking_product"}') ->> 'stage', 'followup', 'sin interés se recapta → Seguimiento');
+select tests.logout();
+select ok((select lost_reason_id is null and contact_attempts = 0 from public.prospects where id = '01900000-0000-7000-8000-0000000000f1'), 'ciclo nuevo: sin motivo de pérdida e intentos en 0');
+select tests.login_as('00000000-0000-4000-8000-000000000004');
+select is(public.add_followup('{"id":"01900000-0000-7000-8000-0000000000e2","prospect_id":"01900000-0000-7000-8000-0000000000f3","result":"no_answer"}') ->> 'stage', 'recapture', 'sin interés + no contestó: Recaptación, no vuelve a cerrar');
+select is(public.add_followup('{"id":"01900000-0000-7000-8000-0000000000e3","prospect_id":"01900000-0000-7000-8000-0000000000f2","result":"sold"}') ->> 'stage', 'sale', 'vendido compra otra vez');
+select tests.logout();
+select is((select count(*) from public.stage_events where prospect_id = '01900000-0000-7000-8000-0000000000f2' and to_stage = 'sale')::int, 2, 'cada venta deja su evento');
+select tests.login_as('00000000-0000-4000-8000-000000000004');
+select is((public.get_prospect('01900000-0000-7000-8000-0000000000f2') ->> 'can_contact')::boolean, true, 'ficha vendida: se puede registrar contacto');
+select public.add_followup('{"id":"01900000-0000-7000-8000-0000000000e4","prospect_id":"01900000-0000-7000-8000-0000000000f2","result":"wrong_number"}');
+select throws_ok($$ select public.add_followup('{"id":"01900000-0000-7000-8000-0000000000e5","prospect_id":"01900000-0000-7000-8000-0000000000f2","result":"looking_product"}') $$,
+  'P0001', 'invalid_transition', 'número equivocado no se reabre');
+select ok((select bool_and(x ->> 'id' <> '01900000-0000-7000-8000-0000000000f2') from jsonb_array_elements(public.my_closed_contacts()) x), 'número equivocado no aparece en cerrados');
 
 select * from finish();
 rollback;
