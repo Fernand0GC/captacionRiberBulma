@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(20);
 
 -- Datos: captación de la volantera Verdolago, asignada a la auxiliar, con un contacto; un duplicado desde Trinidad
 select tests.login_as('00000000-0000-4000-8000-000000000006');
@@ -14,6 +14,8 @@ select public.add_followup('{"id":"01900000-0000-7000-8000-000000000611","prospe
 
 -- La auxiliar asignada ve la ficha pero no edita
 select is(public.get_prospect('01900000-0000-7000-8000-000000000601') -> 'prospect' ->> 'full_name', 'Ficha Uno', 'responsable ve la ficha');
+select is((select count(*) from jsonb_array_elements(public.get_prospect('01900000-0000-7000-8000-000000000601') -> 'timeline') x where x ->> 'type' = 'edit'),
+          0::bigint, 'historial: asignar y registrar contacto no salen como "datos editados"');
 select is((public.get_prospect('01900000-0000-7000-8000-000000000601') ->> 'can_edit')::boolean, false, 'responsable no edita');
 select ok((select bool_or(x ->> 'type' = 'contact' and x -> 'data' ->> 'note' = 'Quiere un TV')
            from jsonb_array_elements(public.get_prospect('01900000-0000-7000-8000-000000000601') -> 'timeline') x), 'historial: el contacto con su nota');
@@ -34,6 +36,9 @@ select is((public.get_prospect('01900000-0000-7000-8000-000000000601') ->> 'can_
 select lives_ok($$ select public.update_prospect('01900000-0000-7000-8000-000000000601', '{"full_name":"Ficha Uno Corregida","address":"Barrio Central"}') $$, 'encargado edita');
 select ok((select bool_or(x ->> 'type' = 'edit' and x -> 'data' -> 'new' ->> 'full_name' = 'Ficha Uno Corregida' and x ->> 'actor' = 'Encargado Verdolago')
            from jsonb_array_elements(public.get_prospect('01900000-0000-7000-8000-000000000601') -> 'timeline') x), 'historial: la edición con quién la hizo');
+select is((select jsonb_agg(k order by k) from jsonb_array_elements(public.get_prospect('01900000-0000-7000-8000-000000000601') -> 'timeline') x,
+                  jsonb_object_keys(x -> 'data' -> 'new') k where x ->> 'type' = 'edit'),
+          '["address", "full_name"]'::jsonb, 'historial: la edición solo muestra los campos corregidos');
 select throws_ok($$ select public.update_prospect('01900000-0000-7000-8000-000000000601', '{"phone":"7600060"}') $$, 'P0001', 'invalid_phone', 'teléfono inválido');
 select tests.login_as('00000000-0000-4000-8000-000000000006');
 select public.submit_capture('{"id":"01900000-0000-7000-8000-000000000603","full_name":"Otra Persona","phone":"76000603"}');
