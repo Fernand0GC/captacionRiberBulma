@@ -3,7 +3,39 @@ import { toAppError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 import type { AppRole } from '@/features/auth/types'
 
-export type Person = { id: string; full_name: string; role: AppRole; pending_today: number; assigned_total: number }
+export type DayStatus = { pending: number; total: number }
+
+/** Pendientes y totales por día (La Paz) del mes, para colorear el calendario de reparticiones (FR-039d). */
+async function fetchDatesSummary(
+  branch: number,
+  year: number,
+  month: number,
+): Promise<Record<string, DayStatus>> {
+  const { data, error } = await supabase.rpc('distribution_dates_summary', {
+    p_branch: branch,
+    p_year: year,
+    p_month: month,
+  })
+  if (error) throw toAppError(error)
+  return (data ?? {}) as Record<string, DayStatus>
+}
+
+export function useDatesSummary(branch: number | undefined, year: number, month: number) {
+  return useQuery({
+    queryKey: ['distribution-dates', branch, year, month],
+    enabled: branch !== undefined,
+    queryFn: () => fetchDatesSummary(branch!, year, month),
+    staleTime: 30_000,
+  })
+}
+
+export type Person = {
+  id: string
+  full_name: string
+  role: AppRole
+  pending_today: number
+  assigned_total: number
+}
 export type Preview = { total: number; by_author: { name: string; n: number }[]; people: Person[] }
 export type PoolArgs = { branch: number; from: string; to: string; includeOlder: boolean }
 
@@ -40,6 +72,7 @@ export function useDistribute() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['distribution'] })
+      void qc.invalidateQueries({ queryKey: ['distribution-dates'] })
       void qc.invalidateQueries({ queryKey: ['prospects'] })
     },
   })

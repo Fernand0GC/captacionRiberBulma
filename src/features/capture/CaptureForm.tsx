@@ -192,6 +192,13 @@ export function CaptureForm() {
             Nivel de interés <span className="font-normal text-ink/40">(opcional)</span>
           </span>
           <InterestToggle value={form.interest} onChange={set('interest')} />
+          {form.interest === 'high' && (
+            <p className="text-sm text-ink/60" aria-live="polite">
+              {profile!.role === 'field_volunteer'
+                ? 'Pasa directo a Cliente potencial, a cargo del encargado.'
+                : 'Pasa directo a Cliente potencial, a tu cargo (aparece en Mis contactos).'}
+            </p>
+          )}
         </div>
 
         <Button type="submit" disabled={saving} className="mt-2 min-h-16 font-display text-xl">

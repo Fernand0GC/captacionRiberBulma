@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { MdFlag, MdPerson, MdPlace } from 'react-icons/md'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useBranchScope } from '@/features/auth/useBranchScope'
 import { useBranches } from '@/features/prospects/api'
@@ -321,12 +322,25 @@ export function PlanningPage() {
                               </p>
                             )}
                             <p className="font-semibold">{a.description}</p>
-                            <p className="text-sm text-ink/60">
-                              {[a.responsibles && `👤 ${a.responsibles}`, a.goal && `🎯 ${a.goal}`]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </p>
-                            {a.places && <p className="text-sm text-ink/55">📍 {a.places}</p>}
+                            {(a.responsibles || a.goal) && (
+                              <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-ink/60">
+                                {a.responsibles && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <MdPerson aria-hidden className="h-4 w-4 shrink-0" /> {a.responsibles}
+                                  </span>
+                                )}
+                                {a.goal && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <MdFlag aria-hidden className="h-4 w-4 shrink-0" /> {a.goal}
+                                  </span>
+                                )}
+                              </p>
+                            )}
+                            {a.places && (
+                              <p className="flex items-center gap-1 text-sm text-ink/55">
+                                <MdPlace aria-hidden className="h-4 w-4 shrink-0" /> {a.places}
+                              </p>
+                            )}
                             <CaptureProgress a={a} />
                             {e.result && (
                               <p className="mt-1 text-sm italic text-ink/70">Logrado: “{e.result}”</p>

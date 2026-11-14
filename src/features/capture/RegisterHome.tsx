@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
+import { MdCall } from 'react-icons/md'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { FOLLOWUP_ROLES } from '@/features/auth/types'
 import { SyncBadge } from '@/features/sync/SyncBadge'
@@ -213,7 +214,7 @@ export function RegisterHome() {
               to="/seguimiento"
               className="flex min-h-14 w-full items-center justify-center gap-2 rounded-3xl bg-ink font-display text-xl font-semibold text-gold-light active:bg-charcoal"
             >
-              📞 Mis contactos
+              <MdCall aria-hidden className="h-6 w-6" /> Mis contactos
             </Link>
           )}
         </section>

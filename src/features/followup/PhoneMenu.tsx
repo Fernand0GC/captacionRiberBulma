@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { MdCall, MdChat } from 'react-icons/md'
 import { rememberMethod } from './lastAction'
 
 const MENU_W = 240
@@ -67,7 +68,7 @@ export function PhoneMenu({ id, name, phoneRaw, phoneNorm }: { id: string; name:
             }}
             className="flex min-h-12 items-center gap-3 px-4 font-semibold active:bg-sand"
           >
-            <span aria-hidden className="text-lg">📞</span> Abrir WhatsApp para llamar
+            <MdCall aria-hidden className="h-5 w-5 shrink-0 text-ink/70" /> Abrir WhatsApp para llamar
           </a>
           <a
             role="menuitem"
@@ -80,7 +81,7 @@ export function PhoneMenu({ id, name, phoneRaw, phoneNorm }: { id: string; name:
             }}
             className="flex min-h-12 items-center gap-3 border-t border-ink/5 px-4 font-semibold active:bg-sand"
           >
-            <span aria-hidden className="text-lg">💬</span> Enviar mensaje por WhatsApp
+            <MdChat aria-hidden className="h-5 w-5 shrink-0 text-ink/70" /> Enviar mensaje por WhatsApp
           </a>
         </div>
       )}

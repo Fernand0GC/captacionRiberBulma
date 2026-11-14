@@ -13,6 +13,32 @@ import { Dialog } from '@/ui/Dialog'
 import { useToast } from '@/ui/Toast'
 import { followupRowOf, useClient, useVoidClient, type TimelineItem } from './api'
 import { EditClientDialog } from './EditClientDialog'
+import { contactBreakdown, summarizeContacts } from './contactSummary'
+
+/** Quién contactó al cliente y cuántas veces (FR-030), arriba del historial. */
+function ContactsByPerson({ timeline }: { timeline: TimelineItem[] }) {
+  const people = summarizeContacts(timeline)
+  return (
+    <section className="flex flex-col gap-3 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-ink/5" aria-label="Contactos por persona">
+      <h2 className="font-display text-lg font-semibold">Contactos por persona</h2>
+      {people.length === 0 ? (
+        <p className="text-ink/50">Sin contactos todavía.</p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-ink/5">
+          {people.map((p) => (
+            <li key={p.actor} className="flex items-baseline justify-between gap-3 py-2" data-testid="contacts-by-person">
+              <span className="min-w-0">
+                <span className="font-semibold">{p.actor}</span>
+                <span className="block text-sm text-ink/60">{contactBreakdown(p)}</span>
+              </span>
+              <span className="shrink-0 font-display text-2xl font-bold tabular-nums">{p.total}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
 
 const FIELD_LABEL: Record<string, string> = {
   full_name: 'Nombre',
@@ -235,14 +261,18 @@ export function ClientPage() {
           </div>
         </section>
 
-        <section className="flex flex-col gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-ink/5">
-          <h2 className="font-display text-lg font-semibold">Historial</h2>
-          <ol className="flex flex-col" aria-label="Historial del cliente">
-            {q.data.timeline.map((t, i) => (
-              <TimelineEntry key={`${t.type}-${t.at}-${i}`} t={t} />
-            ))}
-          </ol>
-        </section>
+        <div className="flex flex-col gap-5">
+          <ContactsByPerson timeline={q.data.timeline} />
+
+          <section className="flex flex-col gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-ink/5">
+            <h2 className="font-display text-lg font-semibold">Historial</h2>
+            <ol className="flex flex-col" aria-label="Historial del cliente">
+              {q.data.timeline.map((t, i) => (
+                <TimelineEntry key={`${t.type}-${t.at}-${i}`} t={t} />
+              ))}
+            </ol>
+          </section>
+        </div>
       </div>
 
       {modal === 'contact' && <ResultDialog row={followupRowOf(c)} onClose={() => setModal(null)} />}
