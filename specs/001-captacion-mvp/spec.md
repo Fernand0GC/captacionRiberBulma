@@ -92,6 +92,10 @@ Marcar **Venta** significa solo que compró.
 
 ### User Story 4 - Agenda diaria de actividades (Priority: P2)
 
+> **Reemplazada (2026-11-17)** por `specs/003-organizacion-comercial/`: la Planificación trabaja con asignaciones
+> (persona, turno, estrategia, canal, subcanal, meta y resultado manual). Las actividades de esta historia quedan como
+> historial de solo lectura en `/planificacion/historial`.
+
 El encargado arma la agenda de su sucursal por fecha y turno (mañana o tarde): cada actividad tiene hora de inicio y fin,
 estrategia/área (marketing, mensajería, negociación, activación, llamadas, atención en tienda, contenido, en vivo, kardex, otra),
 descripción, responsables, meta (cantidad y unidad, o texto) y lugares. Al cerrar la actividad se registra el resultado

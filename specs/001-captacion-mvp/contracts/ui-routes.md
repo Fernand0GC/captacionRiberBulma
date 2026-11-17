@@ -23,3 +23,6 @@ Las rutas protegidas por rol también se protegen en la base (la UI no es la bar
 
 Requisitos de UI de campo: botones de 48 px como mínimo, teclado numérico para el teléfono, selectores con
 opciones grandes, una sola columna, sin scroll horizontal desde 360 px de ancho, y textos en español (Bolivia).
+
+> Rutas de la planificación (`/planificacion`, `/planificacion/historial`) y del catálogo (`/admin/catalogo`): ver
+> `specs/003-organizacion-comercial/contracts/ui-routes.md`.
