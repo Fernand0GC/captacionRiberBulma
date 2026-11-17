@@ -7,11 +7,11 @@ import { Button } from '@/ui/Button'
 import { Field, TextInput } from '@/ui/Field'
 import { SUPABASE_URL } from '@/lib/supabase'
 import { useAuth } from './AuthProvider'
-import { ssoEnabled, ssoMessage } from './sso'
+import { ssoEnabled, ssoMessage, ssoStartUrl } from './sso'
 import { homePath } from './types'
 
 const SSO_ENABLED = ssoEnabled(import.meta.env.VITE_CUENTA_UNICA)
-const SSO_START_URL = `${SUPABASE_URL}/functions/v1/cuenta-unica/iniciar`
+const SSO_START_URL = ssoStartUrl(import.meta.env.VITE_CUENTA_UNICA_RUTA, SUPABASE_URL)
 
 export function LoginPage() {
   const { sso } = useSearch({ from: '/login' })

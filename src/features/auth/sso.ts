@@ -24,3 +24,14 @@ export function readTokenHash(hash: string): string | null {
 
 /** El botón aparece solo con la cuenta única configurada (VITE_CUENTA_UNICA=true). */
 export const ssoEnabled = (flag: unknown) => flag === 'true'
+
+/**
+ * Dirección del botón «Entrar con cuenta única». En producción la función se sirve en el MISMO dominio de Captación
+ * (reescritura de Vercel /api/cuenta-unica/* → función de Supabase): así su cookie de estado no es de otro sitio y
+ * funciona dentro del portal. Con VITE_CUENTA_UNICA_RUTA=/api/cuenta-unica se usa esa ruta; sin ella (local), la
+ * dirección directa de Supabase. Solo se aceptan rutas relativas que empiezan con «/».
+ */
+export function ssoStartUrl(route: unknown, supabaseUrl: string): string {
+  const r = typeof route === 'string' ? route.trim().replace(/\/+$/, '') : ''
+  return /^\/[A-Za-z0-9/_-]+$/.test(r) ? `${r}/iniciar` : `${supabaseUrl}/functions/v1/cuenta-unica/iniciar`
+}

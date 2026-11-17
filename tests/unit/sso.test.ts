@@ -145,3 +145,19 @@ describe('SPA', () => {
     expect(readTokenHash('#token_hash=<x>')).toBeNull()
   })
 })
+
+describe('ssoStartUrl (ingreso en el mismo dominio, specs 004 de barra-comun)', () => {
+  it('usa la ruta relativa de la reescritura cuando está configurada', async () => {
+    const { ssoStartUrl } = await import('@/features/auth/sso')
+    expect(ssoStartUrl('/api/cuenta-unica', 'https://x.supabase.co')).toBe('/api/cuenta-unica/iniciar')
+    expect(ssoStartUrl(' /api/cuenta-unica/ ', 'https://x.supabase.co')).toBe('/api/cuenta-unica/iniciar')
+  })
+  it('sin ruta o con una dirección no relativa usa la función de Supabase', async () => {
+    const { ssoStartUrl } = await import('@/features/auth/sso')
+    const directa = 'https://x.supabase.co/functions/v1/cuenta-unica/iniciar'
+    expect(ssoStartUrl(undefined, 'https://x.supabase.co')).toBe(directa)
+    expect(ssoStartUrl('', 'https://x.supabase.co')).toBe(directa)
+    expect(ssoStartUrl('https://otro.com/x', 'https://x.supabase.co')).toBe(directa)
+    expect(ssoStartUrl('//otro.com/x', 'https://x.supabase.co')).toBe(directa)
+  })
+})
