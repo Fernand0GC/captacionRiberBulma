@@ -62,3 +62,6 @@ begin
   -- Jefe de ventas de prueba: Verdolago y Trinidad
   insert into public.profile_branches values ('00000000-0000-4000-8000-000000000009', 5), ('00000000-0000-4000-8000-000000000009', 7);
 end $$;
+
+-- Cuenta única local (specs/002-cuenta-unica-portal): la persona de prueba de Keycloak (7788990-1b) es la auxiliar.
+update public.profiles set ci = '7788990-1B' where username = 'aux.verdolago';

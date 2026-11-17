@@ -13,7 +13,7 @@ description: "Task list for 002-cuenta-unica-portal"
 
 ## Phase 2: Identidad (US4)
 
-- [ ] T002 Migración `profiles.ci` (`supabase/migrations/20261116000100_profiles_ci.sql`) + pgTAP `supabase/tests/profiles_ci_test.sql`; aplicar con `migration up` en la base local; CI `7788990-1B` en `aux.verdolago`
+- [X] T002 Migración `profiles.ci` (`supabase/migrations/20261116000100_profiles_ci.sql`) + pgTAP `supabase/tests/profiles_ci_test.sql`; aplicar con `migration up` en la base local; CI `7788990-1B` en `aux.verdolago`
 - [ ] T003 `ci` en `admin-users` (create/update, normalizado, duplicado → 409) y en la pantalla Usuarios (`UserForm`, `UsersPage`, `api.ts`), con `normalizeCi` probado en `tests/unit/ci.test.ts`
 
 ## Phase 3: Cuenta única (US1)
