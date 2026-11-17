@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { MdFlag, MdPerson, MdPlace } from 'react-icons/md'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useBranchScope } from '@/features/auth/useBranchScope'
@@ -85,7 +86,10 @@ function CaptureProgress({ a }: { a: Activity }) {
   )
 }
 
-/** Planificación diaria por sucursal y turno (US4 simple). */
+/**
+ * Planificación anterior por sucursal y turno (spec 001, US4), ahora solo historial: desde la spec 003 se
+ * planifica con asignaciones. El servidor devuelve can_edit = false, así que no se muestran acciones.
+ */
 export function PlanningPage() {
   const { profile } = useAuth()
   const scope = useBranchScope()
@@ -138,8 +142,8 @@ export function PlanningPage() {
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:px-6">
       <PageTitle
-        title="Planificación"
-        subtitle={branchName ?? (isGlobal ? 'Elige una sucursal' : undefined)}
+        title="Planificación anterior"
+        subtitle={`Solo consulta${branchName ? ` · ${branchName}` : isGlobal ? ' · Elige una sucursal' : ''}`}
         actions={
           isGlobal && (
             <select
@@ -158,6 +162,14 @@ export function PlanningPage() {
           )
         }
       />
+
+      <p className="rounded-2xl bg-sand/60 p-3 text-sm text-ink/70">
+        Estas son las actividades cargadas antes de la organización por asignaciones. Para planificar, usa{' '}
+        <Link to="/planificacion" className="font-semibold text-gold-dark underline">
+          Planificación
+        </Link>
+        .
+      </p>
 
       <section
         className="flex flex-wrap items-center gap-2 rounded-3xl bg-white p-3 shadow-sm ring-1 ring-ink/5"

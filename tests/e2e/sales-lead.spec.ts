@@ -5,12 +5,15 @@ test('jefe de ventas: gestiona solo sus sucursales (Verdolago y Trinidad), sin l
   await login(page, 'jefe.ventas')
   await expect(page).toHaveURL(/\/panel/)
 
-  for (const path of ['/panel', '/gestion', '/repartir', '/metas', '/planificacion']) {
+  for (const path of ['/panel', '/gestion', '/repartir', '/metas']) {
     await page.goto(path)
     const select = page.getByRole('combobox', { name: 'Sucursal' })
     await expect(select, path).toBeVisible()
     await expect(select.locator('option')).toHaveText(['VERDOLAGO', 'TRINIDAD'])
   }
+  // Planificación (spec 003) elige varias sucursales a la vez: botones, solo las suyas.
+  await page.goto('/planificacion')
+  await expect(page.getByRole('group', { name: 'Sucursales' }).getByRole('button')).toHaveText(['VERDOLAGO', 'TRINIDAD'])
 
   // Cambiar a Trinidad en Captaciones filtra esa sucursal
   await page.goto('/gestion')

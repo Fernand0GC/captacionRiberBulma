@@ -39,6 +39,11 @@ export const CAPTURE_ROLES: AppRole[] = [...FIELD_ROLES, ...MANAGER_ROLES]
 /** Tienen "Mis contactos". Gerencia también: queda como responsable de lo que toma con "Hacer seguimiento". */
 export const FOLLOWUP_ROLES: AppRole[] = ['field_assistant', 'field_supervisor', ...MANAGER_ROLES]
 
+/** Organización comercial (spec 003): cargan y corrigen. El supervisor reemplaza al encargado cuando hace falta. */
+export const ORG_MANAGE_ROLES: AppRole[] = ['field_supervisor', ...MANAGER_ROLES]
+/** Organización comercial: la ven (el auxiliar, solo lo suyo). La volantera no la ve. */
+export const ORG_VIEW_ROLES: AppRole[] = ['field_assistant', ...ORG_MANAGE_ROLES]
+
 export function homePath(role: AppRole): string {
   if (MANAGER_ROLES.includes(role)) return '/panel'
   // Auxiliar y supervisor trabajan sobre todo la recaptación: entran a Mis contactos.
