@@ -64,7 +64,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,webp,woff2}', 'icon-192.png'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/(auth|rest|functions)\/v1\//],
+        navigateFallbackDenylist: [/^\/(auth|rest|functions)\/v1\//, /^\/api\//],
         cleanupOutdatedCaches: true,
       },
     }),
