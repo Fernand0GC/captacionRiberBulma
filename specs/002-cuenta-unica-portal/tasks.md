@@ -18,7 +18,7 @@ description: "Task list for 002-cuenta-unica-portal"
 
 ## Phase 3: Cuenta única (US1)
 
-- [ ] T004 Edge Function `supabase/functions/cuenta-unica/` (`oidc.ts` puro + `index.ts`), `verify_jwt = false` en `config.toml`, `supabase/functions/.env.example`; pruebas de `oidc.ts` en `tests/unit/sso.test.ts`
+- [X] T004 Edge Function `supabase/functions/cuenta-unica/` (`oidc.ts` puro + `index.ts`), `verify_jwt = false` en `config.toml`, `supabase/functions/.env.example`; pruebas de `oidc.ts` en `tests/unit/sso.test.ts`
 - [ ] T005 SPA: botón y mensajes `?sso` en `LoginPage`, ruta `/ingreso-unico` (`SsoLanding.tsx`), `VITE_CUENTA_UNICA` en `.env.example`
 
 ## Phase 4: Portal (US3, US2)
