@@ -5,8 +5,7 @@ otra BD (Supabase nuevo), otro deploy.
 
 - Principios: `.specify/memory/constitution.md` (manda por encima de todo).
 - Definición y alcance: `docs/proyecto.md`.
-- Features: `specs/001-captacion-mvp/` (MVP) y `specs/003-organizacion-comercial/` (activa: la Planificación pasa a
-  asignaciones con catálogo Estrategia → Canal → Subcanal; reemplaza la US4 de la 001).
+- Features: `specs/001-captacion-mvp/` (MVP), `specs/002-monitoreo-seguimiento/` (vistas Seguimientos y Actividad en `/gestion`) y `specs/003-organizacion-comercial/` (activa: la Planificación pasa a asignaciones con catálogo Estrategia → Canal → Subcanal; reemplaza la US4 de la 001).
 - Flujo SDD: `/speckit-specify` → `/speckit-clarify` → `/speckit-plan` → `/speckit-tasks` → `/speckit-analyze` → `/speckit-implement`. Features en `specs/NNN-nombre/`.
 
 ## Reglas

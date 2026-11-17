@@ -1,5 +1,5 @@
 begin;
-select plan(12);
+select plan(15);
 
 -- 5 captaciones de hoy en Verdolago (volantera) + 1 de ayer + 1 en Trinidad
 select tests.login_as('00000000-0000-4000-8000-000000000006');
@@ -35,6 +35,20 @@ select is((select (r -> 'by_person' ->> '00000000-0000-4000-8000-000000000005'):
 select tests.logout();
 select is((select count(*)::int from public.prospects where full_name = 'Reparto 6' and assigned_to is null), 1, 'la de ayer no se toca si no se incluye');
 select is((select count(*)::int from public.assignment_events where created_at = now()), 4, 'deja historial de asignación (de esta transacción)');
+
+-- Calendario (FR-039d): pendientes por día coinciden con lo repartible
+select tests.login_as('00000000-0000-4000-8000-000000000003');
+create temp table cal as select public.distribution_dates_summary(5::smallint,
+  extract(year from (select today from d))::int, extract(month from (select today from d))::int) as s;
+select is((select (s -> to_char((select today from d), 'YYYY-MM-DD') ->> 'pending')::int from cal),
+  (public.distribution_preview(5::smallint, (select today from d), (select today from d)) ->> 'total')::int,
+  'calendario: pendientes de hoy = vista previa de hoy');
+select ok((select (s -> to_char((select today from d), 'YYYY-MM-DD') ->> 'total')::int
+  >= (s -> to_char((select today from d), 'YYYY-MM-DD') ->> 'pending')::int + 4 from cal),
+  'calendario: el total de hoy incluye las ya repartidas');
+select throws_ok($$ select public.distribution_dates_summary(7::smallint, 2026, 1) $$, 'P0001', 'forbidden',
+  'calendario: encargado no ve otra sucursal');
+select tests.logout();
 
 -- Validaciones
 select tests.login_as('00000000-0000-4000-8000-000000000003');
