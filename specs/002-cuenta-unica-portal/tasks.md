@@ -29,4 +29,4 @@ description: "Task list for 002-cuenta-unica-portal"
 
 ## Phase 5: Cierre
 
-- [ ] T009 Verificaciones (`typecheck`, `lint`, `test`, `build`, `size`, `db:test` contra la base 56322, humo OIDC) y `qa/handoff.md`
+- [X] T009 Verificaciones (`typecheck`, `lint`, `test`, `build`, `size`, `db:test` contra la base 56322, humo OIDC) y `qa/handoff.md`
