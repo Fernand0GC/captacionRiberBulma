@@ -15,6 +15,7 @@ import {
 import { useAuth } from '@/features/auth/AuthProvider'
 import { LogoutButton } from '@/features/auth/LogoutButton'
 import { InstallCard } from '@/features/install/InstallCard'
+import { usePortalMode } from '@/features/portal/portalMode'
 import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
 import { SyncRunner } from '@/features/sync/SyncRunner'
 
@@ -117,6 +118,8 @@ function Brand() {
  */
 export function AppShell() {
   const { profile } = useAuth()
+  // Dentro del portal su barra reemplaza la marca, la cuenta y Salir; las secciones de la app se quedan (puente.md).
+  const portal = usePortalMode()
   const [open, setOpen] = useState(false)
   const items = useNav()
   const path = useRouterState({ select: (s) => s.location.pathname })
@@ -129,15 +132,17 @@ export function AppShell() {
 
       <aside className="bg-ink-gradient sticky top-0 hidden h-dvh w-64 shrink-0 flex-col justify-between p-4 lg:flex">
         <div className="flex flex-col gap-6">
-          <Brand />
+          {!portal && <Brand />}
           <NavLinks />
         </div>
-        <UserCard />
+        {!portal && <UserCard />}
       </aside>
 
       <header className="bg-ink-gradient sticky top-0 z-30 flex items-center justify-between gap-3 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
         <div className="flex min-w-0 items-center gap-3">
-          <img src="/logo-rb-96.webp" alt="Riber Bulma" width={36} height={36} className="h-9 w-9 shrink-0 rounded-full" />
+          {!portal && (
+            <img src="/logo-rb-96.webp" alt="Riber Bulma" width={36} height={36} className="h-9 w-9 shrink-0 rounded-full" />
+          )}
           <p className="truncate font-display text-lg font-semibold text-gold-light">{current?.label ?? 'Captación'}</p>
         </div>
         <button
@@ -158,17 +163,19 @@ export function AppShell() {
           <div className="bg-ink-gradient absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col justify-between gap-4 overflow-y-auto p-4">
             <div className="flex flex-col gap-6">
               <div className="flex items-center justify-between">
-                <Brand />
+                {portal ? <span /> : <Brand />}
                 <button type="button" aria-label="Cerrar menú" onClick={() => setOpen(false)} className="h-10 w-10 text-xl text-white/70">
                   ✕
                 </button>
               </div>
               <NavLinks onNavigate={() => setOpen(false)} />
             </div>
-            <div className="flex flex-col gap-3">
-              <InstallCard />
-              <UserCard />
-            </div>
+            {!portal && (
+              <div className="flex flex-col gap-3">
+                <InstallCard />
+                <UserCard />
+              </div>
+            )}
           </div>
         </div>
       )}

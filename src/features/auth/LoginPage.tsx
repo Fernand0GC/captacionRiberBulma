@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Navigate, useSearch } from '@tanstack/react-router'
 import { MdVisibility, MdVisibilityOff } from 'react-icons/md'
 import { InstallCard } from '@/features/install/InstallCard'
+import { usePortalMode } from '@/features/portal/portalMode'
 import { Button } from '@/ui/Button'
 import { Field, TextInput } from '@/ui/Field'
 import { SUPABASE_URL } from '@/lib/supabase'
@@ -16,6 +17,7 @@ export function LoginPage() {
   const { sso } = useSearch({ from: '/login' })
   const ssoError = ssoMessage(sso)
   const [offline, setOffline] = useState(false)
+  const portal = usePortalMode()
   const { signIn, status, profile } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -126,7 +128,7 @@ export function LoginPage() {
             </>
           )}
         </form>
-        <InstallCard />
+        {!portal && <InstallCard />}
         <p className="text-xs text-white/35">Riber Bulma · Ventas</p>
       </div>
     </main>

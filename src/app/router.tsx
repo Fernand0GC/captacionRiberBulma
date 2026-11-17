@@ -4,6 +4,7 @@ import { SsoLanding } from '@/features/auth/SsoLanding'
 import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
 import { CaptureForm } from '@/features/capture/CaptureForm'
 import { RegisterHome } from '@/features/capture/RegisterHome'
+import { PortalProvider } from '@/features/portal/PortalProvider'
 import { validateManageSearch } from '@/features/prospects/search'
 import { AppShell } from './AppShell'
 import { HomeRedirect, RequireRole } from './guards'
@@ -12,7 +13,14 @@ import { HomeRedirect, RequireRole } from './guards'
 const ALL_ROLES = Object.keys(ROLE_LABEL) as AppRole[]
 const ManagedOutlet = lazyRouteComponent(() => import('./ManagedOutlet'), 'ManagedOutlet')
 
-const rootRoute = createRootRoute({ component: Outlet })
+// Ruta raíz: el puente con el portal vive acá porque necesita el router (abrir, ruta).
+const rootRoute = createRootRoute({
+  component: () => (
+    <PortalProvider>
+      <Outlet />
+    </PortalProvider>
+  ),
+})
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: HomeRedirect })
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,

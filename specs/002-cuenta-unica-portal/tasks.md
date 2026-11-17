@@ -25,7 +25,7 @@ description: "Task list for 002-cuenta-unica-portal"
 
 - [X] T006 `frame-ancestors` en `vercel.json` y en `vite.config.ts` (`VITE_PORTAL_ORIGEN`)
 - [X] T007 Puente: `src/features/portal/contract.ts` + `bridge.ts` con pruebas `tests/unit/portal-bridge.test.ts`
-- [ ] T008 `LogoutProvider` (flujo de Salir reutilizable) + `PortalProvider` + modo portal en `AppShell` + avisos lazy (`notices.ts`, `tests/unit/portal-notices.test.ts`)
+- [X] T008 `LogoutProvider` (flujo de Salir reutilizable) + `PortalProvider` + modo portal en `AppShell` + avisos lazy (`notices.ts`, `tests/unit/portal-notices.test.ts`)
 
 ## Phase 5: Cierre
 
