@@ -4,6 +4,7 @@ import { generatePassword } from '@/lib/adminUsers'
 import { Button } from '@/ui/Button'
 import { Field, TextInput } from '@/ui/Field'
 import { Select } from '@/ui/Select'
+import { parseCi } from '../../../supabase/functions/_shared/ci'
 import type { UserRow } from './api'
 
 export type UserFormValues = {
@@ -14,6 +15,8 @@ export type UserFormValues = {
   /** Jefe de ventas: sus sucursales. */
   branch_ids: number[]
   contract_type: 'temporary' | 'permanent'
+  /** CI de la cuenta única; vacío = sin CI. */
+  ci: string
   /** Solo al crear. */
   password?: string
 }
@@ -51,6 +54,7 @@ export function UserForm({
     branch_id: initial?.branch_id ?? null,
     branch_ids: initial?.branch_ids ?? [],
     contract_type: initial?.contract_type ?? 'temporary',
+    ci: initial?.ci ?? '',
     password: initial ? undefined : generatePassword(),
   })
   const [errs, setErrs] = useState<Partial<Record<keyof UserFormValues, string>>>({})
@@ -65,10 +69,12 @@ export function UserForm({
     if (v.full_name.trim().length < 3) x.full_name = 'Escribe el nombre completo.'
     if (needsBranch && !v.branch_id) x.branch_id = 'Elige la sucursal.'
     if (isLead && v.branch_ids.length === 0) x.branch_ids = 'Elige al menos una sucursal.'
+    const ci = v.ci.trim() ? parseCi(v.ci) : ''
+    if (ci === null) x.ci = 'Número de 4 a 12 dígitos y, si tiene, complemento con guion. Ej.: 7788990-1B'
     if (!initial && (v.password ?? '').trim().length < 8) x.password = 'Mínimo 8 caracteres.'
     setErrs(x)
     if (Object.keys(x).length === 0)
-      onSubmit({ ...v, password: v.password?.trim(), branch_id: needsBranch ? v.branch_id : null, branch_ids: isLead ? v.branch_ids : [] })
+      onSubmit({ ...v, ci: ci ?? '', password: v.password?.trim(), branch_id: needsBranch ? v.branch_id : null, branch_ids: isLead ? v.branch_ids : [] })
   }
 
   return (
@@ -128,6 +134,21 @@ export function UserForm({
             invalid={!!errs.full_name}
             value={v.full_name}
             onChange={(e) => setV({ ...v, full_name: e.target.value })}
+          />
+        )}
+      </Field>
+      <Field label="CI (cuenta única)" error={errs.ci} hint="Opcional. Con él la persona entra con la cuenta única.">
+        {(id, d) => (
+          <TextInput
+            id={id}
+            aria-describedby={d}
+            invalid={!!errs.ci}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            autoComplete="off"
+            spellCheck={false}
+            value={v.ci}
+            onChange={(e) => setV({ ...v, ci: e.target.value })}
           />
         )}
       </Field>
