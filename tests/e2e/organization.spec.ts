@@ -63,6 +63,29 @@ test('organización: el encargado carga con horario sugerido, registra resultado
   await expect(card).toHaveCount(0)
 })
 
+test('organización: en Tienda no se pide ubicación y los canales sin meta no la piden', async ({ page }) => {
+  await login(page, 'enc.trinidad')
+  await expect(page).toHaveURL(/\/panel/)
+  await page.goto('/planificacion')
+  await page.getByRole('button', { name: 'Día siguiente', exact: true }).click()
+  await page.getByRole('button', { name: '＋ Mañana' }).click()
+  const dlg = page.getByRole('dialog', { name: 'Nueva asignación' })
+  // En Calle se pide todo
+  await dlg.getByRole('combobox', { name: /^Estrategia/ }).selectOption({ label: 'Calle' })
+  await expect(dlg.getByRole('textbox', { name: /^Ubicación/ })).toBeVisible()
+  // En Tienda, sin ubicación; Llamadas con meta, Comentarios y Tareas administrativas sin meta
+  await dlg.getByRole('combobox', { name: /^Estrategia/ }).selectOption({ label: 'Tienda' })
+  await expect(dlg.getByRole('textbox', { name: /^Ubicación/ })).toHaveCount(0)
+  await dlg.getByRole('combobox', { name: /^Canal/ }).selectOption({ label: 'Llamadas' })
+  await expect(dlg.getByRole('spinbutton', { name: /^Meta/ })).toBeVisible()
+  await dlg.getByRole('combobox', { name: /^Canal/ }).selectOption({ label: 'Comentarios' })
+  await expect(dlg.getByRole('spinbutton', { name: /^Meta/ })).toHaveCount(0)
+  await expect(dlg.getByTestId('no-goal-note')).toBeVisible()
+  await dlg.getByRole('combobox', { name: /^Canal/ }).selectOption({ label: 'Tareas administrativas' })
+  await expect(dlg.getByRole('spinbutton', { name: /^Meta/ })).toHaveCount(0)
+  await dlg.getByRole('button', { name: 'Cancelar' }).click()
+})
+
 test('organización: el auxiliar ve solo «Mi plan» y la volantera no tiene acceso', async ({ page }) => {
   await login(page, 'aux.verdolago')
   await page.waitForURL((u) => !u.pathname.endsWith('/login'))

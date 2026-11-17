@@ -6,7 +6,10 @@ import { useToast } from '@/ui/Toast'
 import { saveCatalogItem, useOrgCatalog, type CatalogLevel, type Subchannel } from './api'
 
 type Item = { id?: number; name: string; sort: number; active: boolean }
-type Draft = Item & Partial<Pick<Subchannel, 'morning_start' | 'morning_end' | 'afternoon_start' | 'afternoon_end'>>
+type Flag = 'uses_place' | 'uses_goal'
+type Draft = Item &
+  Partial<Record<Flag, boolean>> &
+  Partial<Pick<Subchannel, 'morning_start' | 'morning_end' | 'afternoon_start' | 'afternoon_end'>>
 
 const hhmm = (t: string | null | undefined) => (t ? t.slice(0, 5) : '')
 const inputCls = 'min-h-10 rounded-xl border border-ink/15 bg-white px-2'
@@ -17,18 +20,23 @@ function Row({
   item,
   parent,
   withTimes,
+  flag,
 }: {
   level: CatalogLevel
   item: Draft
   parent?: { key: 'strategy_id' | 'channel_id'; id: number }
   withTimes?: boolean
+  /** Casilla extra: «Pide ubicación» (estrategia) o «Lleva meta» (canal). Por defecto marcada. */
+  flag?: { key: Flag; label: string }
 }) {
   const qc = useQueryClient()
   const toast = useToast()
   // La base devuelve las horas con segundos ("10:00:00"); el formulario trabaja con "10:00".
   const base: Draft = withTimes
     ? { ...item, morning_start: hhmm(item.morning_start), morning_end: hhmm(item.morning_end), afternoon_start: hhmm(item.afternoon_start), afternoon_end: hhmm(item.afternoon_end) }
-    : item
+    : flag
+      ? { ...item, [flag.key]: item[flag.key] ?? true }
+      : item
   const [d, setD] = useState<Draft>(base)
   const [busy, setBusy] = useState(false)
   const dirty = JSON.stringify(d) !== JSON.stringify(base)
@@ -40,6 +48,7 @@ function Row({
     try {
       const fields: Record<string, unknown> = { id: d.id, name: d.name.trim(), sort: Number(d.sort) || 0, active: d.active }
       if (parent && !d.id) fields[parent.key] = parent.id
+      if (flag) fields[flag.key] = d[flag.key] ?? true
       if (withTimes)
         for (const k of ['morning_start', 'morning_end', 'afternoon_start', 'afternoon_end'] as const) fields[k] = d[k] || null
       await saveCatalogItem(level, fields as Record<string, unknown> & { id?: number })
@@ -66,6 +75,11 @@ function Row({
           <input aria-label="Tarde inicio" type="time" value={hhmm(d.afternoon_start)} onChange={(e) => set('afternoon_start', e.target.value)} className={inputCls} />
           <input aria-label="Tarde fin" type="time" value={hhmm(d.afternoon_end)} onChange={(e) => set('afternoon_end', e.target.value)} className={inputCls} />
         </span>
+      )}
+      {flag && (
+        <label className="flex items-center gap-1 text-sm">
+          <input type="checkbox" checked={d[flag.key] ?? true} onChange={(e) => set(flag.key, e.target.checked)} /> {flag.label}
+        </label>
       )}
       {d.id && (
         <label className="flex items-center gap-1 text-sm">
@@ -96,7 +110,7 @@ export function CatalogPage() {
           return (
             <section key={s.id} className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5" aria-label={`Estrategia ${s.name}`}>
               <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">Estrategia</p>
-              <Row level="org_strategies" item={s} />
+              <Row level="org_strategies" item={s} flag={{ key: 'uses_place', label: 'Pide ubicación' }} />
               <div className="mt-2 flex flex-col gap-2 border-l-2 border-gold/40 pl-3">
                 {channels.map((c) => {
                   const subs = cat.subchannels.filter((x) => x.channel_id === c.id)
@@ -113,7 +127,7 @@ export function CatalogPage() {
                           {open === c.id ? '−' : '+'}
                         </button>
                         <div className="flex-1">
-                          <Row level="org_channels" item={c} />
+                          <Row level="org_channels" item={c} flag={{ key: 'uses_goal', label: 'Lleva meta' }} />
                         </div>
                         <span className="text-xs text-ink/50">{subs.length} {subs.length === 1 ? 'subcanal' : 'subcanales'}</span>
                       </div>
@@ -128,7 +142,7 @@ export function CatalogPage() {
                     </div>
                   )
                 })}
-                <Row level="org_channels" item={empty(channels.length + 1)} parent={{ key: 'strategy_id', id: s.id }} />
+                <Row level="org_channels" item={empty(channels.length + 1)} parent={{ key: 'strategy_id', id: s.id }} flag={{ key: 'uses_goal', label: 'Lleva meta' }} />
               </div>
             </section>
           )
@@ -136,7 +150,7 @@ export function CatalogPage() {
       {cat && (
         <section className="rounded-3xl bg-white p-4 ring-1 ring-ink/5">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">Nueva estrategia</p>
-          <Row level="org_strategies" item={empty(cat.strategies.length + 1)} />
+          <Row level="org_strategies" item={empty(cat.strategies.length + 1)} flag={{ key: 'uses_place', label: 'Pide ubicación' }} />
         </section>
       )}
     </main>

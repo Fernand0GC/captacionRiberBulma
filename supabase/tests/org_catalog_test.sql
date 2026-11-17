@@ -1,9 +1,9 @@
 begin;
-select plan(9);
+select plan(13);
 
 -- Catálogo inicial de la planilla de ventas
 select is((select count(*)::int from public.org_strategies), 2, '2 estrategias');
-select is((select count(*)::int from public.org_channels), 10, '10 canales');
+select is((select count(*)::int from public.org_channels), 11, '11 canales (10 de la planilla + Tareas administrativas)');
 select is((select count(*)::int from public.org_subchannels), 34, '34 subcanales');
 select is(
   (select array_agg(c.name order by c.sort) from public.org_channels c join public.org_strategies s on s.id = c.strategy_id where s.name = 'Calle'),
@@ -14,6 +14,17 @@ select is(
 select ok(
   (select afternoon_start is null and morning_start is not null from public.org_subchannels where name = 'Activaciones instituciones'),
   'subcanal sin horario de tarde');
+
+-- Marcas: Tienda no pide ubicación; Mensajería, Comentarios y Tareas administrativas no llevan meta
+select is(
+  (select array_agg(name order by sort) from public.org_strategies where uses_place), array['Calle'], 'solo Calle pide ubicación');
+select is(
+  (select array_agg(name order by sort) from public.org_channels where not uses_goal),
+  array['RRSS-Mensajería', 'Comentarios', 'Tareas administrativas'], 'canales sin meta');
+select is(
+  (select s.name from public.org_channels c join public.org_strategies s on s.id = c.strategy_id where c.name = 'Tareas administrativas'),
+  'Tienda', 'Tareas administrativas está en Tienda');
+select ok((select uses_goal from public.org_channels where name = 'Llamadas'), 'Llamadas sigue con meta');
 
 -- Nombre repetido dentro del mismo canal
 select throws_ok(

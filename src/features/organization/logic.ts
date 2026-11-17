@@ -1,4 +1,4 @@
-import type { Assignment, Shift, Subchannel } from './api'
+import type { Assignment, Catalog, Shift, Subchannel } from './api'
 
 // Lógica pura de la organización: sin React ni red, para probarla con Vitest.
 
@@ -69,6 +69,20 @@ export function totals(rows: Assignment[]): { goal: number; result: number; coun
 export function compliance(goal: number | null, result: number | null): number | null {
   if (goal === null || result === null || goal === 0) return null
   return Math.round((result / goal) * 100)
+}
+
+/**
+ * Qué campos opcionales pide el formulario según el catálogo. Sin estrategia o canal elegidos se muestran
+ * (no se esconde nada antes de saber). La base aplica la misma regla al guardar.
+ */
+export function formFields(
+  cat: Pick<Catalog, 'strategies' | 'channels'> | undefined,
+  strategyId: string,
+  channelId: string,
+): { place: boolean; goal: boolean } {
+  const s = cat?.strategies.find((x) => String(x.id) === strategyId)
+  const c = cat?.channels.find((x) => String(x.id) === channelId)
+  return { place: s?.uses_place ?? true, goal: c?.uses_goal ?? true }
 }
 
 /** Días entre dos fechas ISO (inclusive el primero: mismo día = 0). */

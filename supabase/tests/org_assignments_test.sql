@@ -1,5 +1,5 @@
 begin;
-select plan(30);
+select plan(33);
 
 -- Usuarios del seed: 3 enc.verdolago, 4 aux.verdolago, 5 sup.verdolago, 6 vol.verdolago, 7 enc.trinidad,
 -- 9 jefe.ventas (Verdolago y Trinidad), 2 gerente, 1 admin.
@@ -118,6 +118,28 @@ select ok(
   (select r ->> 'result' is null and r ->> 'notes' is null
    from jsonb_array_elements(public.org_list((select today + 7 from k), (select today + 7 from k)) -> 'rows') r),
   'la copia va sin resultado ni observaciones');
+
+-- Marcas del catálogo (20261117000400): Tienda no guarda lugar; Comentarios no guarda meta; Llamadas sí.
+insert into ids select 'comentarios', public.org_save(pg_temp.payload((select today + 2 from k), '00000000-0000-4000-8000-000000000004',
+  jsonb_build_object('strategy_id', (select tienda from k), 'subchannel_id', null,
+    'channel_id', (select id from public.org_channels where name = 'Comentarios'))));
+insert into ids select 'llamadas', public.org_save(pg_temp.payload((select today + 2 from k), '00000000-0000-4000-8000-000000000005',
+  jsonb_build_object('strategy_id', (select tienda from k), 'subchannel_id', null, 'channel_id', (select llamadas from k))));
+select ok(
+  (select r ->> 'place' is null and r ->> 'goal' is null
+   from jsonb_array_elements(public.org_list((select today + 2 from k), (select today + 2 from k)) -> 'rows') r
+   where r ->> 'id' = (select id::text from ids where name = 'comentarios')),
+  'Tienda + Comentarios: se guarda sin lugar ni meta aunque lleguen');
+select ok(
+  (select r ->> 'place' is null and r ->> 'goal' = '30'
+   from jsonb_array_elements(public.org_list((select today + 2 from k), (select today + 2 from k)) -> 'rows') r
+   where r ->> 'id' = (select id::text from ids where name = 'llamadas')),
+  'Tienda + Llamadas: sin lugar, con meta');
+select lives_ok(format($$ select public.org_save(%L) $$,
+  pg_temp.payload((select today + 2 from k), '00000000-0000-4000-8000-000000000004',
+    jsonb_build_object('strategy_id', (select tienda from k), 'subchannel_id', null,
+      'channel_id', (select id from public.org_channels where name = 'Tareas administrativas')))),
+  'se asigna «Tareas administrativas» en Tienda');
 
 -- Eliminar deja la fila en el historial
 select lives_ok(format($$ select public.org_delete(%L) $$, (select id from ids where name = 'tomorrow')), 'el encargado elimina una asignación de mañana');

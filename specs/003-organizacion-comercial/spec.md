@@ -35,6 +35,9 @@ Lo que la Planificación actual no tiene y la planilla pide:
 - Q: ¿Se puede cambiar la meta de una asignación una vez que empieza su día? → A: El encargado la cambia hasta el día anterior; desde el día de la asignación solo el gerente a cargo, el gerente general o el administrador, y queda registrado.
 - Q: ¿Qué ve el personal de campo de la organización de su sucursal? → A: El supervisor ve toda la sucursal, porque a veces reemplaza al encargado; el auxiliar ve solo sus propias asignaciones; la volantera no ve la organización, solo registra números.
 - Q: Cuando el supervisor reemplaza al encargado, ¿puede cargar y corregir la organización? → A: Sí; el supervisor carga y corrige en su sucursal con los mismos permisos y límites que el encargado.
+- Q: (Prueba con ventas) ¿Se pide ubicación en Tienda? → A: No; en Tienda la persona trabaja en la sucursal. La ubicación solo se pide en Calle.
+- Q: (Prueba con ventas) ¿Todos los canales llevan meta? → A: No; Mensajería y Comentarios no tienen una meta como tal.
+- Q: (Prueba con ventas) ¿Se planifican las tareas administrativas que el personal de tienda hace además de vender? → A: Sí, como un canal más de Tienda, «Tareas administrativas», sin meta.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -188,6 +191,8 @@ que la tabla y las 14 columnas de la planilla en su orden.
 - **FR-013**: El sistema MUST mostrar en cada asignación el gerente a cargo de la sucursal, tomado de la relación gerente–sucursal y no escrito a mano.
 - **FR-014**: La meta y el resultado MUST ser números enteros de 0 a 9999 que se escriben a mano. La meta la ingresan los gerentes y los encargados de sucursal (a quienes ventas llama también subgerentes); el resultado lo ingresan las mismas personas. El sistema no calcula ninguno de los dos.
 - **FR-029**: El encargado y el supervisor de campo MUST poder cambiar la meta, la persona, el horario y el catálogo de una asignación solo hasta el día anterior a su fecha. Desde la fecha de la asignación, esos cambios MUST quedar reservados al gerente a cargo, al gerente general y al administrador. El resultado y las observaciones no tienen esa restricción (FR-018).
+- **FR-030**: Cada estrategia MUST indicar si pide ubicación (Calle sí, Tienda no) y cada canal si lleva meta (RRSS-Mensajería, Comentarios y Tareas administrativas no). El formulario MUST esconder los campos que no corresponden y la base MUST guardarlos vacíos aunque lleguen. El administrador MUST poder cambiar ambas marcas desde el catálogo.
+- **FR-031**: El catálogo MUST incluir en Tienda el canal «Tareas administrativas», sin meta, para planificar el tiempo administrativo del personal de tienda.
 - **FR-015**: El sistema MUST avisar cuando una persona tiene dos asignaciones con horarios que se cruzan el mismo día, sin impedir que se guarden.
 - **FR-016**: El sistema MUST permitir copiar la organización de un día a otro de la misma sucursal, sin resultados ni observaciones.
 - **FR-017**: La Planificación MUST trabajar solo con asignaciones. Las actividades cargadas antes del cambio MUST seguir visibles como historial, de solo lectura, y no MUST poder crearse actividades nuevas del formato anterior.

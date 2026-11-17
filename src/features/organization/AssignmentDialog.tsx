@@ -14,7 +14,7 @@ import {
   type AssignmentInput,
   type Shift,
 } from './api'
-import { overlaps, suggestedTimes } from './logic'
+import { formFields, overlaps, suggestedTimes } from './logic'
 
 type Form = {
   shift: Shift
@@ -76,6 +76,8 @@ export function AssignmentDialog({
   const subchannels = (cat?.subchannels ?? []).filter(
     (s) => String(s.channel_id) === v.channel_id && isActiveOrCurrent(s.active, s.id, v.subchannel_id),
   )
+  // Ubicación y meta solo si la estrategia y el canal las usan (Tienda no pide lugar; Comentarios no lleva meta).
+  const show = formFields(cat, v.strategy_id, v.channel_id)
   // La persona asignada sigue en la lista aunque ya no esté activa.
   const people = [...(staff.data ?? [])]
   if (assignment && !people.some((p) => p.id === assignment.profile_id))
@@ -109,7 +111,7 @@ export function AssignmentDialog({
     if (!v.strategy_id || !v.channel_id) return setErr('Elige la estrategia y el canal.')
     if (v.start_time && v.end_time && v.end_time <= v.start_time)
       return setErr('La hora de fin tiene que ser después de la de inicio.')
-    const goal = v.goal === '' ? null : Number(v.goal)
+    const goal = !show.goal || v.goal === '' ? null : Number(v.goal)
     if (goal !== null && !(Number.isInteger(goal) && goal >= 0 && goal <= 9999))
       return setErr('La meta tiene que ser un número entero entre 0 y 9999.')
     const input: AssignmentInput = {
@@ -123,7 +125,7 @@ export function AssignmentDialog({
       strategy_id: Number(v.strategy_id),
       channel_id: Number(v.channel_id),
       subchannel_id: v.subchannel_id ? Number(v.subchannel_id) : null,
-      place: v.place,
+      place: show.place ? v.place : '',
       goal,
     }
     try {
@@ -224,16 +226,22 @@ export function AssignmentDialog({
             Esta persona ya tiene otra asignación que se cruza ({clash.map((c) => `${c.start_time}–${c.end_time}`).join(', ')}). Se puede guardar igual.
           </p>
         )}
-        <Field label="Ubicación / lugar" optional>
-          {(id) => (
-            <TextInput id={id} value={v.place} maxLength={200} placeholder="Ej.: Barrio Litoral" onChange={(e) => change('place', e.target.value)} />
-          )}
-        </Field>
-        <Field label="Meta" optional>
-          {(id) => (
-            <TextInput id={id} type="number" inputMode="numeric" min={0} max={9999} value={v.goal} placeholder="Ej.: 30" onChange={(e) => change('goal', e.target.value)} />
-          )}
-        </Field>
+        {show.place && (
+          <Field label="Ubicación / lugar" optional>
+            {(id) => (
+              <TextInput id={id} value={v.place} maxLength={200} placeholder="Ej.: Barrio Litoral" onChange={(e) => change('place', e.target.value)} />
+            )}
+          </Field>
+        )}
+        {show.goal ? (
+          <Field label="Meta" optional>
+            {(id) => (
+              <TextInput id={id} type="number" inputMode="numeric" min={0} max={9999} value={v.goal} placeholder="Ej.: 30" onChange={(e) => change('goal', e.target.value)} />
+            )}
+          </Field>
+        ) : (
+          <p className="text-sm text-ink/55" data-testid="no-goal-note">Este canal no lleva meta.</p>
+        )}
         {err && <p className="text-sm font-medium text-rb-red">{err}</p>}
         <div className="sticky bottom-0 flex gap-2 bg-cream pt-1">
           <Button variant="secondary" className="flex-1" onClick={onClose}>

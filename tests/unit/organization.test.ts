@@ -6,6 +6,7 @@ import {
   compliance,
   daysBetween,
   filterOptions,
+  formFields,
   NONE,
   overlaps,
   suggestedTimes,
@@ -133,5 +134,27 @@ describe('fechas', () => {
     expect(addDays('2026-11-30', 1)).toBe('2026-12-01')
     expect(daysBetween('2026-11-01', '2026-11-01')).toBe(0)
     expect(daysBetween('2026-11-01', '2026-12-01')).toBe(30)
+  })
+})
+
+describe('formFields', () => {
+  const cat = {
+    strategies: [
+      { id: 1, name: 'Calle', sort: 1, active: true, uses_place: true },
+      { id: 2, name: 'Tienda', sort: 2, active: true, uses_place: false },
+    ],
+    channels: [
+      { id: 10, strategy_id: 2, name: 'Llamadas', sort: 1, active: true, uses_goal: true },
+      { id: 11, strategy_id: 2, name: 'Comentarios', sort: 2, active: true, uses_goal: false },
+    ],
+  }
+  it('Tienda no pide ubicación; Comentarios no pide meta', () => {
+    expect(formFields(cat, '2', '11')).toEqual({ place: false, goal: false })
+    expect(formFields(cat, '2', '10')).toEqual({ place: false, goal: true })
+    expect(formFields(cat, '1', '')).toEqual({ place: true, goal: true })
+  })
+  it('sin elegir o sin catálogo muestra todo', () => {
+    expect(formFields(cat, '', '')).toEqual({ place: true, goal: true })
+    expect(formFields(undefined, '2', '11')).toEqual({ place: true, goal: true })
   })
 })

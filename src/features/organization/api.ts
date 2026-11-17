@@ -39,8 +39,10 @@ export type Assignment = {
 
 export type OrgList = { can_manage: boolean; rows: Assignment[] }
 
-export type Strategy = { id: number; name: string; sort: number; active: boolean }
-export type Channel = { id: number; strategy_id: number; name: string; sort: number; active: boolean }
+/** uses_place: pide «Ubicación / lugar» (Calle sí, Tienda no). */
+export type Strategy = { id: number; name: string; sort: number; active: boolean; uses_place: boolean }
+/** uses_goal: pide meta (Mensajería, Comentarios y Tareas administrativas no). */
+export type Channel = { id: number; strategy_id: number; name: string; sort: number; active: boolean; uses_goal: boolean }
 export type Subchannel = {
   id: number
   channel_id: number

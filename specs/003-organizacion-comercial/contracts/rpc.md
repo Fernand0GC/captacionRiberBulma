@@ -72,6 +72,7 @@ Reglas:
 - Estrategia, canal y subcanal deben pertenecer uno al otro y estar activos (`invalid_input`, `catalog`).
 - Con las dos horas, fin > inicio (`invalid_input`, `time`).
 - `goal` de 0 a 9999 o vacío (`invalid_input`, `goal`).
+- Si la estrategia no usa ubicación (`uses_place = false`) se guarda `place` vacío; si el canal no lleva meta (`uses_goal = false`), `goal` vacío. No es error (FR-030). `org_copy_day` aplica la misma regla.
 - Al crear se guarda `lead_id = branch_lead(branch_id)`. Al editar no cambia.
 - No acepta `result` ni `notes`; eso va por `org_set_result`.
 

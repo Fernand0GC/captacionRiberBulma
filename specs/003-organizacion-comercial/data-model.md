@@ -12,6 +12,7 @@ Nombres en inglés (código y base); la interfaz, en español. Migraciones nueva
 | `name` | text | único, 2–60 caracteres |
 | `sort` | smallint | orden en listas, por defecto 0 |
 | `active` | boolean | por defecto true |
+| `uses_place` | boolean | pide ubicación; por defecto true (Tienda: false). FR-030 |
 
 ### `org_channels` (Canal)
 
@@ -22,6 +23,7 @@ Nombres en inglés (código y base); la interfaz, en español. Migraciones nueva
 | `name` | text | 2–60 caracteres; único dentro de la estrategia |
 | `sort` | smallint | por defecto 0 |
 | `active` | boolean | por defecto true |
+| `uses_goal` | boolean | lleva meta; por defecto true (RRSS-Mensajería, Comentarios y Tareas administrativas: false). FR-030 |
 
 Único adicional `(id, strategy_id)` para la llave compuesta de las asignaciones.
 
@@ -106,6 +108,7 @@ No hay columna de estado: «pendiente» es simplemente `result` vacío (FR-019).
 
 Se inserta en la migración: 2 estrategias, 10 canales y 34 subcanales con sus horarios, tal como están en
 [insumos-excel.md](./insumos-excel.md). Los dos subcanales sin horario de tarde quedan con esas columnas vacías.
+La migración `20261117000400` agrega el canal 11, «Tareas administrativas» (Tienda, sin meta, sin subcanales) (FR-031).
 
 ## Volumen esperado
 

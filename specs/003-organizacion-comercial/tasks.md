@@ -116,6 +116,13 @@ description: "Tareas de la feature 003: organización comercial por sucursal"
 
 ---
 
+## Phase 9: Ajustes tras la prueba con ventas (2026-11-17)
+
+- [x] T032 Migración `supabase/migrations/20261117000400_org_place_goal_flags.sql`: `uses_place` en estrategias, `uses_goal` en canales, canal «Tareas administrativas» en Tienda; `org_save` y `org_copy_day` vacían lugar y meta según las marcas (FR-030, FR-031)
+- [x] T033 [P] pgTAP: marcas y canal nuevo en `supabase/tests/org_catalog_test.sql`; guardado sin lugar ni meta en `supabase/tests/org_assignments_test.sql`
+- [x] T034 `formFields` en `src/features/organization/logic.ts` (+ Vitest); `AssignmentDialog.tsx` esconde ubicación y meta; `CatalogPage.tsx` agrega «Pide ubicación» y «Lleva meta»
+- [x] T035 e2e: Tienda sin ubicación, Comentarios y Tareas administrativas sin meta en `tests/e2e/organization.spec.ts`
+
 ## Dependencies & Execution Order
 
 - **Setup (T001)** → **Foundational (T002–T008)** → historias.
