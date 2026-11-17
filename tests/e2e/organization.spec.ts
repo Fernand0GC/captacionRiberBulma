@@ -10,7 +10,8 @@ test('organización: el encargado carga con horario sugerido, registra resultado
   await login(page, 'enc.trinidad')
   await expect(page).toHaveURL(/\/panel/)
   await page.goto('/planificacion')
-  await page.getByRole('button', { name: 'Día siguiente' }).click()
+  // exact: «Copiar al día siguiente» también contiene el texto
+  await page.getByRole('button', { name: 'Día siguiente', exact: true }).click()
 
   await page.getByRole('button', { name: '＋ Mañana' }).click()
   const dlg = page.getByRole('dialog', { name: 'Nueva asignación' })

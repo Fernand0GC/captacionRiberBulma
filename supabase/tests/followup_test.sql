@@ -111,7 +111,8 @@ select is((public.get_prospect('01900000-0000-7000-8000-0000000000f2') ->> 'can_
 select public.add_followup('{"id":"01900000-0000-7000-8000-0000000000e4","prospect_id":"01900000-0000-7000-8000-0000000000f2","result":"wrong_number"}');
 select throws_ok($$ select public.add_followup('{"id":"01900000-0000-7000-8000-0000000000e5","prospect_id":"01900000-0000-7000-8000-0000000000f2","result":"looking_product"}') $$,
   'P0001', 'invalid_transition', 'número equivocado no se reabre');
-select ok((select bool_and(x ->> 'id' <> '01900000-0000-7000-8000-0000000000f2') from jsonb_array_elements(public.my_closed_contacts()) x), 'número equivocado no aparece en cerrados');
+-- not exists: con la lista de cerrados vacía, bool_and daba NULL y la prueba fallaba sin motivo.
+select ok(not exists (select 1 from jsonb_array_elements(public.my_closed_contacts()) x where x ->> 'id' = '01900000-0000-7000-8000-0000000000f2'), 'número equivocado no aparece en cerrados');
 
 select * from finish();
 rollback;

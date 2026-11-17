@@ -115,7 +115,7 @@ export function CatalogPage() {
                         <div className="flex-1">
                           <Row level="org_channels" item={c} />
                         </div>
-                        <span className="text-xs text-ink/50">{subs.length} subcanales</span>
+                        <span className="text-xs text-ink/50">{subs.length} {subs.length === 1 ? 'subcanal' : 'subcanales'}</span>
                       </div>
                       {open === c.id && (
                         <div className="ml-11 border-l-2 border-ink/10 pl-3">
