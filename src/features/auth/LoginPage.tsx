@@ -1,13 +1,21 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate } from '@tanstack/react-router'
+import { Navigate, useSearch } from '@tanstack/react-router'
 import { MdVisibility, MdVisibilityOff } from 'react-icons/md'
 import { InstallCard } from '@/features/install/InstallCard'
 import { Button } from '@/ui/Button'
 import { Field, TextInput } from '@/ui/Field'
+import { SUPABASE_URL } from '@/lib/supabase'
 import { useAuth } from './AuthProvider'
+import { ssoEnabled, ssoMessage } from './sso'
 import { homePath } from './types'
 
+const SSO_ENABLED = ssoEnabled(import.meta.env.VITE_CUENTA_UNICA)
+const SSO_START_URL = `${SUPABASE_URL}/functions/v1/cuenta-unica/iniciar`
+
 export function LoginPage() {
+  const { sso } = useSearch({ from: '/login' })
+  const ssoError = ssoMessage(sso)
+  const [offline, setOffline] = useState(false)
   const { signIn, status, profile } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -44,6 +52,11 @@ export function LoginPage() {
             <p className="text-white/60">Ingresa con tu usuario</p>
           </div>
         </header>
+        {ssoError && (
+          <p role="alert" className="w-full rounded-2xl bg-rb-red/15 p-4 text-sm font-medium text-white ring-1 ring-rb-red/40">
+            {ssoError}
+          </p>
+        )}
         <form onSubmit={onSubmit} className="flex w-full flex-col gap-4 rounded-3xl bg-cream p-6 shadow-2xl" noValidate>
           <Field label="Usuario" required>
             {(id) => (
@@ -90,6 +103,28 @@ export function LoginPage() {
           <Button type="submit" disabled={busy || !username || !password} className="mt-1 min-h-14 font-display text-lg">
             {busy ? 'Ingresando…' : 'Ingresar'}
           </Button>
+          {SSO_ENABLED && (
+            <>
+              <p className="text-center text-sm text-ink/45">o</p>
+              {/* Navega a la Edge Function cuenta-unica: ella sigue a la cuenta única y vuelve a /ingreso-unico. */}
+              <a
+                href={SSO_START_URL}
+                onClick={(e) => {
+                  if (navigator.onLine) return
+                  e.preventDefault()
+                  setOffline(true)
+                }}
+                className="flex min-h-14 items-center justify-center rounded-2xl border border-ink/15 bg-white px-5 font-display text-lg font-semibold text-ink active:bg-sand"
+              >
+                Ingresar con la cuenta única
+              </a>
+              {offline && (
+                <p role="alert" className="text-sm font-medium text-rb-red">
+                  Necesitas conexión para ingresar con la cuenta única.
+                </p>
+              )}
+            </>
+          )}
         </form>
         <InstallCard />
         <p className="text-xs text-white/35">Riber Bulma · Ventas</p>

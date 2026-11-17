@@ -129,3 +129,19 @@ describe('retorno a la SPA', () => {
     expect(landingUrl(config, 'abc+/=')).toBe('http://localhost:5180/ingreso-unico#token_hash=abc%2B%2F%3D')
   })
 })
+
+describe('SPA', () => {
+  it('muestra solo mensajes conocidos', async () => {
+    const { ssoMessage } = await import('@/features/auth/sso')
+    expect(ssoMessage('sin-acceso')).toMatch(/no tiene acceso a Captación/)
+    expect(ssoMessage('<script>')).toBeUndefined()
+    expect(ssoMessage('toString')).toBeUndefined()
+    expect(ssoMessage(undefined)).toBeUndefined()
+  })
+  it('lee el token del fragmento', async () => {
+    const { readTokenHash } = await import('@/features/auth/sso')
+    expect(readTokenHash('#token_hash=abc123def456')).toBe('abc123def456')
+    expect(readTokenHash('')).toBeNull()
+    expect(readTokenHash('#token_hash=<x>')).toBeNull()
+  })
+})
