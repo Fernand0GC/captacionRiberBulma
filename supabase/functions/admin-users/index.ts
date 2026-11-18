@@ -1,6 +1,7 @@
 // Edge Function admin-users (contracts/rpc.md). Sistemas gestiona a todos; los gestores, sus volanteras (team_*).
 // La service role se usa solo dentro de esta función; nunca llega al navegador.
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
+import { parseCi } from '../_shared/ci.ts'
 
 const USERNAME_DOMAIN = 'captacion.riberbulma.local'
 const ROLES = ['field_volunteer', 'field_assistant', 'field_supervisor', 'branch_manager', 'sales_lead', 'general_manager', 'admin']
@@ -17,6 +18,17 @@ function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 }
 
+// CI: vacío = sin CI; otro valor se normaliza (7788990-1b → 7788990-1B). undefined = no cambia.
+type CiInput = { ok: true; ci: string | null | undefined } | { ok: false }
+function readCi(v: unknown): CiInput {
+  if (v === undefined) return { ok: true, ci: undefined }
+  if (v === null || String(v).trim() === '') return { ok: true, ci: null }
+  const ci = parseCi(String(v))
+  return ci ? { ok: true, ci } : { ok: false }
+}
+const ciTaken = (e: { code?: string; message?: string } | null) => e?.code === '23505' && (e.message ?? '').includes('profiles_ci_key')
+const ciDuplicate = () => json(409, { code: 'invalid_input', details: { field: 'ci', reason: 'duplicate' } })
+
 type CreateInput = {
   action: 'create'
   username: string
@@ -26,6 +38,8 @@ type CreateInput = {
   contract_type: 'temporary' | 'permanent'
   password: string
   branch_ids?: number[]
+  /** CI de la cuenta única (opcional). */
+  ci?: string | null
 }
 
 const validBranchIds = (v: unknown) => Array.isArray(v) && v.length > 0 && v.every((x) => Number.isInteger(x) && x > 0)
@@ -202,6 +216,8 @@ Deno.serve(async (req) => {
       const input = body as unknown as CreateInput
       const bad = validateCreate(input)
       if (bad) return json(400, { code: 'invalid_input', details: { field: bad } })
+      const ci = readCi(input.ci)
+      if (!ci.ok) return json(400, { code: 'invalid_input', details: { field: 'ci' } })
       const { data: created, error } = await admin.auth.admin.createUser({
         email: `${input.username}@${USERNAME_DOMAIN}`,
         password: input.password,
@@ -218,6 +234,7 @@ Deno.serve(async (req) => {
         role: input.role,
         branch_id: NO_BRANCH.includes(input.role) ? null : input.branch_id,
         contract_type: input.contract_type,
+        ci: ci.ci ?? null,
       })
       const bErr =
         !pErr && input.role === 'sales_lead'
@@ -227,12 +244,12 @@ Deno.serve(async (req) => {
         // No dejar cuentas a medias: el perfil impide borrar la cuenta (on delete restrict), se borra primero.
         if (!pErr) await admin.from('profiles').delete().eq('id', created.user.id)
         await admin.auth.admin.deleteUser(created.user.id)
-        return json(500, { code: 'unknown' })
+        return ciTaken(pErr) ? ciDuplicate() : json(500, { code: 'unknown' })
       }
       return json(201, { id: created.user.id })
     }
     case 'update': {
-      // Nombre, rol, sucursal y contrato. El usuario (login) no cambia.
+      // Nombre, rol, sucursal, contrato y CI. El usuario (login) no cambia.
       const id = String(body.id ?? '')
       const patch: Record<string, unknown> = {}
       if (body.full_name !== undefined) {
@@ -248,6 +265,11 @@ Deno.serve(async (req) => {
         if (!['temporary', 'permanent'].includes(String(body.contract_type))) return json(400, { code: 'invalid_input', details: { field: 'contract_type' } })
         patch.contract_type = body.contract_type
       }
+      if (body.ci !== undefined) {
+        const ci = readCi(body.ci)
+        if (!ci.ok) return json(400, { code: 'invalid_input', details: { field: 'ci' } })
+        patch.ci = ci.ci
+      }
       const role = String(patch.role ?? (await admin.from('profiles').select('role').eq('id', id).maybeSingle()).data?.role ?? '')
       if (role === 'sales_lead' && body.branch_ids !== undefined && !validBranchIds(body.branch_ids)) {
         return json(400, { code: 'invalid_input', details: { field: 'branch_ids' } })
@@ -261,6 +283,7 @@ Deno.serve(async (req) => {
         return json(400, { code: 'invalid_input', details: { field: 'role', reason: 'self' } }) // no quitarse el rol a uno mismo
       }
       const { data, error } = await admin.from('profiles').update(patch).eq('id', id).select('id').maybeSingle()
+      if (ciTaken(error)) return ciDuplicate()
       if (error) return json(400, { code: 'invalid_input', details: { field: 'branch_id' } })
       if (!data) return json(404, { code: 'not_found' })
       // Sucursales del jefe: se reemplaza la lista; si deja de ser jefe, se limpia.

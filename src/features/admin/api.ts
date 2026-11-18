@@ -13,7 +13,7 @@ export function useUsers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, full_name, role, branch_id, contract_type, active, deactivated_at, created_at, profile_branches(branch_id)')
+        .select('id, username, full_name, role, branch_id, contract_type, active, deactivated_at, created_at, ci, profile_branches(branch_id)')
         .order('full_name')
       if (error) throw toAppError(error)
       return data.map((u) => toProfile(u) as UserRow)

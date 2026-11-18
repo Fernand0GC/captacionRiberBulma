@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Connect, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -11,10 +11,32 @@ const supabaseProxy = {
   '/functions/v1': { target: 'http://127.0.0.1:54321', changeOrigin: true },
 }
 
+// Solo el propio sitio y el portal pueden mostrar la app en un marco (contrato cuenta-unica v1); sin X-Frame-Options.
+// Servidor de desarrollo y preview; en producción lo pone vercel.json.
+function frameAncestors(): Plugin {
+  let value = "frame-ancestors 'self'"
+  const add = (server: { middlewares: Connect.Server }) => {
+    server.middlewares.use((_req, res, next) => {
+      res.setHeader('Content-Security-Policy', value)
+      next()
+    })
+  }
+  return {
+    name: 'frame-ancestors',
+    configResolved(c) {
+      const portal = (c.env.VITE_PORTAL_ORIGEN as string | undefined)?.trim()
+      if (portal) value += ` ${portal}`
+    },
+    configureServer: add,
+    configurePreviewServer: add,
+  }
+}
+
 export default defineConfig({
   server: { proxy: supabaseProxy, allowedHosts: ['.trycloudflare.com'] },
   preview: { proxy: supabaseProxy, allowedHosts: ['.trycloudflare.com'] },
   plugins: [
+    frameAncestors(),
     react(),
     tailwindcss(),
     // research R5: precache del app shell para abrir /registrar sin red; actualización con aviso.
@@ -42,7 +64,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,webp,woff2}', 'icon-192.png'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/(auth|rest|functions)\/v1\//],
+        navigateFallbackDenylist: [/^\/(auth|rest|functions)\/v1\//, /^\/api\//],
         cleanupOutdatedCaches: true,
       },
     }),

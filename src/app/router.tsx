@@ -1,8 +1,10 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from '@tanstack/react-router'
 import { LoginPage } from '@/features/auth/LoginPage'
+import { SsoLanding } from '@/features/auth/SsoLanding'
 import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES, ORG_VIEW_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
 import { CaptureForm } from '@/features/capture/CaptureForm'
 import { RegisterHome } from '@/features/capture/RegisterHome'
+import { PortalProvider } from '@/features/portal/PortalProvider'
 import { validateManageSearch } from '@/features/prospects/search'
 import { AppShell } from './AppShell'
 import { HomeRedirect, RequireRole } from './guards'
@@ -11,9 +13,23 @@ import { HomeRedirect, RequireRole } from './guards'
 const ALL_ROLES = Object.keys(ROLE_LABEL) as AppRole[]
 const ManagedOutlet = lazyRouteComponent(() => import('./ManagedOutlet'), 'ManagedOutlet')
 
-const rootRoute = createRootRoute({ component: Outlet })
+// Ruta raíz: el puente con el portal vive acá porque necesita el router (abrir, ruta).
+const rootRoute = createRootRoute({
+  component: () => (
+    <PortalProvider>
+      <Outlet />
+    </PortalProvider>
+  ),
+})
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: HomeRedirect })
-const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: '/login', component: LoginPage })
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/login',
+  // ?sso=<motivo>: falla del ingreso con la cuenta única (specs/002-cuenta-unica-portal).
+  validateSearch: (s: Record<string, unknown>): { sso?: string } => (typeof s.sso === 'string' ? { sso: s.sso } : {}),
+  component: LoginPage,
+})
+const ssoLandingRoute = createRoute({ getParentRoute: () => rootRoute, path: '/ingreso-unico', component: SsoLanding })
 
 // Marco único (barra lateral / barra superior) para todas las secciones.
 const shellLayout = createRoute({
@@ -172,6 +188,7 @@ const catalogRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
+  ssoLandingRoute,
   shellLayout.addChildren([
     captureLayout.addChildren([registerRoute, registerNewRoute]),
     followupLayout.addChildren([followupRoute]),

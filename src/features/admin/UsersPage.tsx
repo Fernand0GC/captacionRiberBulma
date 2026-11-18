@@ -23,6 +23,7 @@ type Modal =
 function errorText(e: unknown): string {
   const d = (e as { details?: { field?: string; reason?: string } }).details
   if (d?.field === 'username' && d.reason === 'duplicate') return 'Ese usuario ya existe. Elige otro.'
+  if (d?.field === 'ci') return d.reason === 'duplicate' ? 'Ese CI ya lo tiene otro usuario.' : 'Revisa el CI.'
   if (d?.reason === 'self') return 'No puedes hacer eso con tu propio usuario.'
   return (e as Error).message || 'No se pudo guardar.'
 }
@@ -43,7 +44,7 @@ export function UsersPage() {
     (u) =>
       (status === 'all' || (status === 'active' ? u.active : !u.active)) &&
       (!branch || String(u.branch_id) === branch) &&
-      (!q || normalizeText(`${u.full_name} ${u.username}`).includes(normalizeText(q))),
+      (!q || normalizeText(`${u.full_name} ${u.username} ${u.ci ?? ''}`).includes(normalizeText(q))),
   )
   const close = () => {
     action.reset()
@@ -63,6 +64,7 @@ export function UsersPage() {
       branch_id: v.branch_id,
       branch_ids: v.role === 'sales_lead' ? v.branch_ids : undefined,
       contract_type: v.contract_type,
+      ci: v.ci,
     })
     toast('✓ Usuario actualizado', 'success')
     close()
@@ -139,7 +141,10 @@ export function UsersPage() {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="truncate font-semibold">{u.full_name}</p>
-                <p className="truncate text-sm text-ink/50">@{u.username}</p>
+                <p className="truncate text-sm text-ink/50">
+                  @{u.username}
+                  {u.ci && <> · CI {u.ci}</>}
+                </p>
               </div>
               {u.active ? <Badge tone="success">Activo</Badge> : <Badge tone="danger">Baja</Badge>}
             </div>

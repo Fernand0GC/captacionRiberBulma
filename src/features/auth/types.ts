@@ -18,6 +18,8 @@ export type Profile = {
   contract_type: 'temporary' | 'permanent'
   active: boolean
   deactivated_at: string | null
+  /** CI de la cuenta única (solo lo traen la pantalla Usuarios). */
+  ci?: string | null
 }
 
 export const ROLE_LABEL: Record<AppRole, string> = {
