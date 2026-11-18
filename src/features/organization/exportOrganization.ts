@@ -1,7 +1,8 @@
 import { SHIFT_LABEL, type Assignment } from './api'
 import { totals } from './logic'
 
-// Exportación de la organización (contracts/excel-export.md): mismas 14 columnas y orden que la planilla de ventas.
+// Exportación de la organización (contracts/excel-export.md de la 003): mismas columnas y orden que la planilla de ventas;
+// desde la 004, «Meta compartidas» y «Resul. compartidas» van después de «Resul.» (research R8).
 
 /** Fecha ISO → Date de Excel a mediodía UTC (sin corrimiento por zona horaria). */
 const excelDate = (iso: string) => new Date(`${iso}T12:00:00Z`)
@@ -32,8 +33,10 @@ export async function exportOrganization(rows: Assignment[], scopeName: string, 
   ws.getCell('A1').font = { bold: true, size: 14 }
   const t = totals(rows)
   const summary: [string, number][] = [
-    ['Meta total', t.goal],
-    ['Resultado total', t.result],
+    ['Meta de captación', t.goal],
+    ['Captados', t.result],
+    ['Meta de compartidas', t.shareGoal],
+    ['Compartidas', t.shareResult],
     ['N° de asignaciones', t.count],
   ]
   summary.forEach(([label, n], i) => {
@@ -57,6 +60,8 @@ export async function exportOrganization(rows: Assignment[], scopeName: string, 
     { header: 'Ubicación /Lugar', width: 24, value: (r) => r.place },
     { header: 'Meta', width: 8, numFmt: '#,##0', value: (r) => r.goal },
     { header: 'Resul.', width: 8, numFmt: '#,##0', value: (r) => r.result },
+    { header: 'Meta compartidas', width: 11, numFmt: '#,##0', value: (r) => r.share_goal },
+    { header: 'Resul. compartidas', width: 11, numFmt: '#,##0', value: (r) => r.share_result },
     { header: 'Observaciones', width: 36, value: (r) => r.notes },
   ]
   const header = ws.getRow(6)

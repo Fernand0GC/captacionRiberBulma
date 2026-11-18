@@ -46,6 +46,9 @@ export const ORG_MANAGE_ROLES: AppRole[] = ['field_supervisor', ...MANAGER_ROLES
 /** Organización comercial: la ven (el auxiliar, solo lo suyo). La volantera no la ve. */
 export const ORG_VIEW_ROLES: AppRole[] = ['field_assistant', ...ORG_MANAGE_ROLES]
 
+/** Referidos (spec 005): reporte y referidores. El encargado no (el servidor lo verifica con can_see_referrals). */
+export const REFERRAL_ROLES: AppRole[] = ['sales_lead', 'general_manager', 'admin']
+
 export function homePath(role: AppRole): string {
   if (MANAGER_ROLES.includes(role)) return '/panel'
   // Auxiliar y supervisor trabajan sobre todo la recaptación: entran a Mis contactos.

@@ -52,16 +52,30 @@ export function filterOptions(rows: Assignment[], k: FilterKey): string[] {
   return [...new Set(rows.map((r) => valueOf(r, k)))].sort((a, b) => a.localeCompare(b, 'es'))
 }
 
-/** Totales de las filas visibles (FR-023). Sin resultado no suma ni cuenta como 0. */
-export function totals(rows: Assignment[]): { goal: number; result: number; count: number; withResult: number } {
-  return rows.reduce(
+export type Totals = {
+  goal: number
+  result: number
+  shareGoal: number
+  shareResult: number
+  count: number
+  withResult: number
+}
+
+/**
+ * Totales de las filas visibles, con captación y compartidas por separado (FR-008 de la 004). Sin resultado no suma
+ * ni cuenta como 0. withResult = filas con algún resultado (captación o compartidas).
+ */
+export function totals(rows: Assignment[]): Totals {
+  return rows.reduce<Totals>(
     (t, r) => ({
       goal: t.goal + (r.goal ?? 0),
       result: t.result + (r.result ?? 0),
+      shareGoal: t.shareGoal + (r.share_goal ?? 0),
+      shareResult: t.shareResult + (r.share_result ?? 0),
       count: t.count + 1,
-      withResult: t.withResult + (r.result === null ? 0 : 1),
+      withResult: t.withResult + (r.result === null && r.share_result === null ? 0 : 1),
     }),
-    { goal: 0, result: 0, count: 0, withResult: 0 },
+    { goal: 0, result: 0, shareGoal: 0, shareResult: 0, count: 0, withResult: 0 },
   )
 }
 
@@ -71,18 +85,42 @@ export function compliance(goal: number | null, result: number | null): number |
   return Math.round((result / goal) * 100)
 }
 
+type Id = number | string | null | undefined
+const same = (a: number, b: Id) => b !== null && b !== undefined && b !== '' && String(a) === String(b)
+
+/** Metas que usa una asignación (spec 004, FR-002). */
+export type GoalFlags = { goal: boolean; share: boolean }
+
 /**
- * Qué campos opcionales pide el formulario según el catálogo. Sin estrategia o canal elegidos se muestran
- * (no se esconde nada antes de saber). La base aplica la misma regla al guardar.
+ * Marca efectiva de metas: la del subcanal si hay subcanal; si no, la del canal. Sin canal elegido se pide solo la
+ * de captación (como antes de la 004). La base aplica la misma regla al guardar.
+ */
+export function goalFlags(cat: Pick<Catalog, 'channels' | 'subchannels'> | undefined, channelId: Id, subchannelId?: Id): GoalFlags {
+  const sub = cat?.subchannels.find((x) => same(x.id, subchannelId))
+  if (sub) return { goal: sub.uses_goal, share: sub.uses_share_goal }
+  const c = cat?.channels.find((x) => same(x.id, channelId))
+  return { goal: c?.uses_goal ?? true, share: c?.uses_share_goal ?? false }
+}
+
+/**
+ * Qué campos opcionales pide el formulario según el catálogo. Sin estrategia elegida se muestra la ubicación
+ * (no se esconde nada antes de saber); las metas siguen la marca efectiva (goalFlags).
  */
 export function formFields(
-  cat: Pick<Catalog, 'strategies' | 'channels'> | undefined,
+  cat: Pick<Catalog, 'strategies' | 'channels' | 'subchannels'> | undefined,
   strategyId: string,
   channelId: string,
-): { place: boolean; goal: boolean } {
+  subchannelId?: string,
+): { place: boolean } & GoalFlags {
   const s = cat?.strategies.find((x) => String(x.id) === strategyId)
-  const c = cat?.channels.find((x) => String(x.id) === channelId)
-  return { place: s?.uses_place ?? true, goal: c?.uses_goal ?? true }
+  return { place: s?.uses_place ?? true, ...goalFlags(cat, channelId, subchannelId) }
+}
+
+/** Valida una meta escrita en el formulario: '' = falta. Devuelve el número o un mensaje de error. */
+export function parseGoal(raw: string, label: string): number | string {
+  if (raw.trim() === '') return `Escribe la ${label}.`
+  const n = Number(raw)
+  return Number.isInteger(n) && n >= 0 && n <= 9999 ? n : `La ${label} tiene que ser un número entero entre 0 y 9999.`
 }
 
 /** Días entre dos fechas ISO (inclusive el primero: mismo día = 0). */

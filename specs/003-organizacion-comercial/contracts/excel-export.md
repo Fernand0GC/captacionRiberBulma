@@ -11,7 +11,7 @@ pantalla Organización, es decir, con los filtros aplicados.
 | Fila | Contenido |
 |---|---|
 | 1 | Título: «Organización comercial · <alcance> · del <desde> al <hasta>» |
-| 3–4 | Totales de las filas exportadas: Meta total, Resultado total, N° de asignaciones |
+| 3–4 | Totales de las filas exportadas: Meta de captación, Captados, Meta de compartidas, Compartidas, N° de asignaciones (desde la 004) |
 | 6 | Encabezados de columna |
 
 ## Columnas (mismo orden que la planilla de ventas)
@@ -29,9 +29,11 @@ pantalla Organización, es decir, con los filtros aplicados.
 | 9 | Canal | `channel` | texto |
 | 10 | Subcanal | `subchannel` | texto |
 | 11 | Ubicación /Lugar | `place` | texto |
-| 12 | Meta | `goal` | número entero |
-| 13 | Resul. | `result` | número entero; celda vacía si no hay resultado |
-| 14 | Observaciones | `notes` | texto |
+| 12 | Meta | `goal` (meta de captación desde la 004) | número entero |
+| 13 | Resul. | `result` (captados desde la 004) | número entero; celda vacía si no hay resultado |
+| 14 | Meta compartidas | `share_goal` (004) | número entero |
+| 15 | Resul. compartidas | `share_result` (004) | número entero; celda vacía si no hay resultado |
+| 16 | Observaciones | `notes` | texto |
 
 ## Reglas
 

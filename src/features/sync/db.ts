@@ -12,6 +12,8 @@ export type CapturePayload = {
   occupation?: string
   address?: string
   branch_id?: number
+  /** De quién vino el contacto (spec 005). Si al sincronizar no es válido, el servidor lo guarda nulo. */
+  referrer_id?: number
   client_created_at: string
 }
 

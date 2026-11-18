@@ -4,7 +4,8 @@ select plan(13);
 -- Catálogo inicial de la planilla de ventas
 select is((select count(*)::int from public.org_strategies), 2, '2 estrategias');
 select is((select count(*)::int from public.org_channels), 11, '11 canales (10 de la planilla + Tareas administrativas)');
-select is((select count(*)::int from public.org_subchannels), 34, '34 subcanales');
+-- Solo el catálogo de Sistemas: los que agrega ventas desde el formulario (004, added_by) no cuentan.
+select is((select count(*)::int from public.org_subchannels where added_by is null), 34, '34 subcanales');
 select is(
   (select array_agg(c.name order by c.sort) from public.org_channels c join public.org_strategies s on s.id = c.strategy_id where s.name = 'Calle'),
   array['Negociación', 'Activación', 'Volantes'], 'Calle tiene sus 3 canales en orden');
@@ -15,12 +16,13 @@ select ok(
   (select afternoon_start is null and morning_start is not null from public.org_subchannels where name = 'Activaciones instituciones'),
   'subcanal sin horario de tarde');
 
--- Marcas: Tienda no pide ubicación; Mensajería, Comentarios y Tareas administrativas no llevan meta
+-- Marcas: Tienda no pide ubicación; Mensajería, Comentarios y Tareas administrativas no llevan meta de captación.
+-- Desde la 004 (20261118000100), Compartidas y estados lleva solo meta de compartidas.
 select is(
   (select array_agg(name order by sort) from public.org_strategies where uses_place), array['Calle'], 'solo Calle pide ubicación');
 select is(
   (select array_agg(name order by sort) from public.org_channels where not uses_goal),
-  array['RRSS-Mensajería', 'Comentarios', 'Tareas administrativas'], 'canales sin meta');
+  array['RRSS-Mensajería', 'Comentarios', 'Compartidas y estados', 'Tareas administrativas'], 'canales sin meta de captación');
 select is(
   (select s.name from public.org_channels c join public.org_strategies s on s.id = c.strategy_id where c.name = 'Tareas administrativas'),
   'Tienda', 'Tareas administrativas está en Tienda');

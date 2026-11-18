@@ -10,6 +10,7 @@ import { uuidv7 } from '@/lib/uuidv7'
 import { Button } from '@/ui/Button'
 import { PageTitle } from '@/ui/PageTitle'
 import { Field, TextInput } from '@/ui/Field'
+import { Select } from '@/ui/Select'
 import { useToast } from '@/ui/Toast'
 import { getCaptureBranch, getDayChannel, getDayChannelDetail } from './channel'
 import { InterestToggle } from './InterestToggle'
@@ -17,7 +18,7 @@ import { ProductPicker } from './ProductPicker'
 import { useCatalogs } from './useCatalogs'
 
 type Form = { full_name: string; phone: string; interest: string; occupation: string; address: string }
-type Errors = Partial<Record<'full_name' | 'phone', string>>
+type Errors = Partial<Record<'full_name' | 'phone' | 'referrer', string>>
 
 const EMPTY: Form = { full_name: '', phone: '', interest: '', occupation: '', address: '' }
 const RUBROS = ['Independiente/Negocio/Microcrédito', "Dependiente/Asalariado"] 
@@ -55,6 +56,11 @@ export function CaptureForm() {
   const channelId = getDayChannel(profile!.id)
   const channelDetail = getDayChannelDetail(profile!.id)
   const channelName = catalogs?.channels.find((c) => Number(c.value) === channelId)?.label
+  // Referidos (spec 005): la lista de la sucursal donde se registra, desde el catálogo guardado (sirve sin señal).
+  const [referred, setReferred] = useState(false)
+  const [referrerId, setReferrerId] = useState('')
+  const captureBranch = profile!.branch_id ?? getCaptureBranch(profile!.id)
+  const referrers = (catalogs?.referrers ?? []).filter((r) => r.branch_id === captureBranch)
 
   const set = (k: keyof Form) => (v: string) => {
     setForm((f) => ({ ...f, [k]: v }))
@@ -64,6 +70,7 @@ export function CaptureForm() {
   async function onSubmit(ev: FormEvent) {
     ev.preventDefault()
     const errs = validate(form)
+    if (referred && !referrerId) errs.referrer = 'Elige de quién vino el contacto.'
     setErrors(errs)
     if (Object.keys(errs).length) return
     setSaving(true)
@@ -84,6 +91,7 @@ export function CaptureForm() {
         address: form.address.trim() || undefined,
         // Sin sucursal propia: la elegida en Registrar (el servidor valida que pueda registrar ahí).
         branch_id: profile!.branch_id === null ? (getCaptureBranch(profile!.id) ?? undefined) : undefined,
+        referrer_id: referred && referrerId ? Number(referrerId) : undefined,
         client_created_at: new Date().toISOString(),
       })
       requestFlush()
@@ -182,6 +190,41 @@ export function CaptureForm() {
             <p className="text-sm text-ink/50">Conéctate una vez para descargar la lista de productos.</p>
           )}
         </div>
+
+        {referrers.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <label className="flex min-h-11 items-center gap-3 text-sm font-semibold text-ink/80">
+              <input
+                type="checkbox"
+                className="h-5 w-5 accent-gold-dark"
+                checked={referred}
+                onChange={(e) => {
+                  setReferred(e.target.checked)
+                  setErrors((er) => ({ ...er, referrer: undefined }))
+                }}
+              />
+              Es referido
+            </label>
+            {referred && (
+              <Field label="¿De quién vino?" required error={errors.referrer}>
+                {(id, d) => (
+                  <Select
+                    id={id}
+                    describedBy={d}
+                    invalid={!!errors.referrer}
+                    value={referrerId}
+                    onChange={(v) => {
+                      setReferrerId(v)
+                      setErrors((er) => ({ ...er, referrer: undefined }))
+                    }}
+                    options={referrers.map((r) => ({ value: String(r.id), label: r.name }))}
+                    placeholder="Elegir referidor…"
+                  />
+                )}
+              </Field>
+            )}
+          </div>
+        )}
 
         <Field label="Dirección o referencia" optional>
           {(id) => <TextInput id={id} autoComplete="off" value={form.address} onChange={(e) => set('address')(e.target.value)} />}

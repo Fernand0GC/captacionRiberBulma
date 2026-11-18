@@ -7,7 +7,9 @@ import {
   daysBetween,
   filterOptions,
   formFields,
+  goalFlags,
   NONE,
+  parseGoal,
   overlaps,
   suggestedTimes,
   totals,
@@ -19,6 +21,10 @@ const sub = (over: Partial<Subchannel> = {}): Subchannel => ({
   name: 'Activaciones en barrios',
   sort: 1,
   active: true,
+  uses_goal: true,
+  uses_share_goal: false,
+  added_by: null,
+  added_at: null,
   morning_start: '10:00:00',
   morning_end: '12:00:00',
   afternoon_start: '16:30:00',
@@ -46,6 +52,11 @@ const row = (over: Partial<Assignment> = {}): Assignment => ({
   place: null,
   goal: 10,
   result: null,
+  share_goal: null,
+  share_result: null,
+  batch_id: null,
+  uses_goal: true,
+  uses_share_goal: false,
   notes: null,
   lead_id: 'l1',
   lead: 'Jessica',
@@ -117,11 +128,19 @@ describe('filtros y totales', () => {
     expect(applyFilters(rows, { subchannel: NONE })).toHaveLength(1)
   })
   it('un filtro sin coincidencias deja totales en cero', () => {
-    expect(totals(applyFilters(rows, { branch: 'COBIJA' }))).toEqual({ goal: 0, result: 0, count: 0, withResult: 0 })
+    expect(totals(applyFilters(rows, { branch: 'COBIJA' }))).toEqual({ goal: 0, result: 0, shareGoal: 0, shareResult: 0, count: 0, withResult: 0 })
   })
   it('los totales siguen al filtro y no cuentan los pendientes como resultado', () => {
-    expect(totals(rows)).toEqual({ goal: 60, result: 5, count: 3, withResult: 2 })
-    expect(totals(applyFilters(rows, { channel: 'Activación' }))).toEqual({ goal: 40, result: 5, count: 2, withResult: 2 })
+    expect(totals(rows)).toEqual({ goal: 60, result: 5, shareGoal: 0, shareResult: 0, count: 3, withResult: 2 })
+    expect(totals(applyFilters(rows, { channel: 'Activación' }))).toEqual({ goal: 40, result: 5, shareGoal: 0, shareResult: 0, count: 2, withResult: 2 })
+  })
+  it('captación y compartidas suman por separado (004, FR-008)', () => {
+    const shared = [
+      row({ goal: 20, result: 18, share_goal: 15, share_result: 15 }),
+      row({ goal: null, result: null, share_goal: 40, share_result: null }),
+      row({ goal: null, result: null, share_goal: 30, share_result: 10 }),
+    ]
+    expect(totals(shared)).toEqual({ goal: 20, result: 18, shareGoal: 85, shareResult: 25, count: 3, withResult: 2 })
   })
   it('opciones de filtro: valores presentes, sin repetir y ordenados', () => {
     expect(filterOptions(rows, 'branch')).toEqual(['SAN JOSÉ', 'VERDOLAGO'])
@@ -137,24 +156,49 @@ describe('fechas', () => {
   })
 })
 
-describe('formFields', () => {
+describe('metas por subcanal (004)', () => {
   const cat = {
     strategies: [
       { id: 1, name: 'Calle', sort: 1, active: true, uses_place: true },
       { id: 2, name: 'Tienda', sort: 2, active: true, uses_place: false },
     ],
     channels: [
-      { id: 10, strategy_id: 2, name: 'Llamadas', sort: 1, active: true, uses_goal: true },
-      { id: 11, strategy_id: 2, name: 'Comentarios', sort: 2, active: true, uses_goal: false },
+      { id: 10, strategy_id: 2, name: 'Llamadas', sort: 1, active: true, uses_goal: true, uses_share_goal: false },
+      { id: 11, strategy_id: 2, name: 'Comentarios', sort: 2, active: true, uses_goal: false, uses_share_goal: false },
+      { id: 12, strategy_id: 2, name: 'RRSS-Mensajería', sort: 3, active: true, uses_goal: false, uses_share_goal: false },
+      { id: 13, strategy_id: 2, name: 'Compartidas y estados', sort: 4, active: true, uses_goal: false, uses_share_goal: true },
+    ],
+    subchannels: [
+      sub({ id: 21, channel_id: 12, name: 'Mensajería WhatsApp', uses_goal: true, uses_share_goal: true }),
+      sub({ id: 22, channel_id: 12, name: 'Mensajería TikTok', uses_goal: false, uses_share_goal: false }),
     ],
   }
-  it('Tienda no pide ubicación; Comentarios no pide meta', () => {
-    expect(formFields(cat, '2', '11')).toEqual({ place: false, goal: false })
-    expect(formFields(cat, '2', '10')).toEqual({ place: false, goal: true })
-    expect(formFields(cat, '1', '')).toEqual({ place: true, goal: true })
+  it('goalFlags: manda el subcanal; sin subcanal, el canal', () => {
+    expect(goalFlags(cat, 12, 21)).toEqual({ goal: true, share: true })
+    expect(goalFlags(cat, '12', '22')).toEqual({ goal: false, share: false })
+    expect(goalFlags(cat, 12, null)).toEqual({ goal: false, share: false })
+    expect(goalFlags(cat, '13', '')).toEqual({ goal: false, share: true })
+    expect(goalFlags(cat, 10)).toEqual({ goal: true, share: false })
   })
-  it('sin elegir o sin catálogo muestra todo', () => {
-    expect(formFields(cat, '', '')).toEqual({ place: true, goal: true })
-    expect(formFields(undefined, '2', '11')).toEqual({ place: true, goal: true })
+  it('goalFlags: sin canal o sin catálogo pide solo captación', () => {
+    expect(goalFlags(cat, '')).toEqual({ goal: true, share: false })
+    expect(goalFlags(undefined, 12, 21)).toEqual({ goal: true, share: false })
+  })
+  it('formFields: Tienda no pide ubicación; las metas siguen la marca efectiva', () => {
+    expect(formFields(cat, '2', '11')).toEqual({ place: false, goal: false, share: false })
+    expect(formFields(cat, '2', '10')).toEqual({ place: false, goal: true, share: false })
+    expect(formFields(cat, '2', '12', '21')).toEqual({ place: false, goal: true, share: true })
+    expect(formFields(cat, '1', '')).toEqual({ place: true, goal: true, share: false })
+  })
+  it('formFields: sin elegir o sin catálogo muestra ubicación y captación', () => {
+    expect(formFields(cat, '', '')).toEqual({ place: true, goal: true, share: false })
+    expect(formFields(undefined, '2', '11')).toEqual({ place: true, goal: true, share: false })
+  })
+  it('parseGoal: vacía falta; fuera de rango o decimal es error', () => {
+    expect(parseGoal('20', 'meta de captación')).toBe(20)
+    expect(parseGoal('0', 'meta de captación')).toBe(0)
+    expect(parseGoal(' ', 'meta de compartidas')).toBe('Escribe la meta de compartidas.')
+    expect(parseGoal('10000', 'meta')).toMatch(/entre 0 y 9999/)
+    expect(parseGoal('2.5', 'meta')).toMatch(/entre 0 y 9999/)
   })
 })

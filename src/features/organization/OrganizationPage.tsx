@@ -37,14 +37,45 @@ const dm = (iso: string) => iso.slice(8, 10) + '/' + iso.slice(5, 7)
 const hours = (r: Assignment) => (r.start_time ? `${r.start_time}${r.end_time ? `–${r.end_time}` : ''}` : '—')
 
 /** «15 de 30 · 50 %», «15» sin meta, o «Pendiente» (sin resultado no es 0). */
-function ResultCell({ r }: { r: Assignment }) {
-  if (r.result === null) return <span className="text-ink/45">Pendiente</span>
-  const pct = compliance(r.goal, r.result)
+function Score({ goal, result, label }: { goal: number | null; result: number | null; label?: string }) {
+  const pct = compliance(goal, result)
   return (
-    <span className="tabular-nums" data-testid="assignment-result">
-      <strong>{r.result}</strong>
-      {r.goal !== null && <span className="text-ink/50"> de {r.goal}</span>}
-      {pct !== null && <span className={pct >= 100 ? 'font-semibold text-emerald-700' : 'text-ink/60'}> · {pct} %</span>}
+    <span className="block tabular-nums">
+      {label && <span className="text-ink/50">{label} </span>}
+      {result === null ? (
+        <span className="text-ink/45">{goal !== null ? `pendiente de ${goal}` : 'pendiente'}</span>
+      ) : (
+        <>
+          <strong>{result}</strong>
+          {goal !== null && <span className="text-ink/50"> de {goal}</span>}
+          {pct !== null && <span className={pct >= 100 ? 'font-semibold text-emerald-700' : 'text-ink/60'}> · {pct} %</span>}
+        </>
+      )}
+    </span>
+  )
+}
+
+/** Captación y compartidas por separado, cada una con su cumplimiento (FR-007 de la 004). */
+function ResultCell({ r }: { r: Assignment }) {
+  if (r.result === null && r.share_result === null) return <span className="text-ink/45">Pendiente</span>
+  const share = r.uses_share_goal || r.share_goal !== null || r.share_result !== null
+  const capture = r.uses_goal || r.goal !== null || r.result !== null || !share
+  return (
+    <span data-testid="assignment-result">
+      {capture && <Score goal={r.goal} result={r.result} label={share ? 'Captados' : undefined} />}
+      {share && <Score goal={r.share_goal} result={r.share_result} label="Compartidas" />}
+    </span>
+  )
+}
+
+const BATCH_TONES = ['ring-sky-300 bg-sky-50 text-sky-900', 'ring-violet-300 bg-violet-50 text-violet-900', 'ring-teal-300 bg-teal-50 text-teal-900', 'ring-rose-300 bg-rose-50 text-rose-900']
+
+/** Etiqueta de las asignaciones creadas en una misma carga (FR-011); el color distingue cargas vecinas. */
+function BatchTag({ info }: { info: { n: number; tone: number } | undefined }) {
+  if (!info) return null
+  return (
+    <span data-testid="batch-tag" title="Creadas juntas en una misma carga" className={`ml-1 inline-block whitespace-nowrap rounded-full px-2 text-xs font-semibold ring-1 ${BATCH_TONES[info.tone % BATCH_TONES.length]}`}>
+      carga de {info.n}
     </span>
   )
 }
@@ -78,6 +109,15 @@ export function OrganizationPage() {
   const [filters, setFilters] = useState<Filters>({})
   const visible = useMemo(() => applyFilters(rows, filters), [rows, filters])
   const t = totals(visible)
+  // Cargas con más de una asignación: cuántas son y un color por carga, sin cambiar el orden de la tabla.
+  const batches = useMemo(() => {
+    const m = new Map<string, { n: number; tone: number }>()
+    for (const r of rows) if (r.batch_id) m.set(r.batch_id, { n: (m.get(r.batch_id)?.n ?? 0) + 1, tone: 0 })
+    let tone = 0
+    for (const [k, b] of m) if (b.n < 2) m.delete(k); else b.tone = tone++
+    return m
+  }, [rows])
+  const batchOf = (r: Assignment) => (r.batch_id ? batches.get(r.batch_id) : undefined)
   const anyFilter = Object.values(filters).some(Boolean)
 
   const singleDay = from === to
@@ -265,10 +305,12 @@ export function OrganizationPage() {
       )}
 
       {/* Totales según el filtro */}
-      <section className="grid grid-cols-3 gap-2" aria-label="Totales" data-testid="org-totals">
+      <section className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="Totales" data-testid="org-totals">
         {[
-          ['Meta total', t.goal],
-          ['Resultado total', t.result],
+          ['Meta de captación', t.goal],
+          ['Captados', t.result],
+          ['Meta de compartidas', t.shareGoal],
+          ['Compartidas', t.shareResult],
           ['Asignaciones', t.count],
         ].map(([label, n]) => (
           <div key={label} className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-ink/5">
@@ -333,7 +375,7 @@ export function OrganizationPage() {
             <table className="w-full text-left text-sm">
               <thead className="bg-ink-gradient text-xs uppercase tracking-wide text-gold-light">
                 <tr>
-                  {['Fecha', 'Gerente', 'Sucursal', 'Turno', 'Horario', 'Personal', 'Estrategia', 'Canal', 'Subcanal', 'Lugar', 'Meta', 'Resultado', 'Observaciones', ''].map((h) => (
+                  {['Fecha', 'Gerente', 'Sucursal', 'Turno', 'Horario', 'Personal', 'Estrategia', 'Canal', 'Subcanal', 'Lugar', 'Meta capt.', 'Meta comp.', 'Resultado', 'Observaciones', ''].map((h) => (
                     <th key={h} className="whitespace-nowrap px-3 py-2 font-semibold">
                       {h}
                     </th>
@@ -351,9 +393,13 @@ export function OrganizationPage() {
                     <td className="px-3 py-2 font-semibold">{r.person}</td>
                     <td className="px-3 py-2">{r.strategy}</td>
                     <td className="px-3 py-2">{r.channel}</td>
-                    <td className="px-3 py-2">{r.subchannel ?? '—'}</td>
+                    <td className="px-3 py-2">
+                      {r.subchannel ?? '—'}
+                      <BatchTag info={batchOf(r)} />
+                    </td>
                     <td className="px-3 py-2">{r.place ?? '—'}</td>
                     <td className="px-3 py-2 tabular-nums">{r.goal ?? '—'}</td>
+                    <td className="px-3 py-2 tabular-nums">{r.share_goal ?? '—'}</td>
                     <td className="whitespace-nowrap px-3 py-2">
                       <ResultCell r={r} />
                     </td>
@@ -379,9 +425,14 @@ export function OrganizationPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-gold-dark">
                   {r.strategy} · {r.channel}
                 </p>
-                {r.subchannel && <p className="text-sm">{r.subchannel}</p>}
+                {(r.subchannel || batchOf(r)) && (
+                  <p className="text-sm">
+                    {r.subchannel}
+                    <BatchTag info={batchOf(r)} />
+                  </p>
+                )}
                 <p className="text-sm text-ink/60">
-                  {[r.place, r.goal !== null && `Meta ${r.goal}`, branchIds.length > 1 && r.branch, r.lead && `Gerente: ${r.lead}`].filter(Boolean).join(' · ')}
+                  {[r.place, r.goal !== null && `Meta captación ${r.goal}`, r.share_goal !== null && `Meta compartidas ${r.share_goal}`, branchIds.length > 1 && r.branch, r.lead && `Gerente: ${r.lead}`].filter(Boolean).join(' · ')}
                 </p>
                 {r.notes && <p className="mt-1 text-sm italic text-ink/70">“{r.notes}”</p>}
                 <div className="mt-2">{actions(r)}</div>

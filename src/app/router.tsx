@@ -1,7 +1,7 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from '@tanstack/react-router'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { SsoLanding } from '@/features/auth/SsoLanding'
-import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES, ORG_VIEW_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
+import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES, ORG_VIEW_ROLES, REFERRAL_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
 import { CaptureForm } from '@/features/capture/CaptureForm'
 import { RegisterHome } from '@/features/capture/RegisterHome'
 import { PortalProvider } from '@/features/portal/PortalProvider'
@@ -164,6 +164,22 @@ const teamRoute = createRoute({
   component: lazyRouteComponent(() => import('@/features/team/TeamPage'), 'TeamPage'),
 })
 
+// Referidos (spec 005): jefe de ventas, gerencia y Sistemas. El encargado no (el servidor responde forbidden).
+const referralsLayout = createRoute({
+  getParentRoute: () => manageLayout,
+  id: 'referrals',
+  component: () => (
+    <RequireRole roles={REFERRAL_ROLES}>
+      <Outlet />
+    </RequireRole>
+  ),
+})
+const referralsRoute = createRoute({
+  getParentRoute: () => referralsLayout,
+  path: '/referidos',
+  component: lazyRouteComponent(() => import('@/features/referrals/ReferralsPage'), 'ReferralsPage'),
+})
+
 // Sistemas (admin): usuarios y catálogos.
 const adminLayout = createRoute({
   getParentRoute: () => manageLayout,
@@ -195,7 +211,7 @@ const routeTree = rootRoute.addChildren([
     mineLayout.addChildren([mineRoute]),
     clientLayout.addChildren([clientRoute]),
     planningLayout.addChildren([planningRoute, planningHistoryRoute]),
-    manageLayout.addChildren([dashboardRoute, manageRoute, distributeRoute, goalsRoute, teamRoute, adminLayout.addChildren([usersRoute, catalogRoute])]),
+    manageLayout.addChildren([dashboardRoute, manageRoute, distributeRoute, goalsRoute, teamRoute, referralsLayout.addChildren([referralsRoute]), adminLayout.addChildren([usersRoute, catalogRoute])]),
   ]),
 ])
 

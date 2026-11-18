@@ -1,11 +1,14 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/ui/Button'
 import { Dialog } from '@/ui/Dialog'
 import { Field, TextInput } from '@/ui/Field'
 import { Select } from '@/ui/Select'
 import { useToast } from '@/ui/Toast'
 import {
+  addSubchannel,
   saveAssignment,
+  saveAssignments,
   SHIFT_LABEL,
   useOrgCatalog,
   useOrgMutation,
@@ -13,25 +16,36 @@ import {
   type Assignment,
   type AssignmentInput,
   type Shift,
+  type Subchannel,
 } from './api'
-import { formFields, overlaps, suggestedTimes } from './logic'
+import { formFields, goalFlags, overlaps, parseGoal, suggestedTimes, type GoalFlags } from './logic'
 
 type Form = {
   shift: Shift
   profile_id: string
   strategy_id: string
   channel_id: string
+  /** Solo al editar: una asignación tiene un subcanal. */
   subchannel_id: string
   start_time: string
   end_time: string
   place: string
+  /** Metas cuando no hay subcanal (o al editar). */
   goal: string
+  share_goal: string
 }
+
+/** Metas escritas para cada subcanal marcado. */
+type Goals = { goal: string; share_goal: string }
 
 const timeCls =
   'min-h-12 w-full rounded-2xl border border-ink/15 bg-white px-3 text-lg outline-none focus:border-gold focus:ring-4 focus:ring-gold/20'
+const asText = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n))
 
-/** Crear o editar una asignación: persona, turno y canal del catálogo de tres niveles (spec 003, US1). */
+/**
+ * Crear o editar una asignación (spec 003, US1). Desde la 004: al crear se marcan uno o varios subcanales, cada uno con
+ * sus metas de captación y compartidas, y se puede agregar el subcanal que falta. Al editar sigue siendo uno solo.
+ */
 export function AssignmentDialog({
   branch,
   day,
@@ -51,7 +65,10 @@ export function AssignmentDialog({
   const catalog = useOrgCatalog()
   const staff = useOrgStaff(branch)
   const toast = useToast()
-  const save = useOrgMutation(saveAssignment)
+  const qc = useQueryClient()
+  const saveOne = useOrgMutation(saveAssignment)
+  const saveMany = useOrgMutation(saveAssignments)
+  const editing = !!assignment
   const [v, setV] = useState<Form>({
     shift: assignment?.shift ?? shift,
     profile_id: assignment?.profile_id ?? '',
@@ -61,10 +78,16 @@ export function AssignmentDialog({
     start_time: assignment?.start_time ?? '',
     end_time: assignment?.end_time ?? '',
     place: assignment?.place ?? '',
-    goal: assignment?.goal !== null && assignment?.goal !== undefined ? String(assignment.goal) : '',
+    goal: asText(assignment?.goal),
+    share_goal: asText(assignment?.share_goal),
   })
+  // Subcanales marcados al crear, en el orden en que se marcaron (el primero propone el horario).
+  const [picked, setPicked] = useState<number[]>([])
+  const [goals, setGoals] = useState<Record<number, Goals>>({})
   // Si la persona escribe las horas a mano, el horario sugerido ya no las pisa.
   const [timesTouched, setTimesTouched] = useState(!!assignment?.start_time)
+  const [adding, setAdding] = useState<string | null>(null) // null = cerrado; texto = nombre que se escribe
+  const [addBusy, setAddBusy] = useState(false)
   const [err, setErr] = useState<string>()
 
   const cat = catalog.data
@@ -76,27 +99,65 @@ export function AssignmentDialog({
   const subchannels = (cat?.subchannels ?? []).filter(
     (s) => String(s.channel_id) === v.channel_id && isActiveOrCurrent(s.active, s.id, v.subchannel_id),
   )
-  // Ubicación y meta solo si la estrategia y el canal las usan (Tienda no pide lugar; Comentarios no lleva meta).
-  const show = formFields(cat, v.strategy_id, v.channel_id)
+  const subById = (id: number) => cat?.subchannels.find((s) => s.id === id)
+  // Ubicación según la estrategia; metas según el subcanal (o el canal si no hay subcanal).
+  const show = formFields(cat, v.strategy_id, v.channel_id, editing ? v.subchannel_id : undefined)
   // La persona asignada sigue en la lista aunque ya no esté activa.
   const people = [...(staff.data ?? [])]
   if (assignment && !people.some((p) => p.id === assignment.profile_id))
     people.push({ id: assignment.profile_id, full_name: `${assignment.person} (inactiva)`, role: '' })
 
+  /** Propone el horario del subcanal para el turno, salvo que la persona ya escribió las horas. */
+  const withTimes = (next: Form, subId: string | number | undefined): Form => {
+    if (timesTouched) return next
+    const t = suggestedTimes(cat?.subchannels.find((x) => String(x.id) === String(subId ?? '')), next.shift)
+    return { ...next, start_time: t?.start ?? '', end_time: t?.end ?? '' }
+  }
+
   /** Cambia un campo y vacía lo que depende de él; propone el horario del subcanal. */
   function change(k: keyof Form, value: string) {
+    if (k === 'strategy_id' || k === 'channel_id') {
+      setPicked([])
+      setAdding(null)
+    }
     setV((s) => {
       const next = { ...s, [k]: value }
       if (k === 'strategy_id') Object.assign(next, { channel_id: '', subchannel_id: '' })
       if (k === 'channel_id') next.subchannel_id = ''
-      if ((k === 'subchannel_id' || k === 'shift') && !timesTouched) {
-        const sub = cat?.subchannels.find((x) => String(x.id) === next.subchannel_id)
-        const t = suggestedTimes(sub, next.shift)
-        next.start_time = t?.start ?? ''
-        next.end_time = t?.end ?? ''
-      }
+      if (k === 'subchannel_id') return withTimes(next, value)
+      if (k === 'shift') return withTimes(next, editing ? next.subchannel_id : picked[0])
       return next
     })
+  }
+
+  /** Marca o desmarca un subcanal; el primero marcado propone el horario (US2, escenario 3). */
+  function toggle(id: number, on: boolean) {
+    const next = on ? (picked.includes(id) ? picked : [...picked, id]) : picked.filter((x) => x !== id)
+    setPicked(next)
+    if (next[0] !== picked[0]) setV((s) => withTimes(s, next[0]))
+  }
+
+  const setGoal = (id: number, k: keyof Goals, value: string) =>
+    setGoals((g) => ({ ...g, [id]: { ...{ goal: '', share_goal: '' }, ...g[id], [k]: value } }))
+
+  async function confirmAdd() {
+    if (adding === null || !v.channel_id) return
+    const name = adding.trim().replace(/\s+/g, ' ')
+    if (name.length < 2 || name.length > 80) return setErr('El nombre tiene que tener entre 2 y 80 caracteres.')
+    setAddBusy(true)
+    setErr(undefined)
+    try {
+      const r = await addSubchannel({ branch, channel: Number(v.channel_id), name })
+      // Espera el catálogo nuevo para que el subcanal aparezca ya marcado con sus metas.
+      await qc.invalidateQueries({ queryKey: ['org', 'catalog'] })
+      toggle(r.id, true)
+      setAdding(null)
+      toast(r.existed ? 'Ya existía un subcanal con ese nombre: se marcó ese.' : `✓ Subcanal «${name}» agregado`, r.existed ? 'info' : 'success')
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setAddBusy(false)
+    }
   }
 
   const clash = v.profile_id
@@ -106,16 +167,21 @@ export function AssignmentDialog({
       )
     : []
 
+  /** Metas según la marca: la que no aplica va vacía; la que aplica es obligatoria (FR-003, FR-004). */
+  function readGoals(flags: GoalFlags, g: Goals, of = ''): { goal: number | null; share_goal: number | null } | string {
+    const goal = flags.goal ? parseGoal(g.goal, `meta de captación${of}`) : null
+    if (typeof goal === 'string') return goal
+    const share = flags.share ? parseGoal(g.share_goal, `meta de compartidas${of}`) : null
+    if (typeof share === 'string') return share
+    return { goal, share_goal: share }
+  }
+
   async function submit() {
     if (!v.profile_id) return setErr('Elige la persona.')
     if (!v.strategy_id || !v.channel_id) return setErr('Elige la estrategia y el canal.')
     if (v.start_time && v.end_time && v.end_time <= v.start_time)
       return setErr('La hora de fin tiene que ser después de la de inicio.')
-    const goal = !show.goal || v.goal === '' ? null : Number(v.goal)
-    if (goal !== null && !(Number.isInteger(goal) && goal >= 0 && goal <= 9999))
-      return setErr('La meta tiene que ser un número entero entre 0 y 9999.')
-    const input: AssignmentInput = {
-      id: assignment?.id,
+    const common = {
       branch_id: branch,
       work_date: day,
       shift: v.shift,
@@ -124,21 +190,33 @@ export function AssignmentDialog({
       profile_id: v.profile_id,
       strategy_id: Number(v.strategy_id),
       channel_id: Number(v.channel_id),
-      subchannel_id: v.subchannel_id ? Number(v.subchannel_id) : null,
       place: show.place ? v.place : '',
-      goal,
     }
     try {
-      await save.mutateAsync(input)
-      toast(assignment ? '✓ Asignación actualizada' : '✓ Asignación agregada', 'success')
+      if (editing || picked.length === 0) {
+        const g = readGoals(show, v)
+        if (typeof g === 'string') return setErr(g)
+        const input: AssignmentInput = { ...common, id: assignment?.id, subchannel_id: editing && v.subchannel_id ? Number(v.subchannel_id) : null, ...g }
+        await saveOne.mutateAsync(input)
+      } else {
+        const items: { subchannel_id: number; goal: number | null; share_goal: number | null }[] = []
+        for (const id of picked) {
+          const g = readGoals(goalFlags(cat, v.channel_id, id), goals[id] ?? { goal: '', share_goal: '' }, ` de «${subById(id)?.name ?? ''}»`)
+          if (typeof g === 'string') return setErr(g)
+          items.push({ subchannel_id: id, ...g })
+        }
+        await saveMany.mutateAsync({ ...common, items, goal: null, share_goal: null })
+      }
+      toast(editing ? '✓ Asignación actualizada' : picked.length > 1 ? `✓ ${picked.length} asignaciones agregadas` : '✓ Asignación agregada', 'success')
       onClose()
     } catch (e) {
       setErr((e as Error).message)
     }
   }
 
+  const busy = saveOne.isPending || saveMany.isPending
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()} title={assignment ? 'Editar asignación' : 'Nueva asignación'}>
+    <Dialog open onOpenChange={(o) => !o && onClose()} title={editing ? 'Editar asignación' : 'Nueva asignación'}>
       <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
         <div className="grid grid-cols-2 gap-2">
           <Field label="Turno" required>
@@ -184,17 +262,63 @@ export function AssignmentDialog({
             />
           )}
         </Field>
-        <Field label="Subcanal" optional>
-          {(id) => (
-            <Select
-              id={id}
-              value={v.subchannel_id}
-              onChange={(x) => change('subchannel_id', x)}
-              placeholder={v.channel_id ? 'Elegir…' : 'Primero el canal'}
-              options={subchannels.map((s) => ({ value: String(s.id), label: s.name }))}
-            />
-          )}
-        </Field>
+        {editing ? (
+          <Field label="Subcanal" optional>
+            {(id) => (
+              <Select
+                id={id}
+                value={v.subchannel_id}
+                onChange={(x) => change('subchannel_id', x)}
+                placeholder={v.channel_id ? 'Elegir…' : 'Primero el canal'}
+                options={subchannels.map((s) => ({ value: String(s.id), label: s.name }))}
+              />
+            )}
+          </Field>
+        ) : (
+          v.channel_id && (
+            <fieldset className="flex flex-col gap-2" aria-label="Subcanales">
+              <legend className="mb-1.5 text-sm font-semibold text-ink/80">
+                Subcanales <span className="font-normal text-ink/40">(uno o varios, opcional)</span>
+              </legend>
+              {subchannels.map((s) => (
+                <SubchannelOption
+                  key={s.id}
+                  sub={s}
+                  on={picked.includes(s.id)}
+                  goals={goals[s.id] ?? { goal: '', share_goal: '' }}
+                  onToggle={(on) => toggle(s.id, on)}
+                  onGoal={(k, x) => setGoal(s.id, k, x)}
+                />
+              ))}
+              {adding === null ? (
+                <button type="button" onClick={() => setAdding('')} className="min-h-10 self-start rounded-full px-3 text-sm font-semibold text-gold-dark ring-1 ring-gold/40">
+                  + Agregar otro…
+                </button>
+              ) : (
+                <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-sand/50 p-2">
+                  <label className="flex min-w-48 flex-1 flex-col gap-1 text-sm font-semibold text-ink/70">
+                    Nombre del subcanal nuevo
+                    <input
+                      autoFocus
+                      value={adding}
+                      maxLength={80}
+                      placeholder="Ej.: Kardex de ventas"
+                      onChange={(e) => setAdding(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && void confirmAdd()}
+                      className="min-h-11 rounded-xl border border-ink/15 bg-white px-3 text-base font-normal"
+                    />
+                  </label>
+                  <Button className="min-h-11 text-sm" disabled={addBusy} onClick={() => void confirmAdd()}>
+                    {addBusy ? 'Agregando…' : 'Agregar'}
+                  </Button>
+                  <Button variant="ghost" className="min-h-11 text-sm" onClick={() => setAdding(null)}>
+                    Cancelar
+                  </Button>
+                </div>
+              )}
+            </fieldset>
+          )
+        )}
         <div className="grid grid-cols-2 gap-2">
           <label className="flex flex-col gap-1 text-sm font-semibold text-ink/70">
             Hora inicio
@@ -221,6 +345,7 @@ export function AssignmentDialog({
             />
           </label>
         </div>
+        {!editing && picked.length > 1 && <p className="-mt-2 text-sm text-ink/55">El horario es el mismo para todos los subcanales marcados.</p>}
         {clash.length > 0 && (
           <p role="status" className="-mt-2 rounded-xl bg-amber-50 p-2 text-sm text-amber-900 ring-1 ring-amber-200">
             Esta persona ya tiene otra asignación que se cruza ({clash.map((c) => `${c.start_time}–${c.end_time}`).join(', ')}). Se puede guardar igual.
@@ -233,25 +358,82 @@ export function AssignmentDialog({
             )}
           </Field>
         )}
-        {show.goal ? (
-          <Field label="Meta" optional>
-            {(id) => (
-              <TextInput id={id} type="number" inputMode="numeric" min={0} max={9999} value={v.goal} placeholder="Ej.: 30" onChange={(e) => change('goal', e.target.value)} />
-            )}
-          </Field>
-        ) : (
-          <p className="text-sm text-ink/55" data-testid="no-goal-note">Este canal no lleva meta.</p>
+        {/* Con subcanales marcados, las metas van dentro de cada uno; si no, las del canal (o del subcanal al editar). */}
+        {(editing || picked.length === 0) && (
+          <GoalFields flags={show} goals={v} onGoal={(k, x) => change(k, x)} noGoalText={editing && v.subchannel_id ? 'Este subcanal no lleva meta.' : 'Este canal no lleva meta.'} />
         )}
         {err && <p className="text-sm font-medium text-rb-red">{err}</p>}
         <div className="sticky bottom-0 flex gap-2 bg-cream pt-1">
           <Button variant="secondary" className="flex-1" onClick={onClose}>
             Cancelar
           </Button>
-          <Button className="flex-1" disabled={save.isPending} onClick={() => void submit()}>
-            {save.isPending ? 'Guardando…' : 'Guardar'}
+          <Button className="flex-1" disabled={busy} onClick={() => void submit()}>
+            {busy ? 'Guardando…' : 'Guardar'}
           </Button>
         </div>
       </div>
     </Dialog>
+  )
+}
+
+/** Campos de meta según la marca efectiva; ambos obligatorios cuando aplican. */
+function GoalFields({
+  flags,
+  goals,
+  onGoal,
+  noGoalText,
+}: {
+  flags: GoalFlags
+  goals: Goals
+  onGoal: (k: keyof Goals, v: string) => void
+  noGoalText: string
+}) {
+  if (!flags.goal && !flags.share)
+    return (
+      <p className="text-sm text-ink/55" data-testid="no-goal-note">
+        {noGoalText}
+      </p>
+    )
+  const input = (k: keyof Goals, label: string, placeholder: string) => (
+    <Field label={label} required>
+      {(id) => (
+        <TextInput id={id} type="number" inputMode="numeric" min={0} max={9999} value={goals[k]} placeholder={placeholder} onChange={(e) => onGoal(k, e.target.value)} />
+      )}
+    </Field>
+  )
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {flags.goal && input('goal', 'Meta de captación (contactos)', 'Ej.: 30')}
+      {flags.share && input('share_goal', 'Meta de compartidas', 'Ej.: 15')}
+    </div>
+  )
+}
+
+/** Casilla de un subcanal; marcado, muestra sus metas (US2). */
+function SubchannelOption({
+  sub,
+  on,
+  goals,
+  onToggle,
+  onGoal,
+}: {
+  sub: Subchannel
+  on: boolean
+  goals: Goals
+  onToggle: (on: boolean) => void
+  onGoal: (k: keyof Goals, v: string) => void
+}) {
+  return (
+    <div className={`rounded-2xl p-2 ring-1 ${on ? 'bg-white ring-gold/50' : 'ring-ink/10'}`}>
+      <label className="flex min-h-9 items-center gap-2 text-base">
+        <input type="checkbox" className="h-5 w-5 accent-ink" checked={on} onChange={(e) => onToggle(e.target.checked)} />
+        <span className="flex-1">{sub.name}</span>
+      </label>
+      {on && (
+        <div role="group" aria-label={`Metas de ${sub.name}`} className="mt-2">
+          <GoalFields flags={{ goal: sub.uses_goal, share: sub.uses_share_goal }} goals={goals} onGoal={onGoal} noGoalText="Este subcanal no lleva meta." />
+        </div>
+      )}
+    </div>
   )
 }
