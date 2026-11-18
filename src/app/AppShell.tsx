@@ -9,6 +9,7 @@ import {
   MdPersonAdd,
   MdManageAccounts,
   MdEventNote,
+  MdCategory,
   MdGroups,
   MdListAlt,
 } from 'react-icons/md'
@@ -33,12 +34,15 @@ const MANAGE_NAV: NavItem[] = [
   { to: '/seguimiento', label: 'Mis contactos', icon: <MdPhone />, roles: FOLLOWUP_ROLES },
   { to: '/registrar', label: 'Registrar', icon: <MdPersonAdd />, roles: CAPTURE_ROLES },
   { to: '/admin/usuarios', label: 'Usuarios', icon: <MdManageAccounts />, roles: ['admin'] },
+  { to: '/admin/catalogo', label: 'Catálogo', icon: <MdCategory />, roles: ['admin'] },
 ]
 const FIELD_NAV: NavItem[] = [
   { to: '/seguimiento', label: 'Mis contactos', icon: <MdPhone />, roles: FOLLOWUP_ROLES },
   { to: '/registrar', label: 'Registrar', icon: <MdPersonAdd />, roles: CAPTURE_ROLES },
   { to: '/mis-registros', label: 'Mis registros', icon: <MdListAlt />, roles: ['field_assistant'] },
-  { to: '/planificacion', label: 'Plan del día', icon: <MdEventNote />, roles: CAPTURE_ROLES },
+  // Organización (spec 003): el supervisor la gestiona; el auxiliar ve solo lo suyo; la volantera no la ve.
+  { to: '/planificacion', label: 'Planificación', icon: <MdEventNote />, roles: ['field_supervisor'] },
+  { to: '/planificacion', label: 'Mi plan', icon: <MdEventNote />, roles: ['field_assistant'] },
 ]
 
 // El contador de Mis contactos trae React Query: se carga aparte para no pesar en Registrar.

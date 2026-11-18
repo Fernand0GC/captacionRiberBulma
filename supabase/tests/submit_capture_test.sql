@@ -23,8 +23,8 @@ select is((select branch_id from public.prospects where id = '01900000-0000-7000
   'el campo usa la sucursal del perfil aunque mande otra');
 select is((select phone_norm from public.prospects where id = '01900000-0000-7000-8000-000000000001'), '71234567', 'teléfono normalizado');
 select is((select shift from public.prospects where id = '01900000-0000-7000-8000-000000000001'), 'morning'::public.shift, 'turno por hora de registro');
-select is((select count(*) from public.stage_events where prospect_id = '01900000-0000-7000-8000-000000000001')::int, 1,
-  'crea el evento inicial de etapa');
+select is((select count(*) from public.stage_events where prospect_id = '01900000-0000-7000-8000-000000000001'
+  and from_stage is null and to_stage = 'capture')::int, 1, 'crea el evento inicial de etapa');
 
 -- Duplicado desde otra sucursal (Trinidad), con otro formato
 select tests.login_as('00000000-0000-4000-8000-000000000008');

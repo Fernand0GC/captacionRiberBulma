@@ -1,7 +1,7 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from '@tanstack/react-router'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { SsoLanding } from '@/features/auth/SsoLanding'
-import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
+import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES, ORG_VIEW_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
 import { CaptureForm } from '@/features/capture/CaptureForm'
 import { RegisterHome } from '@/features/capture/RegisterHome'
 import { PortalProvider } from '@/features/portal/PortalProvider'
@@ -101,12 +101,13 @@ const clientRoute = createRoute({
   component: lazyRouteComponent(() => import('@/features/client/ClientPage'), 'ClientPage'),
 })
 
-// Planificación: todo el personal la ve (su sucursal); arman encargado, gerente y Sistemas (lo decide el servidor).
+// Planificación = organización comercial (spec 003). La ven todos menos la volantera; el auxiliar, solo lo suyo.
+// Qué puede cargar cada uno lo decide el servidor. La planificación anterior queda en /planificacion/historial.
 const planningLayout = createRoute({
   getParentRoute: () => shellLayout,
   id: 'planning',
   component: () => (
-    <RequireRole roles={ALL_ROLES}>
+    <RequireRole roles={ORG_VIEW_ROLES}>
       <ManagedOutlet />
     </RequireRole>
   ),
@@ -114,6 +115,11 @@ const planningLayout = createRoute({
 const planningRoute = createRoute({
   getParentRoute: () => planningLayout,
   path: '/planificacion',
+  component: lazyRouteComponent(() => import('@/features/organization/OrganizationPage'), 'OrganizationPage'),
+})
+const planningHistoryRoute = createRoute({
+  getParentRoute: () => planningLayout,
+  path: '/planificacion/historial',
   component: lazyRouteComponent(() => import('@/features/agenda/PlanningPage'), 'PlanningPage'),
 })
 
@@ -173,6 +179,11 @@ const usersRoute = createRoute({
   path: '/admin/usuarios',
   component: lazyRouteComponent(() => import('@/features/admin/UsersPage'), 'UsersPage'),
 })
+const catalogRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: '/admin/catalogo',
+  component: lazyRouteComponent(() => import('@/features/organization/CatalogPage'), 'CatalogPage'),
+})
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -183,8 +194,8 @@ const routeTree = rootRoute.addChildren([
     followupLayout.addChildren([followupRoute]),
     mineLayout.addChildren([mineRoute]),
     clientLayout.addChildren([clientRoute]),
-    planningLayout.addChildren([planningRoute]),
-    manageLayout.addChildren([dashboardRoute, manageRoute, distributeRoute, goalsRoute, teamRoute, adminLayout.addChildren([usersRoute])]),
+    planningLayout.addChildren([planningRoute, planningHistoryRoute]),
+    manageLayout.addChildren([dashboardRoute, manageRoute, distributeRoute, goalsRoute, teamRoute, adminLayout.addChildren([usersRoute, catalogRoute])]),
   ]),
 ])
 

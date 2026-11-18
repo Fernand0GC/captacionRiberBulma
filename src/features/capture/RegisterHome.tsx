@@ -14,13 +14,9 @@ import {
   getCaptureBranch,
   getDayChannel,
   getDayChannelDetail,
-  getDayChannelSource,
   setCaptureBranch,
   setDayChannel,
-  type ChannelSource,
 } from './channel'
-import { loadTodayPlan, pickActivity } from '@/features/agenda/currentActivity'
-import type { Activity } from '@/features/agenda/api'
 import { useCaptureStats } from './useCaptureStats'
 import { todayTotal } from '@/features/sync/todayCount'
 import { useCatalogs } from './useCatalogs'
@@ -34,10 +30,8 @@ export function RegisterHome() {
   const [refreshKey, setRefreshKey] = useState(0)
   const { confirmed, rejections, dismiss } = useCaptureStats(userId, refreshKey + status.pending)
   const [channelId, setChannelId] = useState<number | null>(() => getDayChannel(userId))
-  const [source, setSource] = useState<ChannelSource | null>(() => getDayChannelSource(userId))
   const [detail, setDetail] = useState(() => getDayChannelDetail(userId))
   const [picking, setPicking] = useState<null | 'change' | 'then-register'>(null)
-  const [plan, setPlan] = useState<{ activity: Activity; current: boolean } | null>(null)
   // Sin sucursal propia (jefe de ventas, gerencia, Sistemas): elige dónde registra; el jefe solo entre las suyas.
   const ownBranch = profile!.branch_id
   const branchOptions =
@@ -46,42 +40,10 @@ export function RegisterHome() {
       : (catalogs?.branches ?? []).filter((b) => profile!.role !== 'sales_lead' || profile!.branch_ids?.includes(b.id))
   const [pickedBranch, setPickedBranch] = useState(() => getCaptureBranch(userId))
   const chosenBranch = branchOptions.find((b) => b.id === pickedBranch) ?? (branchOptions.length === 1 ? branchOptions[0] : undefined)
-  const branch = ownBranch ?? chosenBranch?.id ?? null
   const needsBranch = ownBranch === null && !chosenBranch
 
   // Cada confirmación del servidor refresca el conteo y los avisos de duplicado.
   useEffect(() => onSyncEvent(() => setRefreshKey((k) => k + 1)), [])
-
-  // Actividad del plan en curso (o la próxima): se refresca al subir captaciones y cada 5 minutos.
-  useEffect(() => {
-    if (branch === null) return
-    let alive = true
-    const load = () =>
-      void loadTodayPlan(branch).then((acts) => {
-        if (!alive) return
-        const picked = acts ? pickActivity(acts, new Date()) : null
-        setPlan(picked)
-        // El canal sale del plan: si la persona no eligió uno a mano, se usa el de la actividad en curso.
-        const fromPlan = picked?.current ? picked.activity.channel_id : null
-        if (fromPlan !== null && getDayChannelSource(userId) !== 'manual' && getDayChannel(userId) !== fromPlan) {
-          const planDetail = planDetailOf(picked!.activity)
-          setDayChannel(userId, fromPlan, 'plan', planDetail)
-          setChannelId(fromPlan)
-          setSource('plan')
-          setDetail(planDetail)
-        }
-      })
-    load()
-    const off = onSyncEvent(load)
-    const t = setInterval(load, 5 * 60_000)
-    return () => {
-      alive = false
-      off()
-      clearInterval(t)
-    }
-  }, [branch, userId])
-
-  const planChannel = plan?.current ? plan.activity.channel_id : null
 
   const today = todayTotal(confirmed, status.pendingTodayIds)
   const channelName = catalogs?.channels.find((c) => Number(c.value) === channelId)?.label
@@ -96,7 +58,6 @@ export function RegisterHome() {
   function onPick(id: number, newDetail: string) {
     setDayChannel(userId, id, 'manual', newDetail)
     setChannelId(id)
-    setSource('manual')
     setDetail(newDetail)
     const next = picking
     setPicking(null)
@@ -155,7 +116,6 @@ export function RegisterHome() {
                   {detail}
                 </p>
               )}
-              {source === 'plan' && channelName && <p className="text-xs text-ink/50">Según el plan del día</p>}
             </div>
             <button
               type="button"
@@ -167,27 +127,6 @@ export function RegisterHome() {
               {channelName ? 'Cambiar' : 'Elegir'}
             </button>
           </div>
-          {plan && (
-            <p className="border-t border-ink/5 pt-2 text-sm text-ink/70" data-testid="current-activity">
-              <span className="font-semibold text-ink">{plan.current ? 'Ahora' : `A las ${plan.activity.start_time}`}:</span>{' '}
-              {plan.activity.description}
-              {plan.activity.goal_count !== null && (
-                <span className="tabular-nums">
-                  {' '}
-                  · {plan.activity.captures}/{plan.activity.goal_count} captaciones
-                </span>
-              )}
-              {planChannel !== null && planChannel !== channelId && plan.activity.channel && (
-                <button
-                  type="button"
-                  onClick={() => onPick(planChannel, planDetailOf(plan.activity))}
-                  className="ml-1 font-semibold text-gold-dark underline"
-                >
-                  El plan es por {plan.activity.channel}: usar
-                </button>
-              )}
-            </p>
-          )}
         </section>
 
         <section className="flex flex-1 flex-col items-center justify-center gap-10 py-6">
@@ -234,7 +173,3 @@ export function RegisterHome() {
   )
 }
 
-/** Descripción que trae la actividad del plan: sus lugares o, si no tiene, lo que se va a hacer. */
-function planDetailOf(a: Activity): string {
-  return (a.places || a.description || '').slice(0, 120)
-}

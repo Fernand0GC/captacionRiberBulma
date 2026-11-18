@@ -92,6 +92,10 @@ Marcar **Venta** significa solo que compró.
 
 ### User Story 4 - Agenda diaria de actividades (Priority: P2)
 
+> **Reemplazada (2026-11-17)** por `specs/003-organizacion-comercial/`: la Planificación trabaja con asignaciones
+> (persona, turno, estrategia, canal, subcanal, meta y resultado manual). Las actividades de esta historia quedan como
+> historial de solo lectura en `/planificacion/historial`.
+
 El encargado arma la agenda de su sucursal por fecha y turno (mañana o tarde): cada actividad tiene hora de inicio y fin,
 estrategia/área (marketing, mensajería, negociación, activación, llamadas, atención en tienda, contenido, en vivo, kardex, otra),
 descripción, responsables, meta (cantidad y unidad, o texto) y lugares. Al cerrar la actividad se registra el resultado
@@ -190,6 +194,7 @@ El administrador da de alta usuarios con nombre, rol (volantero, auxiliar, super
 - **FR-011**: El formulario MUST pedir como obligatorios solo nombre completo y teléfono; producto de interés, nivel de interés, actividad u oficio y dirección o referencia son opcionales (cambio pedido por el usuario el 2026-10-28).
 - **FR-011c**: El producto de interés MUST elegirse por grupo: **Celulares** (una sola opción, sin marca ni modelo), **Electro mayor** o **Electro menor** (en estos dos, luego la categoría, sin marcas ni modelos); además MUST existir un buscador general de categorías en los 3 grupos. El catálogo inicial sale de riber-bulma (`docs/catalogo-productos.md`).
 - **FR-011b**: El canal MUST elegirse una vez por jornada en el dispositivo (se pide antes del primer registro del día, se puede cambiar en cualquier momento) y aplicarse solo a cada captación; el formulario no lo pregunta.
+- **FR-011d**: Si la captación se registra con **interés alto**, MUST entrar directamente en la etapa **Cliente potencial** y con responsable: si la registra un volantero, el encargado de la sucursal (si hay varios, el más antiguo; si no hay, queda sin responsable para Repartir); si la registra cualquier otro rol (auxiliar, supervisor, encargado, jefe de ventas, gerencia, Sistemas), quien la registra. Queda en el historial el paso Captación → Cliente potencial y la asignación. Un teléfono repetido se rechaza igual que siempre y no cambia nada.
 - **FR-012**: El sistema MUST completar solo la sucursal, quién registró, la fecha y hora de registro y el turno.
 - **FR-013**: El sistema MUST permitir guardar sin conexión y enviar las captaciones pendientes automáticamente cuando haya conexión, sin duplicarlas por reintentos.
 - **FR-014**: El usuario de campo MUST ver su conteo del día y la cantidad de captaciones pendientes de subir, nunca los datos de las captaciones.
@@ -214,6 +219,7 @@ El administrador da de alta usuarios con nombre, rol (volantero, auxiliar, super
 - **FR-039**: Etapa según el resultado: No contestó → Recaptación (suma un intento, vuelve mañana; al **tercero** → Sin interés "No contesta (3 intentos)"); Busca un producto, Visitará la tienda y Volver a contactar → Seguimiento; Muy interesado → Cliente potencial; Compró → Venta; No le interesa y Número equivocado → Sin interés. Todo contacto efectivo reinicia los intentos.
 - **FR-039b**: El encargado MUST tener una pantalla **Repartir** (reparto de la tarde): ve cuántas captaciones del día (y opcionalmente de días anteriores) están sin asignar y de qué volantero vienen; ve a cada persona que puede recibir (auxiliares, supervisor, encargado) con sus pendientes; ajusta cuántas recibe cada una (por defecto partes iguales entre auxiliares, el resto a quien tiene menos pendientes) y confirma; el reparto se hace de una vez, intercalado por hora. Gerente y Sistemas eligen la sucursal.
 - **FR-039c**: La app MUST ser una sola para todos los roles: barra lateral en escritorio y barra superior con menú en celular; cada rol ve solo sus secciones (Captaciones, Repartir, Mis contactos, Registrar, Usuarios).
+- **FR-039d**: En **Repartir** el encargado MUST poder elegir qué repartir: una fecha, un rango de fechas o todo lo pendiente hasta hoy. El calendario MUST marcar cada día del mes con captaciones sin repartir (rojo, con la cantidad en su etiqueta accesible) y los días donde todo fue repartido (verde); no permite elegir días futuros.
 - **FR-034**: Marcar Venta MUST registrar solo que el prospecto compró (sin unidades, monto ni comprobante). Si el prospecto no tiene producto de interés, MUST pedirse al marcar la Venta (la meta cuenta por línea, FR-052).
 
 **Agenda**
