@@ -26,9 +26,9 @@
 
 - **Decision**: Cuentan los registros referidos con estado `active` (no anulados ni rechazados por celular repetido).
   «Compró» = la ficha tiene un evento de venta (`stage_events.to_stage = 'sale'`). Etapa = la actual de la ficha.
-  `submit_capture` guarda `referrer_id` también en los registros rechazados por duplicado, para que la spec 006 los
+  `submit_capture` guarda `referrer_id` también en los registros rechazados por duplicado, para que la spec futura de Recompra los
   pueda contar sin perder datos.
-- **Rationale**: Decisión del usuario (2026-11-18): Recompra / Nuevos y duplicados van a la 006. Contar solo fichas
+- **Rationale**: Decisión del usuario (2026-11-18): Recompra / Nuevos y duplicados van a la spec futura de Recompra. Contar solo fichas
   activas es simple y coincide con el resto de los reportes de la app.
 
 ## R5. Qué cuenta el reporte

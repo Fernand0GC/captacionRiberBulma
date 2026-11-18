@@ -8,11 +8,14 @@ import {
   filterOptions,
   formFields,
   goalFlags,
+  groupByPerson,
   NONE,
   parseGoal,
   overlaps,
   suggestedTimes,
   totals,
+  usesFlyers,
+  verifiedText,
 } from '@/features/organization/logic'
 
 const sub = (over: Partial<Subchannel> = {}): Subchannel => ({
@@ -57,6 +60,13 @@ const row = (over: Partial<Assignment> = {}): Assignment => ({
   batch_id: null,
   uses_goal: true,
   uses_share_goal: false,
+  uses_flyers: true,
+  flyer_ids: [],
+  flyers: [],
+  share_verified: null,
+  share_verified_note: null,
+  share_verified_by_name: null,
+  share_verified_at: null,
   notes: null,
   lead_id: 'l1',
   lead: 'Jessica',
@@ -163,10 +173,11 @@ describe('metas por subcanal (004)', () => {
       { id: 2, name: 'Tienda', sort: 2, active: true, uses_place: false },
     ],
     channels: [
-      { id: 10, strategy_id: 2, name: 'Llamadas', sort: 1, active: true, uses_goal: true, uses_share_goal: false },
-      { id: 11, strategy_id: 2, name: 'Comentarios', sort: 2, active: true, uses_goal: false, uses_share_goal: false },
-      { id: 12, strategy_id: 2, name: 'RRSS-Mensajería', sort: 3, active: true, uses_goal: false, uses_share_goal: false },
-      { id: 13, strategy_id: 2, name: 'Compartidas y estados', sort: 4, active: true, uses_goal: false, uses_share_goal: true },
+      { id: 10, strategy_id: 2, name: 'Llamadas', sort: 1, active: true, uses_goal: true, uses_share_goal: false, uses_flyers: false },
+      { id: 14, strategy_id: 1, name: 'Activación', sort: 1, active: true, uses_goal: true, uses_share_goal: false, uses_flyers: true },
+      { id: 11, strategy_id: 2, name: 'Comentarios', sort: 2, active: true, uses_goal: false, uses_share_goal: false, uses_flyers: false },
+      { id: 12, strategy_id: 2, name: 'RRSS-Mensajería', sort: 3, active: true, uses_goal: false, uses_share_goal: false, uses_flyers: false },
+      { id: 13, strategy_id: 2, name: 'Compartidas y estados', sort: 4, active: true, uses_goal: false, uses_share_goal: true, uses_flyers: false },
     ],
     subchannels: [
       sub({ id: 21, channel_id: 12, name: 'Mensajería WhatsApp', uses_goal: true, uses_share_goal: true }),
@@ -200,5 +211,36 @@ describe('metas por subcanal (004)', () => {
     expect(parseGoal(' ', 'meta de compartidas')).toBe('Escribe la meta de compartidas.')
     expect(parseGoal('10000', 'meta')).toMatch(/entre 0 y 9999/)
     expect(parseGoal('2.5', 'meta')).toMatch(/entre 0 y 9999/)
+  })
+})
+
+describe('ajustes de ventas (006)', () => {
+  it('groupByPerson: junta las filas de cada persona por día y sucursal, en el orden de llegada', () => {
+    const a1 = row({ profile_id: 'pa', person: 'Ana', start_time: '08:00' })
+    const a2 = row({ profile_id: 'pa', person: 'Ana', start_time: '14:00' })
+    const b1 = row({ profile_id: 'pb', person: 'Beto', start_time: '09:00' })
+    const a3 = row({ profile_id: 'pa', person: 'Ana', start_time: '16:00' })
+    const otherDay = row({ profile_id: 'pa', person: 'Ana', work_date: '2026-11-19' })
+    const otherBranch = row({ profile_id: 'pa', person: 'Ana', branch_id: 7 })
+    const groups = groupByPerson([a1, a2, b1, a3, otherDay, otherBranch])
+    expect(groups.map((g) => g.rows.map((r) => r.id))).toEqual([[a1.id, a2.id, a3.id], [b1.id], [otherDay.id], [otherBranch.id]])
+    expect(groupByPerson([])).toEqual([])
+  })
+  it('usesFlyers: según el canal; sin canal o sin catálogo, no', () => {
+    const cat = {
+      channels: [
+        { id: 14, strategy_id: 1, name: 'Activación', sort: 1, active: true, uses_goal: true, uses_share_goal: false, uses_flyers: true },
+        { id: 10, strategy_id: 2, name: 'Llamadas', sort: 1, active: true, uses_goal: true, uses_share_goal: false, uses_flyers: false },
+      ],
+    }
+    expect(usesFlyers(cat, '14')).toBe(true)
+    expect(usesFlyers(cat, 10)).toBe(false)
+    expect(usesFlyers(cat, '')).toBe(false)
+    expect(usesFlyers(undefined, 14)).toBe(false)
+  })
+  it('verifiedText: sin verificación no muestra nada; 0 sí cuenta', () => {
+    expect(verifiedText(row())).toBeNull()
+    expect(verifiedText(row({ share_verified: 12 }))).toBe('verificadas 12')
+    expect(verifiedText(row({ share_verified: 0 }))).toBe('verificadas 0')
   })
 })

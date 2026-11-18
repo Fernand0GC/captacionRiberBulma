@@ -30,7 +30,8 @@ const ROLES: AppRole[] = [
   'general_manager',
   'admin',
 ]
-const GLOBAL: AppRole[] = ['general_manager', 'admin', 'sales_lead']
+// Sin sucursal propia. Cobros (spec 006) tiene sus sucursales, pero se asignan con «Hacer Cobros» en la lista.
+const GLOBAL: AppRole[] = ['general_manager', 'admin', 'sales_lead', 'collections']
 
 export function UserForm({
   initial,
@@ -59,6 +60,8 @@ export function UserForm({
   })
   const [errs, setErrs] = useState<Partial<Record<keyof UserFormValues, string>>>({})
   const needsBranch = !GLOBAL.includes(v.role)
+  // Cobros no se crea desde acá (la Edge Function no lo conoce): solo aparece para no perderlo al editar.
+  const roles = initial?.role === 'collections' ? [...ROLES, 'collections' as const] : ROLES
   const isLead = v.role === 'sales_lead'
 
   function submit(e: FormEvent) {
@@ -161,7 +164,7 @@ export function UserForm({
               const role = r as AppRole
               setV({ ...v, role, contract_type: role === 'field_volunteer' ? 'temporary' : v.contract_type })
             }}
-            options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
+            options={roles.map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
           />
         )}
       </Field>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { ROLE_LABEL } from '@/features/auth/types'
+import { MULTI_BRANCH_ROLES, ROLE_LABEL } from '@/features/auth/types'
 import { useBranches } from '@/features/prospects/api'
 import { PageTitle } from '@/ui/PageTitle'
 import { generatePassword } from '@/lib/adminUsers'
@@ -9,7 +9,7 @@ import { Badge } from '@/ui/Badge'
 import { Button } from '@/ui/Button'
 import { Dialog } from '@/ui/Dialog'
 import { useToast } from '@/ui/Toast'
-import { useUserAction, useUsers, type UserRow } from './api'
+import { useSetCollections, useUserAction, useUsers, type UserRow } from './api'
 import { UserForm, type UserFormValues } from './UserForm'
 
 type Modal =
@@ -19,6 +19,7 @@ type Modal =
   | { kind: 'reset'; user: UserRow; draft: string }
   | { kind: 'password'; user: UserRow; password: string }
   | { kind: 'created'; username: string; password: string }
+  | { kind: 'collections'; user: UserRow; branch_ids: number[] }
 
 function errorText(e: unknown): string {
   const d = (e as { details?: { field?: string; reason?: string } }).details
@@ -33,6 +34,7 @@ export function UsersPage() {
   const users = useUsers()
   const branches = useBranches()
   const action = useUserAction()
+  const setCollections = useSetCollections()
   const toast = useToast()
   const [modal, setModal] = useState<Modal | null>(null)
   const [q, setQ] = useState('')
@@ -48,6 +50,7 @@ export function UsersPage() {
   )
   const close = () => {
     action.reset()
+    setCollections.reset()
     setModal(null)
   }
 
@@ -56,22 +59,32 @@ export function UsersPage() {
     setModal({ kind: 'created', username: v.username, password: v.password ?? '' })
   }
   async function update(user: UserRow, v: UserFormValues) {
+    // Cobros que sigue siendo Cobros: la Edge Function no conoce el rol, así que no se le manda y después se
+    // vuelven a poner sus sucursales (la función las borra a quien no es jefe de ventas). Ver research R9.
+    const keepsCollections = user.role === 'collections' && v.role === 'collections'
     await action.mutateAsync({
       action: 'update',
       id: user.id,
       full_name: v.full_name,
-      role: v.role,
-      branch_id: v.branch_id,
+      role: keepsCollections ? undefined : v.role,
+      branch_id: keepsCollections ? undefined : v.branch_id,
       branch_ids: v.role === 'sales_lead' ? v.branch_ids : undefined,
       contract_type: v.contract_type,
       ci: v.ci,
     })
+    if (keepsCollections && (user.branch_ids ?? []).length > 0)
+      await setCollections.mutateAsync({ id: user.id, branch_ids: user.branch_ids ?? [] })
     toast('✓ Usuario actualizado', 'success')
     close()
   }
   async function toggle(user: UserRow) {
     await action.mutateAsync({ action: user.active ? 'deactivate' : 'reactivate', id: user.id })
     toast(user.active ? 'Usuario dado de baja' : '✓ Usuario reactivado', 'success')
+    close()
+  }
+  async function makeCollections(user: UserRow, branchIds: number[]) {
+    await setCollections.mutateAsync({ id: user.id, branch_ids: branchIds })
+    toast(user.role === 'collections' ? '✓ Sucursales de Cobros actualizadas' : `✓ ${user.full_name} ahora es de Cobros`, 'success')
     close()
   }
   async function resetPassword(user: UserRow, password: string) {
@@ -152,8 +165,8 @@ export function UsersPage() {
               {ROLE_LABEL[u.role]} ·{' '}
               {u.branch_id
                 ? branchName(u.branch_id)
-                : u.role === 'sales_lead'
-                  ? (u.branch_ids ?? []).map(branchName).join(', ')
+                : MULTI_BRANCH_ROLES.includes(u.role)
+                  ? (u.branch_ids ?? []).map(branchName).join(', ') || 'Sin sucursales'
                   : 'Todas las sucursales'}{' '}
               ·{' '}
               {u.contract_type === 'temporary' ? 'Temporal' : 'Con contrato'}
@@ -173,6 +186,15 @@ export function UsersPage() {
               >
                 Nueva contraseña
               </button>
+              {u.id !== profile?.id && (
+                <button
+                  type="button"
+                  onClick={() => setModal({ kind: 'collections', user: u, branch_ids: u.role === 'collections' ? (u.branch_ids ?? []) : [] })}
+                  className="min-h-10 rounded-full px-3 text-sm font-semibold ring-1 ring-ink/15 active:bg-sand"
+                >
+                  {u.role === 'collections' ? 'Sucursales de Cobros' : 'Hacer Cobros'}
+                </button>
+              )}
               {u.id !== profile?.id && (
                 <button
                   type="button"
@@ -237,6 +259,49 @@ export function UsersPage() {
               onClick={() => run(toggle(modal.user))}
             >
               {modal.user.active ? 'Dar de baja' : 'Reactivar'}
+            </Button>
+          </div>
+        </Dialog>
+      )}
+
+      {modal?.kind === 'collections' && (
+        <Dialog
+          open
+          onOpenChange={(o) => !o && close()}
+          title={modal.user.role === 'collections' ? `Sucursales de Cobros de ${modal.user.full_name}` : `¿Hacer Cobros a ${modal.user.full_name}?`}
+          description="Cobros solo ve «Verificar compartidas» de estas sucursales: anota cuántas compartidas verificó. No ve datos de clientes."
+        >
+          <fieldset className="mb-4 flex flex-col gap-2" aria-label="Sucursales de Cobros">
+            <div className="grid grid-cols-2 gap-2">
+              {(branches.data ?? []).map((b) => {
+                const on = modal.branch_ids.includes(b.id)
+                return (
+                  <label key={b.id} className={`flex min-h-11 items-center gap-2 rounded-xl px-3 ring-1 ${on ? 'bg-gold/10 ring-gold/50' : 'bg-white ring-ink/15'}`}>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-gold"
+                      checked={on}
+                      onChange={() =>
+                        setModal({ ...modal, branch_ids: on ? modal.branch_ids.filter((x) => x !== b.id) : [...modal.branch_ids, b.id] })
+                      }
+                    />
+                    {b.name}
+                  </label>
+                )
+              })}
+            </div>
+          </fieldset>
+          {setCollections.isError && <p className="mb-3 text-sm text-rb-red">{(setCollections.error as Error).message}</p>}
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={close}>
+              Cancelar
+            </Button>
+            <Button
+              className="flex-1"
+              disabled={setCollections.isPending || modal.branch_ids.length === 0}
+              onClick={() => void run(makeCollections(modal.user, modal.branch_ids))}
+            >
+              {setCollections.isPending ? 'Guardando…' : modal.user.role === 'collections' ? 'Guardar' : 'Hacer Cobros'}
             </Button>
           </div>
         </Dialog>

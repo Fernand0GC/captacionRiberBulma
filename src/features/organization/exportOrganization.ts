@@ -2,7 +2,8 @@ import { SHIFT_LABEL, type Assignment } from './api'
 import { totals } from './logic'
 
 // Exportación de la organización (contracts/excel-export.md de la 003): mismas columnas y orden que la planilla de ventas;
-// desde la 004, «Meta compartidas» y «Resul. compartidas» van después de «Resul.» (research R8).
+// desde la 004, «Meta compartidas» y «Resul. compartidas» van después de «Resul.» (research R8). Desde la 006, «Compartidas
+// verificadas» y «Volanteras»; las filas llegan ordenadas por persona y los totales llevan formato de número (research R1).
 
 /** Fecha ISO → Date de Excel a mediodía UTC (sin corrimiento por zona horaria). */
 const excelDate = (iso: string) => new Date(`${iso}T12:00:00Z`)
@@ -62,6 +63,8 @@ export async function exportOrganization(rows: Assignment[], scopeName: string, 
     { header: 'Resul.', width: 8, numFmt: '#,##0', value: (r) => r.result },
     { header: 'Meta compartidas', width: 11, numFmt: '#,##0', value: (r) => r.share_goal },
     { header: 'Resul. compartidas', width: 11, numFmt: '#,##0', value: (r) => r.share_result },
+    { header: 'Compartidas verificadas', width: 12, numFmt: '#,##0', value: (r) => r.share_verified },
+    { header: 'Volanteras', width: 30, value: (r) => r.flyers.map((f) => f.name).join(', ') || null },
     { header: 'Observaciones', width: 36, value: (r) => r.notes },
   ]
   const header = ws.getRow(6)
@@ -72,6 +75,11 @@ export async function exportOrganization(rows: Assignment[], scopeName: string, 
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2A44' } }
     ws.getColumn(i + 1).width = c.width
     if (c.numFmt) ws.getColumn(i + 1).numFmt = c.numFmt
+  })
+  // Totales como número entero (research R1). Va DESPUÉS del formato de columna: exceljs lo aplica también a las
+  // celdas que ya existen, y A es fecha y E es hora (por eso salía «#####» o «00:00»).
+  summary.forEach((_, i) => {
+    ws.getCell(4, 1 + i * 2).numFmt = '#,##0'
   })
   rows.forEach((r, n) => {
     const row = ws.getRow(7 + n)

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { MdFileDownload, MdHistory } from 'react-icons/md'
 import { useAuth } from '@/features/auth/AuthProvider'
@@ -17,7 +17,9 @@ import {
   compliance,
   daysBetween,
   filterOptions,
+  groupByPerson,
   totals,
+  verifiedText,
   type FilterKey,
   type Filters,
 } from './logic'
@@ -57,16 +59,41 @@ function Score({ goal, result, label }: { goal: number | null; result: number | 
 
 /** Captación y compartidas por separado, cada una con su cumplimiento (FR-007 de la 004). */
 function ResultCell({ r }: { r: Assignment }) {
-  if (r.result === null && r.share_result === null) return <span className="text-ink/45">Pendiente</span>
+  if (r.result === null && r.share_result === null)
+    return (
+      <span>
+        <span className="text-ink/45">Pendiente</span>
+        <Verified r={r} />
+      </span>
+    )
   const share = r.uses_share_goal || r.share_goal !== null || r.share_result !== null
   const capture = r.uses_goal || r.goal !== null || r.result !== null || !share
   return (
     <span data-testid="assignment-result">
       {capture && <Score goal={r.goal} result={r.result} label={share ? 'Captados' : undefined} />}
       {share && <Score goal={r.share_goal} result={r.share_result} label="Compartidas" />}
+      <Verified r={r} />
     </span>
   )
 }
+
+/** Compartidas verificadas por Cobros, junto al resultado; ventas no las cambia (spec 006, FR-014). */
+function Verified({ r }: { r: Assignment }) {
+  const text = verifiedText(r)
+  if (text === null) return null
+  // Si el resultado cambió después de verificar, la verificación se mantiene y se ve la diferencia (ámbar).
+  const differs = r.share_result !== null && r.share_result !== r.share_verified
+  const by = [r.share_verified_by_name && `Verificó ${r.share_verified_by_name}`, r.share_verified_note].filter(Boolean).join(' · ')
+  return (
+    <span data-testid="share-verified" title={by} className={`block text-xs font-semibold tabular-nums ${differs ? 'text-amber-700' : 'text-emerald-700'}`}>
+      ✓ {text}
+      {r.share_verified_note && <span className="font-normal text-ink/60"> · {r.share_verified_note}</span>}
+    </span>
+  )
+}
+
+const flyerNames = (r: Assignment) => r.flyers.map((f) => f.name).join(', ')
+const countText = (n: number) => (n === 1 ? '1 asignación' : `${n} asignaciones`)
 
 const BATCH_TONES = ['ring-sky-300 bg-sky-50 text-sky-900', 'ring-violet-300 bg-violet-50 text-violet-900', 'ring-teal-300 bg-teal-50 text-teal-900', 'ring-rose-300 bg-rose-50 text-rose-900']
 
@@ -108,6 +135,8 @@ export function OrganizationPage() {
 
   const [filters, setFilters] = useState<Filters>({})
   const visible = useMemo(() => applyFilters(rows, filters), [rows, filters])
+  // Organizada por persona (spec 006, FR-003): la base ya ordena por fecha, sucursal, persona y hora.
+  const groups = useMemo(() => groupByPerson(visible), [visible])
   const t = totals(visible)
   // Cargas con más de una asignación: cuántas son y un color por carga, sin cambiar el orden de la tabla.
   const batches = useMemo(() => {
@@ -166,7 +195,7 @@ export function OrganizationPage() {
   async function doExport() {
     setExporting(true)
     try {
-      const n = await exportOrganization(visible, scopeName, from, to)
+      const n = await exportOrganization(groups.flatMap((g) => g.rows), scopeName, from, to)
       toast(n ? `✓ Excel con ${n} asignaciones` : 'No hay asignaciones para exportar', n ? 'success' : 'info')
     } catch (e) {
       toast((e as Error).message, 'error')
@@ -383,62 +412,89 @@ export function OrganizationPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink/5">
-                {visible.map((r) => (
-                  <tr key={r.id} data-testid="assignment">
-                    <td className="whitespace-nowrap px-3 py-2 tabular-nums">{dm(r.work_date)}</td>
-                    <td className="px-3 py-2">{r.lead ?? '—'}</td>
-                    <td className="px-3 py-2">{r.branch}</td>
-                    <td className="px-3 py-2">{SHIFT_LABEL[r.shift]}</td>
-                    <td className="whitespace-nowrap px-3 py-2 tabular-nums">{hours(r)}</td>
-                    <td className="px-3 py-2 font-semibold">{r.person}</td>
-                    <td className="px-3 py-2">{r.strategy}</td>
-                    <td className="px-3 py-2">{r.channel}</td>
-                    <td className="px-3 py-2">
-                      {r.subchannel ?? '—'}
-                      <BatchTag info={batchOf(r)} />
-                    </td>
-                    <td className="px-3 py-2">{r.place ?? '—'}</td>
-                    <td className="px-3 py-2 tabular-nums">{r.goal ?? '—'}</td>
-                    <td className="px-3 py-2 tabular-nums">{r.share_goal ?? '—'}</td>
-                    <td className="whitespace-nowrap px-3 py-2">
-                      <ResultCell r={r} />
-                    </td>
-                    <td className="max-w-56 px-3 py-2 text-ink/70">{r.notes ?? ''}</td>
-                    <td className="px-3 py-2">{actions(r)}</td>
-                  </tr>
+                {groups.map((g) => (
+                  <Fragment key={g.key}>
+                    {/* Inicio de cada persona (FR-003) */}
+                    <tr className="bg-sand/70" data-testid="person-group">
+                      <td colSpan={15} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink/70">
+                        {g.rows[0]!.person} · {g.rows[0]!.branch} · {dm(g.rows[0]!.work_date)} · {countText(g.rows.length)}
+                      </td>
+                    </tr>
+                    {g.rows.map((r) => (
+                      <tr key={r.id} data-testid="assignment">
+                        <td className="whitespace-nowrap px-3 py-2 tabular-nums">{dm(r.work_date)}</td>
+                        <td className="px-3 py-2">{r.lead ?? '—'}</td>
+                        <td className="px-3 py-2">{r.branch}</td>
+                        <td className="px-3 py-2">{SHIFT_LABEL[r.shift]}</td>
+                        <td className="whitespace-nowrap px-3 py-2 tabular-nums">{hours(r)}</td>
+                        <td className="px-3 py-2">
+                          <span className="font-semibold">{r.person}</span>
+                          {r.flyers.length > 0 && <span className="block text-xs text-ink/60">Volanteras: {flyerNames(r)}</span>}
+                        </td>
+                        <td className="px-3 py-2">{r.strategy}</td>
+                        <td className="px-3 py-2">{r.channel}</td>
+                        <td className="px-3 py-2">
+                          {r.subchannel ?? '—'}
+                          <BatchTag info={batchOf(r)} />
+                        </td>
+                        <td className="px-3 py-2">{r.place ?? '—'}</td>
+                        <td className="px-3 py-2 tabular-nums">{r.goal ?? '—'}</td>
+                        <td className="px-3 py-2 tabular-nums">{r.share_goal ?? '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-2">
+                          <ResultCell r={r} />
+                        </td>
+                        <td className="max-w-56 px-3 py-2 text-ink/70">{r.notes ?? ''}</td>
+                        <td className="px-3 py-2">{actions(r)}</td>
+                      </tr>
+                    ))}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
           </div>
 
           {/* Celular: una tarjeta por asignación */}
-          <ul className="flex flex-col gap-2 lg:hidden">
-            {visible.map((r) => (
-              <li key={r.id} className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5" data-testid="assignment-card">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="font-display text-lg font-semibold tabular-nums">
-                    {hours(r)} <span className="text-sm font-normal text-ink/50">· {SHIFT_LABEL[r.shift]}{singleDay ? '' : ` · ${dm(r.work_date)}`}</span>
-                  </p>
-                  <ResultCell r={r} />
-                </div>
-                {!ownOnly && <p className="font-semibold">{r.person}</p>}
-                <p className="text-xs font-semibold uppercase tracking-wide text-gold-dark">
-                  {r.strategy} · {r.channel}
-                </p>
-                {(r.subchannel || batchOf(r)) && (
-                  <p className="text-sm">
-                    {r.subchannel}
-                    <BatchTag info={batchOf(r)} />
+          <div className="flex flex-col gap-3 lg:hidden">
+            {groups.map((g) => (
+              <section key={g.key} aria-label={`Asignaciones de ${g.rows[0]!.person}`} data-testid="person-group-card">
+                {!ownOnly && (
+                  <p className="mb-1 px-2 text-sm font-semibold text-ink/70">
+                    {g.rows[0]!.person}
+                    <span className="font-normal text-ink/45"> · {countText(g.rows.length)}{singleDay ? '' : ` · ${dm(g.rows[0]!.work_date)}`}</span>
                   </p>
                 )}
-                <p className="text-sm text-ink/60">
-                  {[r.place, r.goal !== null && `Meta captación ${r.goal}`, r.share_goal !== null && `Meta compartidas ${r.share_goal}`, branchIds.length > 1 && r.branch, r.lead && `Gerente: ${r.lead}`].filter(Boolean).join(' · ')}
-                </p>
-                {r.notes && <p className="mt-1 text-sm italic text-ink/70">“{r.notes}”</p>}
-                <div className="mt-2">{actions(r)}</div>
-              </li>
+                <ul className="flex flex-col gap-2">
+                  {g.rows.map((r) => (
+                    <li key={r.id} className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5" data-testid="assignment-card">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <p className="font-display text-lg font-semibold tabular-nums">
+                          {hours(r)} <span className="text-sm font-normal text-ink/50">· {SHIFT_LABEL[r.shift]}{singleDay ? '' : ` · ${dm(r.work_date)}`}</span>
+                        </p>
+                        <ResultCell r={r} />
+                      </div>
+                      {/* La persona va en el encabezado del grupo; en la tarjeta queda para lectores de pantalla y búsquedas. */}
+                      {!ownOnly && <p className="sr-only">{r.person}</p>}
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gold-dark">
+                        {r.strategy} · {r.channel}
+                      </p>
+                      {(r.subchannel || batchOf(r)) && (
+                        <p className="text-sm">
+                          {r.subchannel}
+                          <BatchTag info={batchOf(r)} />
+                        </p>
+                      )}
+                      <p className="text-sm text-ink/60">
+                        {[r.place, r.goal !== null && `Meta captación ${r.goal}`, r.share_goal !== null && `Meta compartidas ${r.share_goal}`, branchIds.length > 1 && r.branch, r.lead && `Gerente: ${r.lead}`].filter(Boolean).join(' · ')}
+                      </p>
+                      {r.flyers.length > 0 && <p className="text-sm text-ink/70">Volanteras: {flyerNames(r)}</p>}
+                      {r.notes && <p className="mt-1 text-sm italic text-ink/70">“{r.notes}”</p>}
+                      <div className="mt-2">{actions(r)}</div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
         </>
       )}
 

@@ -6,6 +6,8 @@ export type AppRole =
   | 'sales_lead'
   | 'general_manager'
   | 'admin'
+  /** Cobros (spec 006): solo verifica compartidas de sus sucursales; sin datos de clientes. */
+  | 'collections'
 
 export type Profile = {
   id: string
@@ -13,7 +15,7 @@ export type Profile = {
   full_name: string
   role: AppRole
   branch_id: number | null
-  /** Solo jefe de ventas: las sucursales que gestiona. */
+  /** Jefe de ventas y Cobros: sus sucursales. */
   branch_ids?: number[]
   contract_type: 'temporary' | 'permanent'
   active: boolean
@@ -30,6 +32,7 @@ export const ROLE_LABEL: Record<AppRole, string> = {
   sales_lead: 'Jefe de ventas',
   general_manager: 'Gerente',
   admin: 'Sistemas',
+  collections: 'Cobros',
 }
 
 export const FIELD_ROLES: AppRole[] = ['field_volunteer', 'field_assistant', 'field_supervisor']
@@ -49,7 +52,14 @@ export const ORG_VIEW_ROLES: AppRole[] = ['field_assistant', ...ORG_MANAGE_ROLES
 /** Referidos (spec 005): reporte y referidores. El encargado no (el servidor lo verifica con can_see_referrals). */
 export const REFERRAL_ROLES: AppRole[] = ['sales_lead', 'general_manager', 'admin']
 
+/** Verificar compartidas (spec 006): Cobros en sus sucursales; gerencia y Sistemas en todas. */
+export const VERIFY_SHARES_ROLES: AppRole[] = ['collections', ...GLOBAL_ROLES]
+
+/** Roles con sucursales en profile_branches (sin sucursal propia). */
+export const MULTI_BRANCH_ROLES: AppRole[] = ['sales_lead', 'collections']
+
 export function homePath(role: AppRole): string {
+  if (role === 'collections') return '/verificar-compartidas'
   if (MANAGER_ROLES.includes(role)) return '/panel'
   // Auxiliar y supervisor trabajan sobre todo la recaptación: entran a Mis contactos.
   return FOLLOWUP_ROLES.includes(role) ? '/seguimiento' : '/registrar'

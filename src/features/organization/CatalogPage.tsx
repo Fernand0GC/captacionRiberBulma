@@ -6,9 +6,9 @@ import { useToast } from '@/ui/Toast'
 import { saveCatalogItem, useOrgCatalog, useProfileNames, type CatalogLevel, type Channel, type Subchannel } from './api'
 
 type Item = { id?: number; name: string; sort: number; active: boolean }
-type Flag = 'uses_place' | 'uses_goal' | 'uses_share_goal'
+type Flag = 'uses_place' | 'uses_goal' | 'uses_share_goal' | 'uses_flyers'
 /** Valor de una marca que todavía no existe en el elemento (fila nueva). */
-const FLAG_DEFAULT: Record<Flag, boolean> = { uses_place: true, uses_goal: true, uses_share_goal: false }
+const FLAG_DEFAULT: Record<Flag, boolean> = { uses_place: true, uses_goal: true, uses_share_goal: false, uses_flyers: false }
 type FlagDef = { key: Flag; label: string }
 const PLACE_FLAGS: FlagDef[] = [{ key: 'uses_place', label: 'Pide ubicación' }]
 /** Por subcanal; en el canal valen para asignaciones sin subcanal y como valor inicial de subcanales nuevos (004). */
@@ -16,6 +16,8 @@ const GOAL_FLAGS: FlagDef[] = [
   { key: 'uses_goal', label: 'Captación' },
   { key: 'uses_share_goal', label: 'Compartidas' },
 ]
+/** Canal: metas y «Volanteras que van» (spec 006, FR-008). */
+const CHANNEL_FLAGS: FlagDef[] = [...GOAL_FLAGS, { key: 'uses_flyers', label: 'Pide volanteras' }]
 type Draft = Item &
   Partial<Record<Flag, boolean>> &
   Partial<Pick<Subchannel, 'morning_start' | 'morning_end' | 'afternoon_start' | 'afternoon_end'>>
@@ -158,7 +160,7 @@ export function CatalogPage() {
                           {open === c.id ? '−' : '+'}
                         </button>
                         <div className="flex-1">
-                          <Row level="org_channels" item={c} flags={GOAL_FLAGS} />
+                          <Row level="org_channels" item={c} flags={CHANNEL_FLAGS} />
                         </div>
                         <span className="text-xs text-ink/50">{subs.length} {subs.length === 1 ? 'subcanal' : 'subcanales'}</span>
                       </div>
@@ -173,7 +175,7 @@ export function CatalogPage() {
                     </div>
                   )
                 })}
-                <Row level="org_channels" item={empty(channels.length + 1)} parent={{ key: 'strategy_id', id: s.id }} flags={GOAL_FLAGS} />
+                <Row level="org_channels" item={empty(channels.length + 1)} parent={{ key: 'strategy_id', id: s.id }} flags={CHANNEL_FLAGS} />
               </div>
             </section>
           )

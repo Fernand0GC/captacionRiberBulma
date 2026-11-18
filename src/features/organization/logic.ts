@@ -133,3 +133,33 @@ export function addDays(iso: string, n: number): string {
   d.setUTCDate(d.getUTCDate() + n)
   return d.toISOString().slice(0, 10)
 }
+
+/** El canal pide «Volanteras que van» (spec 006, FR-008). */
+export function usesFlyers(cat: Pick<Catalog, 'channels'> | undefined, channelId: Id): boolean {
+  return cat?.channels.find((x) => same(x.id, channelId))?.uses_flyers ?? false
+}
+
+type PersonRow = Pick<Assignment, 'work_date' | 'branch_id' | 'profile_id'>
+
+/** Grupo de filas de una misma persona en un día y sucursal (spec 006, FR-003). */
+export type PersonGroup<T extends PersonRow> = { key: string; rows: T[] }
+
+/**
+ * Agrupa por persona respetando el orden de llegada (la base ya ordena por fecha, sucursal, persona y hora). Si una
+ * persona aparece separada (p. ej. tras filtrar), sus filas se juntan en el primer grupo donde apareció.
+ */
+export function groupByPerson<T extends PersonRow>(rows: T[]): PersonGroup<T>[] {
+  const groups = new Map<string, PersonGroup<T>>()
+  for (const r of rows) {
+    const key = `${r.work_date}|${r.branch_id}|${r.profile_id}`
+    const g = groups.get(key)
+    if (g) g.rows.push(r)
+    else groups.set(key, { key, rows: [r] })
+  }
+  return [...groups.values()]
+}
+
+/** «15 · verificadas 12» o null si no hay verificación (spec 006, FR-014). */
+export function verifiedText(r: Pick<Assignment, 'share_verified'>): string | null {
+  return r.share_verified === null ? null : `verificadas ${r.share_verified}`
+}

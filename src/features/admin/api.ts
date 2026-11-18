@@ -31,3 +31,20 @@ export function useUserAction() {
     },
   })
 }
+
+/** Convierte un usuario en Cobros con sus sucursales, o cambia sus sucursales (spec 006, RPC admin_set_collections). */
+export function useSetCollections() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { id: string; branch_ids: number[] }) => {
+      const { error } = await supabase.rpc('admin_set_collections', { p_profile: v.id, p_branches: v.branch_ids })
+      if (error) {
+        const detail = (error as { details?: string | null }).details ?? ''
+        if (error.message === 'invalid_input' && detail === 'self') throw new Error('No puedes hacer eso con tu propio usuario.')
+        if (error.message === 'invalid_input') throw new Error('Elige al menos una sucursal.')
+        throw toAppError(error)
+      }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['users'] }),
+  })
+}

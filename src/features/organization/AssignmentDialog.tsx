@@ -18,7 +18,7 @@ import {
   type Shift,
   type Subchannel,
 } from './api'
-import { formFields, goalFlags, overlaps, parseGoal, suggestedTimes, type GoalFlags } from './logic'
+import { formFields, goalFlags, overlaps, parseGoal, suggestedTimes, usesFlyers, type GoalFlags } from './logic'
 
 type Form = {
   shift: Shift
@@ -33,7 +33,11 @@ type Form = {
   /** Metas cuando no hay subcanal (o al editar). */
   goal: string
   share_goal: string
+  /** Observaciones (spec 006): también al crear; en una carga múltiple van a todas. */
+  notes: string
 }
+
+const NOTES_MAX = 300
 
 /** Metas escritas para cada subcanal marcado. */
 type Goals = { goal: string; share_goal: string }
@@ -80,7 +84,10 @@ export function AssignmentDialog({
     place: assignment?.place ?? '',
     goal: asText(assignment?.goal),
     share_goal: asText(assignment?.share_goal),
+    notes: assignment?.notes ?? '',
   })
+  // Volanteras que van (spec 006, US3): ids marcados.
+  const [flyers, setFlyers] = useState<string[]>(assignment?.flyer_ids ?? [])
   // Subcanales marcados al crear, en el orden en que se marcaron (el primero propone el horario).
   const [picked, setPicked] = useState<number[]>([])
   const [goals, setGoals] = useState<Record<number, Goals>>({})
@@ -106,6 +113,11 @@ export function AssignmentDialog({
   const people = [...(staff.data ?? [])]
   if (assignment && !people.some((p) => p.id === assignment.profile_id))
     people.push({ id: assignment.profile_id, full_name: `${assignment.person} (inactiva)`, role: '' })
+  // Volanteras activas de la sucursal; las que ya iban y se dieron de baja siguen en la lista (FR-009).
+  const withFlyers = usesFlyers(cat, v.channel_id)
+  const flyerOptions = (staff.data ?? []).filter((p) => p.role === 'field_volunteer').map((p) => ({ id: p.id, name: p.full_name }))
+  for (const f of assignment?.flyers ?? [])
+    if (!flyerOptions.some((o) => o.id === f.id)) flyerOptions.push({ id: f.id, name: `${f.name} (inactiva)` })
 
   /** Propone el horario del subcanal para el turno, salvo que la persona ya escribió las horas. */
   const withTimes = (next: Form, subId: string | number | undefined): Form => {
@@ -181,6 +193,7 @@ export function AssignmentDialog({
     if (!v.strategy_id || !v.channel_id) return setErr('Elige la estrategia y el canal.')
     if (v.start_time && v.end_time && v.end_time <= v.start_time)
       return setErr('La hora de fin tiene que ser después de la de inicio.')
+    if (v.notes.trim().length > NOTES_MAX) return setErr(`Las observaciones admiten hasta ${NOTES_MAX} caracteres.`)
     const common = {
       branch_id: branch,
       work_date: day,
@@ -191,6 +204,8 @@ export function AssignmentDialog({
       strategy_id: Number(v.strategy_id),
       channel_id: Number(v.channel_id),
       place: show.place ? v.place : '',
+      notes: v.notes.trim(),
+      flyer_ids: withFlyers ? flyers : [],
     }
     try {
       if (editing || picked.length === 0) {
@@ -215,6 +230,7 @@ export function AssignmentDialog({
   }
 
   const busy = saveOne.isPending || saveMany.isPending
+  const notesOver = v.notes.trim().length > NOTES_MAX
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={editing ? 'Editar asignación' : 'Nueva asignación'}>
       <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
@@ -361,6 +377,49 @@ export function AssignmentDialog({
         {/* Con subcanales marcados, las metas van dentro de cada uno; si no, las del canal (o del subcanal al editar). */}
         {(editing || picked.length === 0) && (
           <GoalFields flags={show} goals={v} onGoal={(k, x) => change(k, x)} noGoalText={editing && v.subchannel_id ? 'Este subcanal no lleva meta.' : 'Este canal no lleva meta.'} />
+        )}
+        {withFlyers && (
+          <fieldset className="flex flex-col gap-1" aria-label="Volanteras que van">
+            <legend className="mb-1.5 text-sm font-semibold text-ink/80">
+              Volanteras que van <span className="font-normal text-ink/40">(opcional)</span>
+            </legend>
+            {flyerOptions.length === 0 ? (
+              <p className="text-sm text-ink/55">{staff.isLoading ? 'Cargando…' : 'No hay volanteras activas en esta sucursal.'}</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                {flyerOptions.map((f) => (
+                  <label key={f.id} className="flex min-h-9 items-center gap-2 text-base">
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 accent-ink"
+                      checked={flyers.includes(f.id)}
+                      onChange={(e) => setFlyers((x) => (e.target.checked ? [...x, f.id] : x.filter((id) => id !== f.id)))}
+                    />
+                    {f.name}
+                  </label>
+                ))}
+              </div>
+            )}
+          </fieldset>
+        )}
+        <label className="flex flex-col gap-1.5 text-sm font-semibold text-ink/80">
+          <span>
+            Observaciones <span className="font-normal text-ink/40">(opcional)</span>
+          </span>
+          <textarea
+            value={v.notes}
+            rows={2}
+            onChange={(e) => change('notes', e.target.value)}
+            placeholder="Ej.: Llevar banner y volantes"
+            aria-invalid={notesOver || undefined}
+            className={`rounded-2xl border bg-white px-4 py-3 text-base font-normal outline-none focus:border-gold focus:ring-4 focus:ring-gold/20 ${notesOver ? 'border-rb-red' : 'border-ink/15'}`}
+          />
+          <span className={`text-right text-xs font-normal tabular-nums ${notesOver ? 'text-rb-red' : 'text-ink/40'}`}>
+            {v.notes.trim().length}/{NOTES_MAX}
+          </span>
+        </label>
+        {!editing && picked.length > 1 && v.notes.trim() && (
+          <p className="-mt-3 text-sm text-ink/55">La observación va en todas las asignaciones de esta carga.</p>
         )}
         {err && <p className="text-sm font-medium text-rb-red">{err}</p>}
         <div className="sticky bottom-0 flex gap-2 bg-cream pt-1">

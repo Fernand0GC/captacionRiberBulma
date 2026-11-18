@@ -44,7 +44,7 @@ con ruta diferida. El registro sin señal incluye la lista de referidores en los
 | II. Rápido en gama baja | Cumple | Reporte y administración en ruta diferida; `exceljs` al exportar. Sin dependencias nuevas. |
 | III. El embudo es la fuente de verdad | Cumple | Todo número del reporte se calcula de `prospects` y `stage_events`; nadie escribe resultados. Las metas son datos de planificación. |
 | IV. Seguridad en la base | Cumple | Reporte y administración solo por RPC con `can_see_referrals`; el encargado queda fuera en el servidor. Celulares solo dentro de la RPC protegida. |
-| V. Simple y spec-driven | Cumple | Recompra/Nuevos y duplicados quedan para la 006 (R4); una sola RPC de reporte. |
+| V. Simple y spec-driven | Cumple | Recompra/Nuevos y duplicados quedan para la spec futura de Recompra (R4); una sola RPC de reporte. |
 
 **Revisión después del diseño**: sin violaciones.
 

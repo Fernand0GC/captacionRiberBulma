@@ -2,8 +2,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { toAppError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 
-// Organización comercial (spec 003, ajustes de la 004). Contratos en specs/003-organizacion-comercial/contracts/rpc.md
-// y specs/004-ajustes-organizacion-ventas/contracts/rpc.md.
+// Organización comercial (spec 003, ajustes de la 004 y la 006). Contratos en specs/003-organizacion-comercial/contracts/rpc.md,
+// specs/004-ajustes-organizacion-ventas/contracts/rpc.md y specs/006-ajustes-ventas-2/contracts/rpc.md.
 
 export type Shift = 'morning' | 'afternoon'
 
@@ -38,6 +38,16 @@ export type Assignment = {
   /** Marcas efectivas vigentes del subcanal (o del canal si no hay subcanal). */
   uses_goal: boolean
   uses_share_goal: boolean
+  /** El canal pide volanteras que acompañan (spec 006). */
+  uses_flyers: boolean
+  flyer_ids: string[]
+  /** Volanteras que van, con su nombre (también las dadas de baja). */
+  flyers: { id: string; name: string }[]
+  /** Compartidas verificadas por Cobros (spec 006). null = sin verificar. */
+  share_verified: number | null
+  share_verified_note: string | null
+  share_verified_by_name: string | null
+  share_verified_at: string | null
   notes: string | null
   lead_id: string | null
   lead: string | null
@@ -60,6 +70,8 @@ export type Channel = {
   active: boolean
   uses_goal: boolean
   uses_share_goal: boolean
+  /** Pide «Volanteras que van» (spec 006). */
+  uses_flyers: boolean
 }
 export type Subchannel = {
   id: number
@@ -83,7 +95,7 @@ export type Catalog = { strategies: Strategy[]; channels: Channel[]; subchannels
 
 export type StaffMember = { id: string; full_name: string; role: string }
 
-/** Datos que se mandan al crear o editar (sin resultado ni observaciones). */
+/** Datos que se mandan al crear o editar (sin resultado). Desde la 006, con observaciones y volanteras. */
 export type AssignmentInput = {
   id?: string
   branch_id: number
@@ -98,6 +110,10 @@ export type AssignmentInput = {
   place: string
   goal: number | null
   share_goal: number | null
+  /** Hasta 300 caracteres; vacío = sin observaciones. */
+  notes: string
+  /** Volanteras que acompañan; la base las vacía si el canal no las pide. */
+  flyer_ids: string[]
 }
 
 /** Una carga con varios subcanales: datos comunes + metas de cada subcanal (org_save_many). */
@@ -123,6 +139,7 @@ const INVALID_DETAIL: Record<string, string> = {
   range: 'Elige un rango de hasta 31 días.',
   day: 'Elige otro día.',
   place: 'El lugar admite hasta 200 caracteres.',
+  flyers: 'Las volanteras tienen que estar activas y ser de esta sucursal.',
 }
 
 async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {

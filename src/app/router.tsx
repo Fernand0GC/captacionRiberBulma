@@ -1,7 +1,16 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from '@tanstack/react-router'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { SsoLanding } from '@/features/auth/SsoLanding'
-import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES, ORG_VIEW_ROLES, REFERRAL_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
+import {
+  CAPTURE_ROLES,
+  FOLLOWUP_ROLES,
+  MANAGER_ROLES,
+  ORG_VIEW_ROLES,
+  REFERRAL_ROLES,
+  ROLE_LABEL,
+  VERIFY_SHARES_ROLES,
+  type AppRole,
+} from '@/features/auth/types'
 import { CaptureForm } from '@/features/capture/CaptureForm'
 import { RegisterHome } from '@/features/capture/RegisterHome'
 import { PortalProvider } from '@/features/portal/PortalProvider'
@@ -123,6 +132,22 @@ const planningHistoryRoute = createRoute({
   component: lazyRouteComponent(() => import('@/features/agenda/PlanningPage'), 'PlanningPage'),
 })
 
+// Verificar compartidas (spec 006): Cobros (sus sucursales), gerencia y Sistemas. La base lo exige (can_verify_shares).
+const verifyLayout = createRoute({
+  getParentRoute: () => shellLayout,
+  id: 'verify',
+  component: () => (
+    <RequireRole roles={VERIFY_SHARES_ROLES}>
+      <ManagedOutlet />
+    </RequireRole>
+  ),
+})
+const verifySharesRoute = createRoute({
+  getParentRoute: () => verifyLayout,
+  path: '/verificar-compartidas',
+  component: lazyRouteComponent(() => import('@/features/verification/VerifySharesPage'), 'VerifySharesPage'),
+})
+
 const manageLayout = createRoute({
   getParentRoute: () => shellLayout,
   id: 'manage',
@@ -211,6 +236,7 @@ const routeTree = rootRoute.addChildren([
     mineLayout.addChildren([mineRoute]),
     clientLayout.addChildren([clientRoute]),
     planningLayout.addChildren([planningRoute, planningHistoryRoute]),
+    verifyLayout.addChildren([verifySharesRoute]),
     manageLayout.addChildren([dashboardRoute, manageRoute, distributeRoute, goalsRoute, teamRoute, referralsLayout.addChildren([referralsRoute]), adminLayout.addChildren([usersRoute, catalogRoute])]),
   ]),
 ])

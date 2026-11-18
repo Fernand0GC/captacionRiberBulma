@@ -28,7 +28,9 @@ se modela como una máquina de estados con transiciones permitidas definidas en 
 Supabase con Row Level Security en todas las tablas; el frontend nunca es la barrera de permisos.
 - La identidad sale del JWT verificado; rol, sucursal y estado activo se leen en el servidor a partir de esa
   identidad en cada operación (una baja aplica de inmediato).
-- Roles: volantero, auxiliar, supervisor, encargado, gerente, administrador.
+- Roles: volantero, auxiliar, supervisor, encargado, jefe de ventas, gerente, administrador y Cobros.
+- Cobros solo verifica las compartidas de las asignaciones de sus sucursales (cantidad verificada y comentario, con
+  autor y fecha); no accede a datos de clientes ni al resto de la app.
 - El personal de campo (volantero, auxiliar, supervisor) solo crea captaciones: no las ve, no las edita ni las elimina.
 - El responsable de seguimiento ve solo los prospectos que tiene asignados; el encargado, los de su sucursal;
   gerencia y administración, todos. Solo el administrador anula.
@@ -62,4 +64,4 @@ Cada feature pasa por spec → plan → tasks antes de escribir código (Spec Ki
 Esta constitución manda por encima de otras prácticas. Para cambiarla hace falta aprobación del usuario,
 subir la versión (semver) y anotar el motivo. `CLAUDE.md` tiene la guía operativa del día a día.
 
-**Version**: 1.2.1 | **Ratified**: 2026-10-27 | **Last Amended**: 2026-10-28 (v1.2.1: la etapa 4 se llama "cliente potencial"; v1.2.0 principio III: recaptación vuelve como etapa 2, definida por el encargado de ventas; v1.1.0: principio IV, permisos por rol)
+**Version**: 1.3.0 | **Ratified**: 2026-10-27 | **Last Amended**: 2026-11-18 (v1.3.0 principio IV: rol Cobros, que verifica las compartidas a pedido de ventas y no accede a datos de clientes, spec 006; v1.2.1: la etapa 4 se llama "cliente potencial"; v1.2.0 principio III: recaptación vuelve como etapa 2, definida por el encargado de ventas; v1.1.0: principio IV, permisos por rol)

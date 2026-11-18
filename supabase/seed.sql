@@ -38,7 +38,8 @@ begin
       ('00000000-0000-4000-8000-000000000006'::uuid, 'vol.verdolago',  'Volantera Verdolago',  'field_volunteer'::public.app_role,  5::smallint,    'temporary'::public.contract_type),
       ('00000000-0000-4000-8000-000000000007'::uuid, 'enc.trinidad',   'Encargado Trinidad',   'branch_manager'::public.app_role,   7::smallint,    'permanent'::public.contract_type),
       ('00000000-0000-4000-8000-000000000008'::uuid, 'vol.trinidad',   'Volantera Trinidad',   'field_volunteer'::public.app_role,  7::smallint,    'temporary'::public.contract_type),
-      ('00000000-0000-4000-8000-000000000009'::uuid, 'jefe.ventas',    'Jefe de Ventas Prueba', 'sales_lead'::public.app_role,      null::smallint, 'permanent'::public.contract_type)
+      ('00000000-0000-4000-8000-000000000009'::uuid, 'jefe.ventas',    'Jefe de Ventas Prueba', 'sales_lead'::public.app_role,      null::smallint, 'permanent'::public.contract_type),
+      ('00000000-0000-4000-8000-000000000010'::uuid, 'cobros.verdolago', 'Cobros Verdolago Prueba', 'collections'::public.app_role,  null::smallint, 'permanent'::public.contract_type)
     ) as t(id, username, full_name, role, branch_id, contract_type)
   loop
     insert into auth.users (
@@ -61,6 +62,8 @@ begin
   end loop;
   -- Jefe de ventas de prueba: Verdolago y Trinidad
   insert into public.profile_branches values ('00000000-0000-4000-8000-000000000009', 5), ('00000000-0000-4000-8000-000000000009', 7);
+  -- Cobros de prueba (spec 006): verifica compartidas de Verdolago
+  insert into public.profile_branches values ('00000000-0000-4000-8000-000000000010', 5);
 end $$;
 
 -- Cuenta única local (specs/002-cuenta-unica-portal): la persona de prueba de Keycloak (7788990-1b) es la auxiliar.

@@ -135,9 +135,10 @@ select tests.login_as('00000000-0000-4000-8000-000000000003');
 select is((public.org_add_subchannel(5::smallint, (select admin_tasks from k), '  Kardex   de ventas ') ->> 'existed')::boolean,
   false, 'el encargado agrega un subcanal');
 select tests.logout();
-select ok((select uses_goal and not uses_share_goal and added_by = '00000000-0000-4000-8000-000000000003' and added_at is not null
+-- Desde la 006 (FR-004) toma las marcas de su canal: Tareas administrativas no lleva metas.
+select ok((select not uses_goal and not uses_share_goal and added_by = '00000000-0000-4000-8000-000000000003' and added_at is not null
   and morning_start is null
-  from public.org_subchannels where channel_id = (select admin_tasks from k) and name = 'Kardex de ventas'), 'queda con captación, sin horario y con quién y cuándo');
+  from public.org_subchannels where channel_id = (select admin_tasks from k) and name = 'Kardex de ventas'), 'queda con las marcas del canal, sin horario y con quién y cuándo');
 select tests.login_as('00000000-0000-4000-8000-000000000003');
 select is((public.org_add_subchannel(5::smallint, (select admin_tasks from k), 'kárdex  DE VENTAS') ->> 'existed')::boolean,
   true, 'el mismo nombre escrito distinto usa el existente');

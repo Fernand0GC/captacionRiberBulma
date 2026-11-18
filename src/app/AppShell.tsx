@@ -13,12 +13,13 @@ import {
   MdGroups,
   MdListAlt,
   MdShare,
+  MdFactCheck,
 } from 'react-icons/md'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { LogoutButton } from '@/features/auth/LogoutButton'
 import { InstallCard } from '@/features/install/InstallCard'
 import { usePortalMode } from '@/features/portal/portalMode'
-import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES, REFERRAL_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
+import { CAPTURE_ROLES, FOLLOWUP_ROLES, GLOBAL_ROLES, MANAGER_ROLES, REFERRAL_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
 import { SyncRunner } from '@/features/sync/SyncRunner'
 
 type NavItem = { to: string; label: string; icon: React.ReactNode; roles: AppRole[] }
@@ -33,6 +34,7 @@ const MANAGE_NAV: NavItem[] = [
   { to: '/metas', label: 'Metas', icon: <MdFlag />, roles: MANAGER_ROLES },
   { to: '/equipo', label: 'Mi equipo', icon: <MdGroups />, roles: MANAGER_ROLES },
   { to: '/referidos', label: 'Referidos', icon: <MdShare />, roles: REFERRAL_ROLES },
+  { to: '/verificar-compartidas', label: 'Verificar compartidas', icon: <MdFactCheck />, roles: GLOBAL_ROLES },
   { to: '/seguimiento', label: 'Mis contactos', icon: <MdPhone />, roles: FOLLOWUP_ROLES },
   { to: '/registrar', label: 'Registrar', icon: <MdPersonAdd />, roles: CAPTURE_ROLES },
   { to: '/admin/usuarios', label: 'Usuarios', icon: <MdManageAccounts />, roles: ['admin'] },
@@ -45,6 +47,8 @@ const FIELD_NAV: NavItem[] = [
   // Organización (spec 003): el supervisor la gestiona; el auxiliar ve solo lo suyo; la volantera no la ve.
   { to: '/planificacion', label: 'Planificación', icon: <MdEventNote />, roles: ['field_supervisor'] },
   { to: '/planificacion', label: 'Mi plan', icon: <MdEventNote />, roles: ['field_assistant'] },
+  // Cobros (spec 006): solo esta pantalla.
+  { to: '/verificar-compartidas', label: 'Verificar compartidas', icon: <MdFactCheck />, roles: ['collections'] },
 ]
 
 // El contador de Mis contactos trae React Query: se carga aparte para no pesar en Registrar.

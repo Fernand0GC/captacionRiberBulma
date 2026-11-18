@@ -32,7 +32,7 @@ cambios de etapa.
 - Q: ¿Qué significan los colores? → A: Agrupan los contactos según quién los refirió (verde, contactos de Fernanda; rojo, de freelancers; etc.), para que Isa lleve una lista por origen.
 - Q: ¿Los referidores reciben algo a cambio? → A: No. No se registran pagos ni premios.
 - Q: ¿Qué cuenta la meta mensual de cada origen? → A: Contactos referidos que llegan en el mes. La venta se mide como conversión, sin meta propia.
-- Q: ¿Qué son «Recompra» y «Nuevos»? → A: Tipo de cliente: Recompra = ya compró antes; Nuevos = primera compra. **Se deja para una próxima spec (006)** junto con contar los referidos que el sistema rechaza por celular repetido (decisión del usuario, 2026-11-18). La 005 empieza con lo que pidió Isa: origen, metas de contactos y reporte.
+- Q: ¿Qué son «Recompra» y «Nuevos»? → A: Tipo de cliente: Recompra = ya compró antes; Nuevos = primera compra. **Se deja para una próxima spec (spec futura de Recompra)** junto con contar los referidos que el sistema rechaza por celular repetido (decisión del usuario, 2026-11-18). La 005 empieza con lo que pidió Isa: origen, metas de contactos y reporte.
 - Q: ¿Quién marca de quién vino el contacto? → A: Quien registra la captación; la encargada o el responsable lo pueden corregir.
 - Q: ¿Quién puede ver el reporte de referidos? → A: Solo los jefes, por permiso: el jefe de ventas ve las sucursales que tiene a cargo; gerencia y administración, todas. El encargado y el personal de campo no lo ven.
 - Q: ¿Qué quiere ver Isa en el reporte? → A: Todo: llegados, compraron y porcentaje; meta y cumplimiento; la lista de contactos por origen; y el avance por día.
@@ -99,7 +99,7 @@ Walker…), los agrupa por tipo y les pone una meta mensual.
 ### Edge Cases
 
 - Un contacto llega referido por dos personas: se guarda un solo origen, el primero; el otro se anota en observaciones.
-- Un contacto referido ya existe en la app (mismo celular): la regla de duplicados de la spec 001 no cambia y ese registro no cuenta en el reporte (queda para la spec 006).
+- Un contacto referido ya existe en la app (mismo celular): la regla de duplicados de la spec 001 no cambia y ese registro no cuenta en el reporte (queda para la spec futura de Recompra).
 - Un referidor se renombra: el reporte muestra el nombre nuevo para todo su historial.
 - Un mes sin meta para un origen: se muestran los números sin cumplimiento.
 - Una captación anulada (por Sistemas) deja de contar en el reporte.
@@ -158,5 +158,5 @@ Walker…), los agrupa por tipo y les pone una meta mensual.
 - Los contactos individuales de la planilla (Yesenia, Doña Susi, Marilyn…) se cargan como captaciones normales; no se importa la planilla.
 - El «1» por día de la planilla es una venta; en la app sale de la fecha en que la captación pasa a venta.
 - La feature sirve a todas las sucursales; cada una arma su propia lista. Empieza por Guayaramerín.
-- Fuera de alcance: Recompra / Nuevos y conteo de referidos duplicados (spec 006), comisiones a referidores, mensajes automáticos a referidos, unificación con el catálogo de la Planificación (spec 003).
+- Fuera de alcance: Recompra / Nuevos y conteo de referidos duplicados (spec futura de Recompra), comisiones a referidores, mensajes automáticos a referidos, unificación con el catálogo de la Planificación (spec 003).
 - Dependencia: gerencia desactivó los canales de referencia el 2026-11-03. Esta spec no los reactiva: el origen es un dato aparte del canal. *Se desarrolla sin esperar a gerencia (decisión del usuario, 2026-11-18); confirmar con gerencia antes de publicar en producción.*
