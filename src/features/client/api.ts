@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { toAppError } from '@/lib/errors'
+import { AppError, toAppError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 import type { AppRole } from '@/features/auth/types'
 import type { ContactMethod, ContactResult, FollowupRow } from '@/features/followup/api'
@@ -16,6 +16,9 @@ export type Client = {
   channel_id: number | null
   channel_name: string | null
   channel_detail: string | null
+  /** De quién vino el contacto (spec 005). */
+  referrer_id: number | null
+  referrer: string | null
   interest: 'high' | 'medium' | 'low' | null
   occupation: string | null
   address: string | null
@@ -78,9 +81,13 @@ function useInvalidating<V>(fn: (v: V) => Promise<void>) {
   })
 }
 
+/** update_prospect rechazó el referidor (de otra sucursal o desactivado). */
+export const REFERRER_INVALID = 'Ese referidor ya no está disponible para esta sucursal.'
+
 export function useUpdateClient(id: string) {
   return useInvalidating(async (patch: Record<string, unknown>) => {
     const { error } = await supabase.rpc('update_prospect', { p_id: id, patch })
+    if (error?.message === 'invalid_input' && error.details === 'referrer_id') throw new AppError('invalid_input', REFERRER_INVALID)
     if (error) throw toAppError(error)
   })
 }

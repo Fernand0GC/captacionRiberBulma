@@ -12,11 +12,12 @@ import {
   MdCategory,
   MdGroups,
   MdListAlt,
+  MdShare,
 } from 'react-icons/md'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { LogoutButton } from '@/features/auth/LogoutButton'
 import { InstallCard } from '@/features/install/InstallCard'
-import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
+import { CAPTURE_ROLES, FOLLOWUP_ROLES, MANAGER_ROLES, REFERRAL_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
 import { SyncRunner } from '@/features/sync/SyncRunner'
 
 type NavItem = { to: string; label: string; icon: React.ReactNode; roles: AppRole[] }
@@ -30,6 +31,7 @@ const MANAGE_NAV: NavItem[] = [
   { to: '/planificacion', label: 'Planificación', icon: <MdEventNote />, roles: MANAGER_ROLES },
   { to: '/metas', label: 'Metas', icon: <MdFlag />, roles: MANAGER_ROLES },
   { to: '/equipo', label: 'Mi equipo', icon: <MdGroups />, roles: MANAGER_ROLES },
+  { to: '/referidos', label: 'Referidos', icon: <MdShare />, roles: REFERRAL_ROLES },
   { to: '/seguimiento', label: 'Mis contactos', icon: <MdPhone />, roles: FOLLOWUP_ROLES },
   { to: '/registrar', label: 'Registrar', icon: <MdPersonAdd />, roles: CAPTURE_ROLES },
   { to: '/admin/usuarios', label: 'Usuarios', icon: <MdManageAccounts />, roles: ['admin'] },

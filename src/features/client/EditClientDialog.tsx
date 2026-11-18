@@ -9,7 +9,7 @@ import { Dialog } from '@/ui/Dialog'
 import { Field, TextInput } from '@/ui/Field'
 import { Select } from '@/ui/Select'
 import { useToast } from '@/ui/Toast'
-import { useUpdateClient, type Client } from './api'
+import { REFERRER_INVALID, useUpdateClient, type Client } from './api'
 import { CHANNEL_GROUP_LABEL } from '@/features/capture/channelGroups'
 
 export function EditClientDialog({ client, onClose }: { client: Client; onClose: () => void }) {
@@ -22,10 +22,18 @@ export function EditClientDialog({ client, onClose }: { client: Client; onClose:
     product_id: client.product_id,
     channel_id: client.channel_id ? String(client.channel_id) : '',
     channel_detail: client.channel_detail ?? '',
+    referrer_id: client.referrer_id ? String(client.referrer_id) : '',
     interest: client.interest ?? '',
     occupation: client.occupation ?? '',
     address: client.address ?? '',
   })
+  // Referidores activos de la sucursal del contacto; el que ya tenía se ofrece aunque esté desactivado.
+  const referrerOptions = (catalogs?.referrers ?? [])
+    .filter((r) => r.branch_id === client.branch_id)
+    .map((r) => ({ value: String(r.id), label: r.name }))
+  if (client.referrer_id && !referrerOptions.some((o) => o.value === String(client.referrer_id))) {
+    referrerOptions.unshift({ value: String(client.referrer_id), label: client.referrer ?? 'Referidor anterior' })
+  }
   const [err, setErr] = useState<{ full_name?: string; phone?: string; form?: string }>({})
 
   async function save() {
@@ -44,12 +52,15 @@ export function EditClientDialog({ client, onClose }: { client: Client; onClose:
         interest: v.interest,
         occupation: v.occupation,
         address: v.address,
+        // Solo si cambió: con un catálogo viejo (sin referidores) no se borra el origen.
+        ...(v.referrer_id !== (client.referrer_id ? String(client.referrer_id) : '') && { referrer_id: v.referrer_id }),
       })
       toast('✓ Datos actualizados', 'success')
       onClose()
     } catch (x) {
       const e2 = x as AppError
       if (e2.code === 'invalid_phone') setErr({ phone: e2.message })
+      else if (e2.message === REFERRER_INVALID) setErr({ form: e2.message })
       else if (e2.code === 'invalid_input') setErr({ phone: 'Ese celular ya pertenece a otro cliente.' })
       else setErr({ form: e2.message })
     }
@@ -74,6 +85,11 @@ export function EditClientDialog({ client, onClose }: { client: Client; onClose:
         <Field label="Descripción del canal">
           {(id) => <TextInput id={id} maxLength={120} value={v.channel_detail} placeholder="Ej.: Colegio Don Bosco" onChange={(e) => setV({ ...v, channel_detail: e.target.value })} />}
         </Field>
+        {referrerOptions.length > 0 && (
+          <Field label="Referido por">
+            {(id) => <Select id={id} value={v.referrer_id} onChange={(r) => setV({ ...v, referrer_id: r })} options={referrerOptions} placeholder="No es referido" />}
+          </Field>
+        )}
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-semibold text-ink/80">Nivel de interés</span>
           <InterestToggle value={v.interest} onChange={(i) => setV({ ...v, interest: i })} />

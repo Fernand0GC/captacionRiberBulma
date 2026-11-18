@@ -46,6 +46,7 @@ const FIELD_LABEL: Record<string, string> = {
   product_id: 'Producto',
   channel_id: 'Canal',
   channel_detail: 'Descripción del canal',
+  referrer_id: 'Referido por',
   interest: 'Interés',
   occupation: 'Oficio',
   address: 'Dirección',
@@ -220,6 +221,7 @@ export function ClientPage() {
           <dl className="grid grid-cols-2 gap-4">
             <Info label="Producto">{c.product_name}</Info>
             <Info label="Canal">{c.channel_name ? [c.channel_name, c.channel_detail].filter(Boolean).join(' · ') : null}</Info>
+            <Info label="Referido por">{c.referrer}</Info>
             <Info label="Interés">{c.interest ? <Badge tone={c.interest === 'high' ? 'success' : c.interest === 'medium' ? 'warning' : 'neutral'}>{INTEREST_LABEL[c.interest]}</Badge> : null}</Info>
             <Info label="Oficio">{c.occupation}</Info>
             <div className="col-span-2">

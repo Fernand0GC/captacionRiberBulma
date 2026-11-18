@@ -17,6 +17,9 @@ alter table public.stage_events enable trigger stage_events_immutable;
 alter table public.audit_log enable trigger audit_log_immutable;
 update public.prospects set duplicate_of = null where duplicate_of is not null;
 delete from public.prospects;
+-- Referidores que crean las pruebas E2E (spec 005); los reales de cada sucursal se conservan.
+delete from public.referrer_goals where referrer_id in (select id from public.referrers where name like 'E2E %');
+delete from public.referrers where name like 'E2E %';
 delete from public.rate_limits;
 delete from public.profiles where username like 'vol.e2e%';
 delete from auth.users where email like 'vol.e2e%@captacion.riberbulma.local';
