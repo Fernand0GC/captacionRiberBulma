@@ -3,12 +3,17 @@ select plan(32);
 
 -- Spec 004: dos metas, selección múltiple y subcanales agregados por ventas (20261118000100).
 -- Usuarios del seed: 3 enc.verdolago, 4 aux.verdolago, 5 sup.verdolago, 6 vol.verdolago, 7 enc.trinidad, 1 admin.
+-- 008: un canal de prueba sin subcanales (solo compartidas) para las asignaciones sin subcanal; los canales reales
+-- pueden tener subcanales agregados y desde la 008 exigen elegir uno.
+insert into public.org_channels (strategy_id, name, sort, uses_goal, uses_share_goal)
+select id, 'Sin subcanales (test)', 99, false, true from public.org_strategies where name = 'Tienda';
 create temp table k as
 select (now() at time zone 'America/La_Paz')::date + 1 as tomorrow,
        (select id from public.org_strategies where name = 'Tienda') as tienda,
        (select id from public.org_channels where name = 'RRSS-Mensajería') as mensajeria,
        (select id from public.org_channels where name = 'Compartidas y estados') as compartidas,
        (select id from public.org_channels where name = 'Tareas administrativas') as admin_tasks,
+       (select id from public.org_channels where name = 'Sin subcanales (test)') as no_subs,
        (select id from public.org_channels where name = 'Llamadas') as llamadas,
        (select id from public.org_subchannels where name = 'Mensajería WhatsApp') as whatsapp,
        (select id from public.org_subchannels where name = 'Barrios chinos - grupos') as barrios_chinos,
@@ -71,7 +76,7 @@ insert into ids select 'tiktok', public.org_save(
 select ok((select r ->> 'goal' is null and r ->> 'share_goal' is null
   from pg_temp.row_of((select id from ids where name = 'tiktok')) r), 'TikTok guarda vacías las metas aunque lleguen');
 insert into ids select 'compartidas', public.org_save(pg_temp.base(jsonb_build_object(
-  'channel_id', (select compartidas from k), 'goal', 5, 'share_goal', 40)));
+  'channel_id', (select no_subs from k), 'goal', 5, 'share_goal', 40)));
 select ok((select r ->> 'goal' is null and r ->> 'share_goal' = '40'
   from pg_temp.row_of((select id from ids where name = 'compartidas')) r), 'canal sin subcanal usa la marca del canal');
 select throws_ok(format($$ select public.org_save(%L) $$,
@@ -105,7 +110,7 @@ select tests.logout(); -- org_assignments solo se lee por RPC
 select is((select count(*)::int from public.org_assignments where profile_id = '00000000-0000-4000-8000-000000000005'
   and work_date = (select tomorrow from k)), 0, 'todo o nada: no quedó ninguna fila de la carga fallida');
 select tests.login_as('00000000-0000-4000-8000-000000000003');
-insert into ids select 'single', unnest(public.org_save_many(pg_temp.base(jsonb_build_object('channel_id', (select admin_tasks from k)))));
+insert into ids select 'single', unnest(public.org_save_many(pg_temp.base(jsonb_build_object('channel_id', (select no_subs from k)))));
 select tests.logout(); -- org_assignments solo se lee por RPC
 select ok((select batch_id is null and subchannel_id is null from public.org_assignments where id = (select id from ids where name = 'single')),
   'sin ítems: una asignación sin subcanal y sin batch_id');

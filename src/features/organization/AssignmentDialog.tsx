@@ -18,7 +18,19 @@ import {
   type Shift,
   type Subchannel,
 } from './api'
-import { clashLabel, formFields, goalFlags, overlaps, parseGoal, sameSlot, suggestedTimes, usesFlyers, type GoalFlags } from './logic'
+import {
+  clashLabel,
+  formFields,
+  goalFlags,
+  hasSubchannels,
+  onlySubchannel,
+  overlaps,
+  parseGoal,
+  sameSlot,
+  suggestedTimes,
+  usesFlyers,
+  type GoalFlags,
+} from './logic'
 
 type Form = {
   shift: Shift
@@ -111,7 +123,9 @@ export function AssignmentDialog({
       const box = bodyRef.current?.querySelector<HTMLElement>(`[data-field="${field}"]`)
       if (!box) return
       box.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      const input = box.matches('input, select, textarea, button') ? box : box.querySelector<HTMLElement>('input, select, textarea, button')
+      const input = box.matches('input, select, textarea, button')
+        ? box
+        : box.querySelector<HTMLElement>('input, select, textarea, button')
       input?.focus({ preventScroll: true })
     })
   }
@@ -126,6 +140,8 @@ export function AssignmentDialog({
     (s) => String(s.channel_id) === v.channel_id && isActiveOrCurrent(s.active, s.id, v.subchannel_id),
   )
   const subById = (id: number) => cat?.subchannels.find((s) => s.id === id)
+  // El canal tiene subcanales activos: elegir uno es obligatorio (spec 008, FR-001).
+  const needsSub = hasSubchannels(cat, v.channel_id)
   // Ubicación según la estrategia; metas según el subcanal (o el canal si no hay subcanal).
   const show = formFields(cat, v.strategy_id, v.channel_id, editing ? v.subchannel_id : undefined)
   // La persona asignada sigue en la lista aunque ya no esté activa.
@@ -134,27 +150,38 @@ export function AssignmentDialog({
     people.push({ id: assignment.profile_id, full_name: `${assignment.person} (inactiva)`, role: '' })
   // Volanteras activas de la sucursal; las que ya iban y se dieron de baja siguen en la lista (FR-009).
   const withFlyers = usesFlyers(cat, v.channel_id)
-  const flyerOptions = (staff.data ?? []).filter((p) => p.role === 'field_volunteer').map((p) => ({ id: p.id, name: p.full_name }))
+  const flyerOptions = (staff.data ?? [])
+    .filter((p) => p.role === 'field_volunteer')
+    .map((p) => ({ id: p.id, name: p.full_name }))
   for (const f of assignment?.flyers ?? [])
-    if (!flyerOptions.some((o) => o.id === f.id)) flyerOptions.push({ id: f.id, name: `${f.name} (inactiva)` })
+    if (!flyerOptions.some((o) => o.id === f.id))
+      flyerOptions.push({ id: f.id, name: `${f.name} (inactiva)` })
 
   /** Propone el horario del subcanal para el turno, salvo que la persona ya escribió las horas. */
   const withTimes = (next: Form, subId: string | number | undefined): Form => {
     if (timesTouched) return next
-    const t = suggestedTimes(cat?.subchannels.find((x) => String(x.id) === String(subId ?? '')), next.shift)
+    const t = suggestedTimes(
+      cat?.subchannels.find((x) => String(x.id) === String(subId ?? '')),
+      next.shift,
+    )
     return { ...next, start_time: t?.start ?? '', end_time: t?.end ?? '' }
   }
 
   /** Cambia un campo y vacía lo que depende de él; propone el horario del subcanal. */
   function change(k: keyof Form, value: string) {
+    // Canal con un solo subcanal activo: queda marcado y propone su horario (spec 008, FR-002).
+    const only = k === 'channel_id' ? onlySubchannel(cat, value) : null
     if (k === 'strategy_id' || k === 'channel_id') {
-      setPicked([])
+      setPicked(only !== null && !editing ? [only] : [])
       setAdding(null)
     }
     setV((s) => {
       const next = { ...s, [k]: value }
       if (k === 'strategy_id') Object.assign(next, { channel_id: '', subchannel_id: '' })
-      if (k === 'channel_id') next.subchannel_id = ''
+      if (k === 'channel_id') {
+        next.subchannel_id = only !== null && editing ? String(only) : ''
+        if (only !== null) return withTimes(next, only)
+      }
       if (k === 'subchannel_id') return withTimes(next, value)
       if (k === 'shift') return withTimes(next, editing ? next.subchannel_id : picked[0])
       return next
@@ -174,7 +201,8 @@ export function AssignmentDialog({
   async function confirmAdd() {
     if (adding === null || !v.channel_id) return
     const name = adding.trim().replace(/\s+/g, ' ')
-    if (name.length < 2 || name.length > 80) return fail('El nombre tiene que tener entre 2 y 80 caracteres.', 'new-subchannel')
+    if (name.length < 2 || name.length > 80)
+      return fail('El nombre tiene que tener entre 2 y 80 caracteres.', 'new-subchannel')
     setAddBusy(true)
     setErr(undefined)
     try {
@@ -183,7 +211,10 @@ export function AssignmentDialog({
       await qc.invalidateQueries({ queryKey: ['org', 'catalog'] })
       toggle(r.id, true)
       setAdding(null)
-      toast(r.existed ? 'Ya existía un subcanal con ese nombre: se marcó ese.' : `✓ Subcanal «${name}» agregado`, r.existed ? 'info' : 'success')
+      toast(
+        r.existed ? 'Ya existía un subcanal con ese nombre: se marcó ese.' : `✓ Subcanal «${name}» agregado`,
+        r.existed ? 'info' : 'success',
+      )
     } catch (e) {
       fail((e as Error).message)
     } finally {
@@ -193,7 +224,13 @@ export function AssignmentDialog({
 
   const clash = v.profile_id
     ? overlaps(
-        { id: assignment?.id ?? '', profile_id: v.profile_id, work_date: day, start_time: v.start_time || null, end_time: v.end_time || null },
+        {
+          id: assignment?.id ?? '',
+          profile_id: v.profile_id,
+          work_date: day,
+          start_time: v.start_time || null,
+          end_time: v.end_time || null,
+        },
         sameDay,
       )
     : []
@@ -205,14 +242,22 @@ export function AssignmentDialog({
     channel_id: Number(v.channel_id),
     subchannel_id,
   })
-  const candidates = editing || picked.length === 0 ? [placing(editing && v.subchannel_id ? Number(v.subchannel_id) : null)] : picked.map(placing)
+  const candidates =
+    editing || picked.length === 0
+      ? [placing(editing && v.subchannel_id ? Number(v.subchannel_id) : null)]
+      : picked.map(placing)
   const duplicate = clash.some((c) => candidates.some((x) => sameSlot(c, x)))
 
   /**
    * Metas según la marca: la que no aplica va vacía. La de captación es obligatoria si aplica; la de compartidas es
    * opcional (spec 007, FR-011). `field` es el sufijo del campo (`-<subcanal>` en una carga múltiple).
    */
-  function readGoals(flags: GoalFlags, g: Goals, of = '', field = ''): { goal: number | null; share_goal: number | null } | FormError {
+  function readGoals(
+    flags: GoalFlags,
+    g: Goals,
+    of = '',
+    field = '',
+  ): { goal: number | null; share_goal: number | null } | FormError {
     const goal = flags.goal ? parseGoal(g.goal, `meta de captación${of}`) : null
     if (typeof goal === 'string') return { message: goal, field: `goal${field}` }
     const share = flags.share ? parseGoal(g.share_goal, `meta de compartidas${of}`, true) : null
@@ -223,10 +268,16 @@ export function AssignmentDialog({
   async function submit() {
     if (saving.current) return
     if (!v.profile_id) return fail('Elige la persona.', 'profile')
-    if (!v.strategy_id || !v.channel_id) return fail('Elige la estrategia y el canal.', v.strategy_id ? 'channel' : 'strategy')
-    if (v.start_time && v.end_time && v.end_time <= v.start_time)
+    if (!v.strategy_id || !v.channel_id)
+      return fail('Elige la estrategia y el canal.', v.strategy_id ? 'channel' : 'strategy')
+    // 008: subcanal obligatorio si el canal tiene subcanales; horario obligatorio (FR-001, FR-003).
+    if (needsSub && editing && !v.subchannel_id) return fail('Elige el subcanal.', 'subchannel')
+    if (needsSub && !editing && picked.length === 0) return fail('Elige al menos un subcanal.', 'subchannels')
+    if (!v.start_time || !v.end_time) return fail('Escribe la hora de inicio y la de fin.', 'times')
+    if (v.end_time <= v.start_time)
       return fail('La hora de fin tiene que ser después de la de inicio.', 'times')
-    if (v.notes.trim().length > NOTES_MAX) return fail(`Las observaciones admiten hasta ${NOTES_MAX} caracteres.`, 'notes')
+    if (v.notes.trim().length > NOTES_MAX)
+      return fail(`Las observaciones admiten hasta ${NOTES_MAX} caracteres.`, 'notes')
     const common = {
       branch_id: branch,
       work_date: day,
@@ -246,10 +297,20 @@ export function AssignmentDialog({
     if (editing || picked.length === 0) {
       const g = readGoals(show, v)
       if ('message' in g) return fail(g.message, g.field)
-      one = { ...common, id: assignment?.id, subchannel_id: editing && v.subchannel_id ? Number(v.subchannel_id) : null, ...g }
+      one = {
+        ...common,
+        id: assignment?.id,
+        subchannel_id: editing && v.subchannel_id ? Number(v.subchannel_id) : null,
+        ...g,
+      }
     } else {
       for (const id of picked) {
-        const g = readGoals(goalFlags(cat, v.channel_id, id), goals[id] ?? { goal: '', share_goal: '' }, ` de «${subById(id)?.name ?? ''}»`, `-${id}`)
+        const g = readGoals(
+          goalFlags(cat, v.channel_id, id),
+          goals[id] ?? { goal: '', share_goal: '' },
+          ` de «${subById(id)?.name ?? ''}»`,
+          `-${id}`,
+        )
         if ('message' in g) return fail(g.message, g.field)
         items.push({ subchannel_id: id, ...g })
       }
@@ -259,7 +320,14 @@ export function AssignmentDialog({
     try {
       if (one) await saveOne.mutateAsync(one)
       else await saveMany.mutateAsync({ ...common, items, goal: null, share_goal: null })
-      toast(editing ? '✓ Asignación actualizada' : picked.length > 1 ? `✓ ${picked.length} asignaciones agregadas` : '✓ Asignación agregada', 'success')
+      toast(
+        editing
+          ? '✓ Asignación actualizada'
+          : picked.length > 1
+            ? `✓ ${picked.length} asignaciones agregadas`
+            : '✓ Asignación agregada',
+        'success',
+      )
       onClose()
     } catch (e) {
       fail((e as Error).message)
@@ -271,7 +339,11 @@ export function AssignmentDialog({
   const busy = saveOne.isPending || saveMany.isPending
   const notesOver = v.notes.trim().length > NOTES_MAX
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()} title={editing ? 'Editar asignación' : 'Nueva asignación'}>
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={editing ? 'Editar asignación' : 'Nueva asignación'}
+    >
       <div ref={bodyRef} className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
         <div className="grid grid-cols-2 gap-2" data-field="profile">
           <Field label="Turno" required>
@@ -280,7 +352,10 @@ export function AssignmentDialog({
                 id={id}
                 value={v.shift}
                 onChange={(x) => x && change('shift', x)}
-                options={(['morning', 'afternoon'] as Shift[]).map((s) => ({ value: s, label: SHIFT_LABEL[s] }))}
+                options={(['morning', 'afternoon'] as Shift[]).map((s) => ({
+                  value: s,
+                  label: SHIFT_LABEL[s],
+                }))}
               />
             )}
           </Field>
@@ -322,22 +397,32 @@ export function AssignmentDialog({
           </Field>
         </div>
         {editing ? (
-          <Field label="Subcanal" optional>
-            {(id) => (
-              <Select
-                id={id}
-                value={v.subchannel_id}
-                onChange={(x) => change('subchannel_id', x)}
-                placeholder={v.channel_id ? 'Elegir…' : 'Primero el canal'}
-                options={subchannels.map((s) => ({ value: String(s.id), label: s.name }))}
-              />
-            )}
-          </Field>
+          <div data-field="subchannel">
+            <Field label="Subcanal" required={needsSub} optional={!needsSub}>
+              {(id) => (
+                <Select
+                  id={id}
+                  value={v.subchannel_id}
+                  onChange={(x) => change('subchannel_id', x)}
+                  placeholder={v.channel_id ? 'Elegir…' : 'Primero el canal'}
+                  options={subchannels.map((s) => ({ value: String(s.id), label: s.name }))}
+                />
+              )}
+            </Field>
+          </div>
         ) : (
           v.channel_id && (
-            <fieldset className="flex flex-col gap-2" aria-label="Subcanales">
+            <fieldset className="flex flex-col gap-2" aria-label="Subcanales" data-field="subchannels">
               <legend className="mb-1.5 text-sm font-semibold text-ink/80">
-                Subcanales <span className="font-normal text-ink/40">(uno o varios, opcional)</span>
+                Subcanales
+                {needsSub ? (
+                  <>
+                    <span className="text-gold-dark"> *</span>{' '}
+                    <span className="font-normal text-ink/40">(uno o varios)</span>
+                  </>
+                ) : (
+                  <span className="font-normal text-ink/40"> (uno o varios, opcional)</span>
+                )}
               </legend>
               {subchannels.map((s) => (
                 <SubchannelOption
@@ -351,7 +436,11 @@ export function AssignmentDialog({
                 />
               ))}
               {adding === null ? (
-                <button type="button" onClick={() => setAdding('')} className="min-h-10 self-start rounded-full px-3 text-sm font-semibold text-gold-dark ring-1 ring-gold/40">
+                <button
+                  type="button"
+                  onClick={() => setAdding('')}
+                  className="min-h-10 self-start rounded-full px-3 text-sm font-semibold text-gold-dark ring-1 ring-gold/40"
+                >
                   + Agregar otro…
                 </button>
               ) : (
@@ -382,7 +471,9 @@ export function AssignmentDialog({
         )}
         <div className="grid grid-cols-2 gap-2" data-field="times">
           <label className="flex flex-col gap-1 text-sm font-semibold text-ink/70">
-            Hora inicio
+            <span>
+              Hora inicio<span className="text-gold-dark"> *</span>
+            </span>
             <input
               type="time"
               value={v.start_time}
@@ -394,7 +485,9 @@ export function AssignmentDialog({
             />
           </label>
           <label className="flex flex-col gap-1 text-sm font-semibold text-ink/70">
-            Hora fin
+            <span>
+              Hora fin<span className="text-gold-dark"> *</span>
+            </span>
             <input
               type="time"
               value={v.end_time}
@@ -406,23 +499,47 @@ export function AssignmentDialog({
             />
           </label>
         </div>
-        {!editing && picked.length > 1 && <p className="-mt-2 text-sm text-ink/55">El horario es el mismo para todos los subcanales marcados.</p>}
+        {!editing && picked.length > 1 && (
+          <p className="-mt-2 text-sm text-ink/55">
+            El horario es el mismo para todos los subcanales marcados.
+          </p>
+        )}
         {clash.length > 0 && (
-          <p role="status" data-testid="clash-warning" className="-mt-2 rounded-xl bg-amber-50 p-2 text-sm text-amber-900 ring-1 ring-amber-200">
-            {duplicate ? 'Ya existe una asignación igual para esta persona' : 'Esta persona ya tiene otra asignación que se cruza'}:{' '}
-            <strong>{clash.map(clashLabel).join(', ')}</strong>. Se puede guardar igual.
+          <p
+            role="status"
+            data-testid="clash-warning"
+            className="-mt-2 rounded-xl bg-amber-50 p-2 text-sm text-amber-900 ring-1 ring-amber-200"
+          >
+            {duplicate
+              ? 'Ya existe una asignación igual para esta persona'
+              : 'Esta persona ya tiene otra asignación que se cruza'}
+            : <strong>{clash.map(clashLabel).join(', ')}</strong>. Se puede guardar igual.
           </p>
         )}
         {show.place && (
           <Field label="Ubicación / lugar" optional>
             {(id) => (
-              <TextInput id={id} value={v.place} maxLength={200} placeholder="Ej.: Barrio Litoral" onChange={(e) => change('place', e.target.value)} />
+              <TextInput
+                id={id}
+                value={v.place}
+                maxLength={200}
+                placeholder="Ej.: Barrio Litoral"
+                onChange={(e) => change('place', e.target.value)}
+              />
             )}
           </Field>
         )}
         {/* Con subcanales marcados, las metas van dentro de cada uno; si no, las del canal (o del subcanal al editar). */}
         {(editing || picked.length === 0) && (
-          <GoalFields flags={show} goals={v} fieldSuffix="" onGoal={(k, x) => change(k, x)} noGoalText={editing && v.subchannel_id ? 'Este subcanal no lleva meta.' : 'Este canal no lleva meta.'} />
+          <GoalFields
+            flags={show}
+            goals={v}
+            fieldSuffix=""
+            onGoal={(k, x) => change(k, x)}
+            noGoalText={
+              editing && v.subchannel_id ? 'Este subcanal no lleva meta.' : 'Este canal no lleva meta.'
+            }
+          />
         )}
         {withFlyers && (
           <fieldset className="flex flex-col gap-1" aria-label="Volanteras que van">
@@ -430,7 +547,9 @@ export function AssignmentDialog({
               Volanteras que van <span className="font-normal text-ink/40">(opcional)</span>
             </legend>
             {flyerOptions.length === 0 ? (
-              <p className="text-sm text-ink/55">{staff.isLoading ? 'Cargando…' : 'No hay volanteras activas en esta sucursal.'}</p>
+              <p className="text-sm text-ink/55">
+                {staff.isLoading ? 'Cargando…' : 'No hay volanteras activas en esta sucursal.'}
+              </p>
             ) : (
               <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                 {flyerOptions.map((f) => (
@@ -439,7 +558,9 @@ export function AssignmentDialog({
                       type="checkbox"
                       className="h-5 w-5 accent-ink"
                       checked={flyers.includes(f.id)}
-                      onChange={(e) => setFlyers((x) => (e.target.checked ? [...x, f.id] : x.filter((id) => id !== f.id)))}
+                      onChange={(e) =>
+                        setFlyers((x) => (e.target.checked ? [...x, f.id] : x.filter((id) => id !== f.id)))
+                      }
                     />
                     {f.name}
                   </label>
@@ -460,17 +581,25 @@ export function AssignmentDialog({
             aria-invalid={notesOver || undefined}
             className={`rounded-2xl border bg-white px-4 py-3 text-base font-normal outline-none focus:border-gold focus:ring-4 focus:ring-gold/20 ${notesOver ? 'border-rb-red' : 'border-ink/15'}`}
           />
-          <span className={`text-right text-xs font-normal tabular-nums ${notesOver ? 'text-rb-red' : 'text-ink/40'}`}>
+          <span
+            className={`text-right text-xs font-normal tabular-nums ${notesOver ? 'text-rb-red' : 'text-ink/40'}`}
+          >
             {v.notes.trim().length}/{NOTES_MAX}
           </span>
         </label>
         {!editing && picked.length > 1 && v.notes.trim() && (
-          <p className="-mt-3 text-sm text-ink/55">La observación va en todas las asignaciones de esta carga.</p>
+          <p className="-mt-3 text-sm text-ink/55">
+            La observación va en todas las asignaciones de esta carga.
+          </p>
         )}
         {/* Pie fijo: el error queda siempre a la vista junto a los botones (spec 007, FR-006). */}
         <div className="sticky bottom-0 flex flex-col gap-2 bg-cream pt-1">
           {err && (
-            <p role="alert" data-testid="form-error" className="rounded-xl bg-rb-red/10 px-3 py-2 text-sm font-medium text-rb-red">
+            <p
+              role="alert"
+              data-testid="form-error"
+              className="rounded-xl bg-rb-red/10 px-3 py-2 text-sm font-medium text-rb-red"
+            >
               {err.message}
             </p>
           )}
@@ -553,12 +682,23 @@ function SubchannelOption({
   return (
     <div className={`rounded-2xl p-2 ring-1 ${on ? 'bg-white ring-gold/50' : 'ring-ink/10'}`}>
       <label className="flex min-h-9 items-center gap-2 text-base">
-        <input type="checkbox" className="h-5 w-5 accent-ink" checked={on} onChange={(e) => onToggle(e.target.checked)} />
+        <input
+          type="checkbox"
+          className="h-5 w-5 accent-ink"
+          checked={on}
+          onChange={(e) => onToggle(e.target.checked)}
+        />
         <span className="flex-1">{sub.name}</span>
       </label>
       {on && (
         <div role="group" aria-label={`Metas de ${sub.name}`} className="mt-2">
-          <GoalFields flags={{ goal: sub.uses_goal, share: sub.uses_share_goal }} goals={goals} fieldSuffix={fieldSuffix} onGoal={onGoal} noGoalText="Este subcanal no lleva meta." />
+          <GoalFields
+            flags={{ goal: sub.uses_goal, share: sub.uses_share_goal }}
+            goals={goals}
+            fieldSuffix={fieldSuffix}
+            onGoal={onGoal}
+            noGoalText="Este subcanal no lleva meta."
+          />
         </div>
       )}
     </div>

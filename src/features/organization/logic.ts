@@ -4,7 +4,10 @@ import type { Assignment, Catalog, Shift, Subchannel } from './api'
 // Lógica pura de la organización: sin React ni red, para probarla con Vitest.
 
 /** Horario sugerido del subcanal para el turno, o null si no tiene (FR-011). */
-export function suggestedTimes(sub: Subchannel | undefined, shift: Shift): { start: string; end: string } | null {
+export function suggestedTimes(
+  sub: Subchannel | undefined,
+  shift: Shift,
+): { start: string; end: string } | null {
   if (!sub) return null
   const start = shift === 'morning' ? sub.morning_start : sub.afternoon_start
   const end = shift === 'morning' ? sub.morning_end : sub.afternoon_end
@@ -49,7 +52,9 @@ export function sameSlot(a: Placed, b: Placed): boolean {
 }
 
 /** «Llamadas a clientes de pedidos (16:20–19:00)»: para encontrar la otra asignación del aviso de cruce (FR-008). */
-export function clashLabel(o: Pick<Assignment, 'channel' | 'subchannel' | 'start_time' | 'end_time'>): string {
+export function clashLabel(
+  o: Pick<Assignment, 'channel' | 'subchannel' | 'start_time' | 'end_time'>,
+): string {
   return `${o.subchannel ?? o.channel} (${o.start_time ?? ''}–${o.end_time ?? ''})`
 }
 
@@ -117,7 +122,11 @@ export type GoalFlags = { goal: boolean; share: boolean }
  * Marca efectiva de metas: la del subcanal si hay subcanal; si no, la del canal. Sin canal elegido se pide solo la
  * de captación (como antes de la 004). La base aplica la misma regla al guardar.
  */
-export function goalFlags(cat: Pick<Catalog, 'channels' | 'subchannels'> | undefined, channelId: Id, subchannelId?: Id): GoalFlags {
+export function goalFlags(
+  cat: Pick<Catalog, 'channels' | 'subchannels'> | undefined,
+  channelId: Id,
+  subchannelId?: Id,
+): GoalFlags {
   const sub = cat?.subchannels.find((x) => same(x.id, subchannelId))
   if (sub) return { goal: sub.uses_goal, share: sub.uses_share_goal }
   const c = cat?.channels.find((x) => same(x.id, channelId))
@@ -145,7 +154,9 @@ export function formFields(
 export function parseGoal(raw: string, label: string, optional = false): number | null | string {
   if (raw.trim() === '') return optional ? null : `Escribe la ${label}.`
   const n = Number(raw)
-  return Number.isInteger(n) && n >= 0 && n <= 9999 ? n : `La ${label} tiene que ser un número entero entre 0 y 9999.`
+  return Number.isInteger(n) && n >= 0 && n <= 9999
+    ? n
+    : `La ${label} tiene que ser un número entero entre 0 y 9999.`
 }
 
 /** Días entre dos fechas ISO (inclusive el primero: mismo día = 0). */
@@ -157,6 +168,22 @@ export function addDays(iso: string, n: number): string {
   const d = new Date(`${iso}T12:00:00Z`)
   d.setUTCDate(d.getUTCDate() + n)
   return d.toISOString().slice(0, 10)
+}
+
+/** Subcanales activos del canal (spec 008): si hay alguno, la asignación tiene que tener subcanal (FR-001). */
+function activeSubchannels(cat: Pick<Catalog, 'subchannels'> | undefined, channelId: Id): Subchannel[] {
+  return (cat?.subchannels ?? []).filter((s) => s.active && same(s.channel_id, channelId))
+}
+
+/** El canal tiene al menos un subcanal activo: hay que elegir subcanal (spec 008, FR-001). La base aplica lo mismo. */
+export function hasSubchannels(cat: Pick<Catalog, 'subchannels'> | undefined, channelId: Id): boolean {
+  return activeSubchannels(cat, channelId).length > 0
+}
+
+/** Id del subcanal si el canal tiene exactamente uno activo, para marcarlo solo (spec 008, FR-002); si no, null. */
+export function onlySubchannel(cat: Pick<Catalog, 'subchannels'> | undefined, channelId: Id): number | null {
+  const subs = activeSubchannels(cat, channelId)
+  return subs.length === 1 ? subs[0]!.id : null
 }
 
 /** El canal pide «Volanteras que van» (spec 006, FR-008). */
@@ -186,9 +213,16 @@ export function groupByPerson<T extends PersonRow>(rows: T[]): PersonGroup<T>[] 
 
 /** Personas de una sucursal, con sus filas; una fila junta los subcanales de una misma carga (spec 007, FR-015). */
 export type PersonBlock<T> = { key: string; person: string; work_date: string; count: number; lines: T[][] }
-export type BranchBlock<T> = { key: string; branch_id: number; branch: string; lead: string | null; people: PersonBlock<T>[] }
+export type BranchBlock<T> = {
+  key: string
+  branch_id: number
+  branch: string
+  lead: string | null
+  people: PersonBlock<T>[]
+}
 
-type CompactRow = PersonRow & Pick<Assignment, 'branch' | 'person' | 'lead' | 'batch_id' | 'shift' | 'start_time' | 'end_time'>
+type CompactRow = PersonRow &
+  Pick<Assignment, 'branch' | 'person' | 'lead' | 'batch_id' | 'shift' | 'start_time' | 'end_time'>
 
 /**
  * Tabla compacta (spec 007, research R8): sucursal → persona → filas. Las asignaciones de una misma carga con igual
@@ -201,7 +235,13 @@ export function groupRows<T extends CompactRow & { id: string }>(rows: T[]): Bra
     const first = g.rows[0]!
     let b = branches.get(first.branch_id)
     if (!b) {
-      b = { key: String(first.branch_id), branch_id: first.branch_id, branch: first.branch, lead: null, people: [] }
+      b = {
+        key: String(first.branch_id),
+        branch_id: first.branch_id,
+        branch: first.branch,
+        lead: null,
+        people: [],
+      }
       branches.set(first.branch_id, b)
     }
     b.lead ??= g.rows.find((r) => r.lead)?.lead ?? null
@@ -212,7 +252,13 @@ export function groupRows<T extends CompactRow & { id: string }>(rows: T[]): Bra
       if (line) line.push(r)
       else lines.set(k, [r])
     }
-    b.people.push({ key: g.key, person: first.person, work_date: first.work_date, count: g.rows.length, lines: [...lines.values()] })
+    b.people.push({
+      key: g.key,
+      person: first.person,
+      work_date: first.work_date,
+      count: g.rows.length,
+      lines: [...lines.values()],
+    })
   }
   return [...branches.values()]
 }
@@ -221,16 +267,26 @@ export function groupRows<T extends CompactRow & { id: string }>(rows: T[]): Bra
  * Filtro Turno al abrir (spec 007, FR-010): el día de hoy, desde las 13:00 de La Paz y si hay asignaciones de la
  * tarde, «Tarde»; en otro caso, sin filtro.
  */
-export function defaultShiftFilter(from: string, to: string, now: Date, rows: Pick<Assignment, 'shift'>[]): Shift | undefined {
+export function defaultShiftFilter(
+  from: string,
+  to: string,
+  now: Date,
+  rows: Pick<Assignment, 'shift'>[],
+): Shift | undefined {
   const today = laPazDate(now)
-  return from === today && to === today && shiftFor(now) === 'afternoon' && rows.some((r) => r.shift === 'afternoon')
+  return from === today &&
+    to === today &&
+    shiftFor(now) === 'afternoon' &&
+    rows.some((r) => r.shift === 'afternoon')
     ? 'afternoon'
     : undefined
 }
 
 /** «Capt 10 · Comp 30», o null si no tiene metas (spec 007, FR-014). */
 export function goalsText(r: Pick<Assignment, 'goal' | 'share_goal'>): string | null {
-  const parts = [r.goal !== null && `Capt ${r.goal}`, r.share_goal !== null && `Comp ${r.share_goal}`].filter(Boolean)
+  const parts = [r.goal !== null && `Capt ${r.goal}`, r.share_goal !== null && `Comp ${r.share_goal}`].filter(
+    Boolean,
+  )
   return parts.length ? parts.join(' · ') : null
 }
 
