@@ -13,6 +13,8 @@ import {
   parseGoal,
   overlaps,
   sameSlot,
+  hasSubchannels,
+  onlySubchannel,
   clashLabel,
   groupRows,
   defaultShiftFilter,
@@ -317,5 +319,33 @@ describe('ajustes de ventas (007)', () => {
     expect(defaultShiftFilter('2026-11-18', '2026-11-18', at('17:00'), tarde)).toBeUndefined()
     expect(defaultShiftFilter('2026-11-13', '2026-11-19', at('17:00'), tarde)).toBeUndefined()
     expect(defaultShiftFilter('2026-11-19', '2026-11-19', at('17:00'), [row({ shift: 'morning' })])).toBeUndefined()
+  })
+})
+
+describe('subcanal y horario obligatorios (008)', () => {
+  const cat = {
+    subchannels: [
+      sub({ id: 1, channel_id: 10 }),
+      sub({ id: 2, channel_id: 20 }),
+      sub({ id: 3, channel_id: 20 }),
+      sub({ id: 4, channel_id: 30, active: false }),
+      sub({ id: 5, channel_id: 40 }),
+      sub({ id: 6, channel_id: 40, active: false }),
+    ],
+  }
+  it('hasSubchannels: cuenta solo los activos', () => {
+    expect(hasSubchannels(cat, 10)).toBe(true)
+    expect(hasSubchannels(cat, '20')).toBe(true)
+    expect(hasSubchannels(cat, 30)).toBe(false)
+    expect(hasSubchannels(cat, 99)).toBe(false)
+    expect(hasSubchannels(undefined, 10)).toBe(false)
+    expect(hasSubchannels(cat, '')).toBe(false)
+  })
+  it('onlySubchannel: el id si hay exactamente uno activo', () => {
+    expect(onlySubchannel(cat, 10)).toBe(1)
+    expect(onlySubchannel(cat, 20)).toBeNull()
+    expect(onlySubchannel(cat, 30)).toBeNull()
+    expect(onlySubchannel(cat, '40')).toBe(5)
+    expect(onlySubchannel(undefined, 10)).toBeNull()
   })
 })

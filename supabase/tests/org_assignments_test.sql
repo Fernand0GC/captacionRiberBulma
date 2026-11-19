@@ -120,11 +120,15 @@ select ok(
   'la copia va sin resultado ni observaciones');
 
 -- Marcas del catálogo (20261117000400): Tienda no guarda lugar; Comentarios no guarda meta; Llamadas sí.
+-- 008: los canales con subcanales exigen subcanal.
 insert into ids select 'comentarios', public.org_save(pg_temp.payload((select today + 2 from k), '00000000-0000-4000-8000-000000000004',
-  jsonb_build_object('strategy_id', (select tienda from k), 'subchannel_id', null,
+  jsonb_build_object('strategy_id', (select tienda from k),
+    'subchannel_id', (select id from public.org_subchannels where name = 'Comentarios Facebook'),
     'channel_id', (select id from public.org_channels where name = 'Comentarios'))));
 insert into ids select 'llamadas', public.org_save(pg_temp.payload((select today + 2 from k), '00000000-0000-4000-8000-000000000005',
-  jsonb_build_object('strategy_id', (select tienda from k), 'subchannel_id', null, 'channel_id', (select llamadas from k))));
+  jsonb_build_object('strategy_id', (select tienda from k),
+    'subchannel_id', (select id from public.org_subchannels where name = 'Llamadas a clientes de pedidos'),
+    'channel_id', (select llamadas from k))));
 select ok(
   (select r ->> 'place' is null and r ->> 'goal' is null
    from jsonb_array_elements(public.org_list((select today + 2 from k), (select today + 2 from k)) -> 'rows') r
@@ -137,7 +141,10 @@ select ok(
   'Tienda + Llamadas: sin lugar, con meta');
 select lives_ok(format($$ select public.org_save(%L) $$,
   pg_temp.payload((select today + 2 from k), '00000000-0000-4000-8000-000000000004',
-    jsonb_build_object('strategy_id', (select tienda from k), 'subchannel_id', null,
+    jsonb_build_object('strategy_id', (select tienda from k),
+      -- 008: si el canal ya tiene subcanales (los agrega ventas), hay que elegir uno; si no, queda vacío
+      'subchannel_id', (select sc.id from public.org_subchannels sc join public.org_channels c on c.id = sc.channel_id
+                        where c.name = 'Tareas administrativas' and sc.active order by sc.id limit 1),
       'channel_id', (select id from public.org_channels where name = 'Tareas administrativas')))),
   'se asigna «Tareas administrativas» en Tienda');
 

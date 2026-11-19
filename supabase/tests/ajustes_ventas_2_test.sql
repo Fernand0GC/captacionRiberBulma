@@ -105,7 +105,8 @@ select throws_ok(format($$ select public.org_save(%L) $$, pg_temp.act(jsonb_buil
 select throws_ok(format($$ select public.org_save(%L) $$, pg_temp.act(jsonb_build_object('flyer_ids', jsonb_build_array('no-uuid')))),
   'P0001', 'invalid_input', 'id inválido rechazado');
 insert into ids select 'no_flyers', public.org_save(jsonb_build_object('branch_id', 5, 'work_date', (select tomorrow from k),
-  'shift', 'afternoon', 'profile_id', '00000000-0000-4000-8000-000000000004', 'strategy_id', (select tienda from k),
+  'shift', 'afternoon', 'start_time', '16:00', 'end_time', '17:00', -- 008: horas obligatorias
+  'profile_id', '00000000-0000-4000-8000-000000000004', 'strategy_id', (select tienda from k),
   'channel_id', (select llamadas from k), 'subchannel_id', (select pedidos from k), 'goal', 5,
   'flyer_ids', jsonb_build_array('00000000-0000-4000-8000-000000000006')));
 select is(pg_temp.row_of(pg_temp.id_of('no_flyers')) -> 'flyer_ids', '[]'::jsonb, 'canal que no las pide: se vacía');
