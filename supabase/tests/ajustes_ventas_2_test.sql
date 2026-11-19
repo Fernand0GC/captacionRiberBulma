@@ -118,7 +118,9 @@ select public.org_save(pg_temp.act(jsonb_build_object('id', pg_temp.id_of('flyer
 select is(jsonb_array_length(pg_temp.row_of(pg_temp.id_of('flyers')) -> 'flyer_ids'), 2, 'al editar sin flyer_ids se conservan (también la de baja)');
 select lives_ok(format($$ select public.org_save(%L) $$, pg_temp.act(jsonb_build_object('id', pg_temp.id_of('flyers'),
   'flyer_ids', jsonb_build_array('00000000-0000-4000-8000-0000000000b1')))), 'al editar se acepta la de baja que ya estaba');
-select public.org_save(pg_temp.act(jsonb_build_object('id', pg_temp.id_of('flyers'), 'goal', 31, 'flyer_ids',
+-- Horario propio (007): la copia salta las asignaciones iguales y en este test hay otras a las 10:00–12:00.
+select public.org_save(pg_temp.act(jsonb_build_object('id', pg_temp.id_of('flyers'), 'goal', 31,
+  'start_time', '12:00', 'end_time', '13:00', 'flyer_ids',
   jsonb_build_array('00000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-0000000000b1'))));
 select throws_ok(format($$ select public.org_save(%L) $$, pg_temp.act(jsonb_build_object('flyer_ids',
   jsonb_build_array('00000000-0000-4000-8000-0000000000b1')))), 'P0001', 'invalid_input', 'una volantera de baja no se agrega a una nueva');

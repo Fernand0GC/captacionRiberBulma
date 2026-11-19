@@ -12,6 +12,11 @@ import {
   NONE,
   parseGoal,
   overlaps,
+  sameSlot,
+  clashLabel,
+  groupRows,
+  defaultShiftFilter,
+  goalsText,
   suggestedTimes,
   totals,
   usesFlyers,
@@ -242,5 +247,75 @@ describe('ajustes de ventas (006)', () => {
     expect(verifiedText(row())).toBeNull()
     expect(verifiedText(row({ share_verified: 12 }))).toBe('verificadas 12')
     expect(verifiedText(row({ share_verified: 0 }))).toBe('verificadas 0')
+  })
+})
+
+describe('ajustes de ventas (007)', () => {
+  it('parseGoal opcional: vacía es null; con valor valida igual', () => {
+    expect(parseGoal('', 'meta de compartidas', true)).toBeNull()
+    expect(parseGoal('15', 'meta de compartidas', true)).toBe(15)
+    expect(parseGoal('-1', 'meta de compartidas', true)).toMatch(/entre 0 y 9999/)
+    expect(parseGoal('', 'meta de captación')).toBe('Escribe la meta de captación.')
+  })
+
+  it('sameSlot: igual = turno, horario, canal y subcanal', () => {
+    const a = row()
+    expect(sameSlot(a, row())).toBe(true)
+    expect(sameSlot(a, row({ end_time: '12:30' }))).toBe(false)
+    expect(sameSlot(a, row({ subchannel_id: 8 }))).toBe(false)
+    expect(sameSlot(a, row({ shift: 'afternoon' }))).toBe(false)
+    expect(sameSlot(row({ subchannel_id: null }), row({ subchannel_id: null }))).toBe(true)
+  })
+
+  it('clashLabel: subcanal (o canal) y horario de la otra asignación', () => {
+    expect(clashLabel(row({ start_time: '16:20', end_time: '19:00' }))).toBe('Activaciones en barrios (16:20–19:00)')
+    expect(clashLabel(row({ subchannel: null }))).toBe('Activación (10:00–12:00)')
+  })
+
+  it('goalsText: junta las dos metas o null', () => {
+    expect(goalsText(row({ goal: 10, share_goal: 30 }))).toBe('Capt 10 · Comp 30')
+    expect(goalsText(row({ goal: null, share_goal: 30 }))).toBe('Comp 30')
+    expect(goalsText(row({ goal: null }))).toBeNull()
+  })
+
+  it('groupRows: sucursal → persona → filas; la gerente una vez por sucursal', () => {
+    const rows = [
+      row({ person: 'Ana', profile_id: 'p1', lead: null }),
+      row({ person: 'Ana', profile_id: 'p1', lead: 'Isabel', start_time: '15:00', end_time: '16:00' }),
+      row({ person: 'Luis', profile_id: 'p2', lead: 'Isabel' }),
+      row({ branch_id: 7, branch: 'TRINIDAD', person: 'Eva', profile_id: 'p3', lead: null }),
+    ]
+    const b = groupRows(rows)
+    expect(b.map((x) => `${x.branch}:${x.lead ?? '-'}`)).toEqual(['VERDOLAGO:Isabel', 'TRINIDAD:-'])
+    expect(b[0]!.people.map((p) => `${p.person}:${p.count}:${p.lines.length}`)).toEqual(['Ana:2:2', 'Luis:1:1'])
+  })
+
+  it('groupRows: una carga con igual horario va en una fila; si se editó la hora de una, aparte', () => {
+    const rows = [
+      row({ batch_id: 'b1', subchannel_id: 1, subchannel: 'Comentarios Facebook' }),
+      row({ batch_id: 'b1', subchannel_id: 2, subchannel: 'Comentarios TikTok' }),
+      row({ batch_id: 'b1', subchannel_id: 3, subchannel: 'Comentarios Instagram', end_time: '11:00' }),
+      row({ batch_id: null, subchannel_id: 1 }),
+    ]
+    const lines = groupRows(rows)[0]!.people[0]!.lines
+    expect(lines.map((l) => l.length)).toEqual([2, 1, 1])
+    expect(groupRows(rows)[0]!.people[0]!.count).toBe(4)
+  })
+
+  it('groupRows: varios días separan a la misma persona por fecha', () => {
+    const b = groupRows([row(), row({ work_date: '2026-11-19' })])
+    expect(b).toHaveLength(1)
+    expect(b[0]!.people.map((p) => p.work_date)).toEqual(['2026-11-18', '2026-11-19'])
+  })
+
+  it('defaultShiftFilter: Tarde solo hoy, desde las 13:00 de La Paz y con asignaciones de la tarde', () => {
+    // 13:00 en La Paz = 17:00 UTC
+    const at = (hhmm: string) => new Date(`2026-11-19T${hhmm}:00Z`)
+    const tarde = [row({ shift: 'morning' }), row({ shift: 'afternoon' })]
+    expect(defaultShiftFilter('2026-11-19', '2026-11-19', at('16:59'), tarde)).toBeUndefined()
+    expect(defaultShiftFilter('2026-11-19', '2026-11-19', at('17:00'), tarde)).toBe('afternoon')
+    expect(defaultShiftFilter('2026-11-18', '2026-11-18', at('17:00'), tarde)).toBeUndefined()
+    expect(defaultShiftFilter('2026-11-13', '2026-11-19', at('17:00'), tarde)).toBeUndefined()
+    expect(defaultShiftFilter('2026-11-19', '2026-11-19', at('17:00'), [row({ shift: 'morning' })])).toBeUndefined()
   })
 })

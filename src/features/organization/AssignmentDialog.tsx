@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/ui/Button'
 import { Dialog } from '@/ui/Dialog'
@@ -18,7 +18,7 @@ import {
   type Shift,
   type Subchannel,
 } from './api'
-import { formFields, goalFlags, overlaps, parseGoal, suggestedTimes, usesFlyers, type GoalFlags } from './logic'
+import { clashLabel, formFields, goalFlags, overlaps, parseGoal, sameSlot, suggestedTimes, usesFlyers, type GoalFlags } from './logic'
 
 type Form = {
   shift: Shift
@@ -41,6 +41,9 @@ const NOTES_MAX = 300
 
 /** Metas escritas para cada subcanal marcado. */
 type Goals = { goal: string; share_goal: string }
+
+/** Error del formulario y el campo al que hay que llevar la vista (spec 007, FR-007): su `data-field`. */
+type FormError = { message: string; field?: string }
 
 const timeCls =
   'min-h-12 w-full rounded-2xl border border-ink/15 bg-white px-3 text-lg outline-none focus:border-gold focus:ring-4 focus:ring-gold/20'
@@ -95,7 +98,23 @@ export function AssignmentDialog({
   const [timesTouched, setTimesTouched] = useState(!!assignment?.start_time)
   const [adding, setAdding] = useState<string | null>(null) // null = cerrado; texto = nombre que se escribe
   const [addBusy, setAddBusy] = useState(false)
-  const [err, setErr] = useState<string>()
+  const [err, setErr] = useState<FormError>()
+  const bodyRef = useRef<HTMLDivElement>(null)
+  // Guardado único (spec 007, FR-005): `busy` recién cambia en el próximo render; esta marca cambia al instante.
+  const saving = useRef(false)
+
+  /** Muestra el error junto a los botones y lleva la vista al campo que falta (FR-006, FR-007). */
+  function fail(message: string, field?: string) {
+    setErr({ message, field })
+    if (!field) return
+    requestAnimationFrame(() => {
+      const box = bodyRef.current?.querySelector<HTMLElement>(`[data-field="${field}"]`)
+      if (!box) return
+      box.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      const input = box.matches('input, select, textarea, button') ? box : box.querySelector<HTMLElement>('input, select, textarea, button')
+      input?.focus({ preventScroll: true })
+    })
+  }
 
   const cat = catalog.data
   const isActiveOrCurrent = (active: boolean, id: number, current: string) => active || String(id) === current
@@ -155,7 +174,7 @@ export function AssignmentDialog({
   async function confirmAdd() {
     if (adding === null || !v.channel_id) return
     const name = adding.trim().replace(/\s+/g, ' ')
-    if (name.length < 2 || name.length > 80) return setErr('El nombre tiene que tener entre 2 y 80 caracteres.')
+    if (name.length < 2 || name.length > 80) return fail('El nombre tiene que tener entre 2 y 80 caracteres.', 'new-subchannel')
     setAddBusy(true)
     setErr(undefined)
     try {
@@ -166,7 +185,7 @@ export function AssignmentDialog({
       setAdding(null)
       toast(r.existed ? 'Ya existía un subcanal con ese nombre: se marcó ese.' : `✓ Subcanal «${name}» agregado`, r.existed ? 'info' : 'success')
     } catch (e) {
-      setErr((e as Error).message)
+      fail((e as Error).message)
     } finally {
       setAddBusy(false)
     }
@@ -178,22 +197,36 @@ export function AssignmentDialog({
         sameDay,
       )
     : []
+  // ¿Alguna de las que se cruzan es igual a lo que se está cargando? (FR-009). Con varios subcanales, basta uno.
+  const placing = (subchannel_id: number | null) => ({
+    shift: v.shift,
+    start_time: v.start_time || null,
+    end_time: v.end_time || null,
+    channel_id: Number(v.channel_id),
+    subchannel_id,
+  })
+  const candidates = editing || picked.length === 0 ? [placing(editing && v.subchannel_id ? Number(v.subchannel_id) : null)] : picked.map(placing)
+  const duplicate = clash.some((c) => candidates.some((x) => sameSlot(c, x)))
 
-  /** Metas según la marca: la que no aplica va vacía; la que aplica es obligatoria (FR-003, FR-004). */
-  function readGoals(flags: GoalFlags, g: Goals, of = ''): { goal: number | null; share_goal: number | null } | string {
+  /**
+   * Metas según la marca: la que no aplica va vacía. La de captación es obligatoria si aplica; la de compartidas es
+   * opcional (spec 007, FR-011). `field` es el sufijo del campo (`-<subcanal>` en una carga múltiple).
+   */
+  function readGoals(flags: GoalFlags, g: Goals, of = '', field = ''): { goal: number | null; share_goal: number | null } | FormError {
     const goal = flags.goal ? parseGoal(g.goal, `meta de captación${of}`) : null
-    if (typeof goal === 'string') return goal
-    const share = flags.share ? parseGoal(g.share_goal, `meta de compartidas${of}`) : null
-    if (typeof share === 'string') return share
+    if (typeof goal === 'string') return { message: goal, field: `goal${field}` }
+    const share = flags.share ? parseGoal(g.share_goal, `meta de compartidas${of}`, true) : null
+    if (typeof share === 'string') return { message: share, field: `share_goal${field}` }
     return { goal, share_goal: share }
   }
 
   async function submit() {
-    if (!v.profile_id) return setErr('Elige la persona.')
-    if (!v.strategy_id || !v.channel_id) return setErr('Elige la estrategia y el canal.')
+    if (saving.current) return
+    if (!v.profile_id) return fail('Elige la persona.', 'profile')
+    if (!v.strategy_id || !v.channel_id) return fail('Elige la estrategia y el canal.', v.strategy_id ? 'channel' : 'strategy')
     if (v.start_time && v.end_time && v.end_time <= v.start_time)
-      return setErr('La hora de fin tiene que ser después de la de inicio.')
-    if (v.notes.trim().length > NOTES_MAX) return setErr(`Las observaciones admiten hasta ${NOTES_MAX} caracteres.`)
+      return fail('La hora de fin tiene que ser después de la de inicio.', 'times')
+    if (v.notes.trim().length > NOTES_MAX) return fail(`Las observaciones admiten hasta ${NOTES_MAX} caracteres.`, 'notes')
     const common = {
       branch_id: branch,
       work_date: day,
@@ -207,25 +240,31 @@ export function AssignmentDialog({
       notes: v.notes.trim(),
       flyer_ids: withFlyers ? flyers : [],
     }
-    try {
-      if (editing || picked.length === 0) {
-        const g = readGoals(show, v)
-        if (typeof g === 'string') return setErr(g)
-        const input: AssignmentInput = { ...common, id: assignment?.id, subchannel_id: editing && v.subchannel_id ? Number(v.subchannel_id) : null, ...g }
-        await saveOne.mutateAsync(input)
-      } else {
-        const items: { subchannel_id: number; goal: number | null; share_goal: number | null }[] = []
-        for (const id of picked) {
-          const g = readGoals(goalFlags(cat, v.channel_id, id), goals[id] ?? { goal: '', share_goal: '' }, ` de «${subById(id)?.name ?? ''}»`)
-          if (typeof g === 'string') return setErr(g)
-          items.push({ subchannel_id: id, ...g })
-        }
-        await saveMany.mutateAsync({ ...common, items, goal: null, share_goal: null })
+    // Valida todas las metas antes de marcar el guardado, para que un error no deje la marca puesta.
+    let one: AssignmentInput | undefined
+    const items: { subchannel_id: number; goal: number | null; share_goal: number | null }[] = []
+    if (editing || picked.length === 0) {
+      const g = readGoals(show, v)
+      if ('message' in g) return fail(g.message, g.field)
+      one = { ...common, id: assignment?.id, subchannel_id: editing && v.subchannel_id ? Number(v.subchannel_id) : null, ...g }
+    } else {
+      for (const id of picked) {
+        const g = readGoals(goalFlags(cat, v.channel_id, id), goals[id] ?? { goal: '', share_goal: '' }, ` de «${subById(id)?.name ?? ''}»`, `-${id}`)
+        if ('message' in g) return fail(g.message, g.field)
+        items.push({ subchannel_id: id, ...g })
       }
+    }
+    saving.current = true
+    setErr(undefined)
+    try {
+      if (one) await saveOne.mutateAsync(one)
+      else await saveMany.mutateAsync({ ...common, items, goal: null, share_goal: null })
       toast(editing ? '✓ Asignación actualizada' : picked.length > 1 ? `✓ ${picked.length} asignaciones agregadas` : '✓ Asignación agregada', 'success')
       onClose()
     } catch (e) {
-      setErr((e as Error).message)
+      fail((e as Error).message)
+    } finally {
+      saving.current = false
     }
   }
 
@@ -233,8 +272,8 @@ export function AssignmentDialog({
   const notesOver = v.notes.trim().length > NOTES_MAX
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={editing ? 'Editar asignación' : 'Nueva asignación'}>
-      <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
-        <div className="grid grid-cols-2 gap-2">
+      <div ref={bodyRef} className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
+        <div className="grid grid-cols-2 gap-2" data-field="profile">
           <Field label="Turno" required>
             {(id) => (
               <Select
@@ -257,27 +296,31 @@ export function AssignmentDialog({
             )}
           </Field>
         </div>
-        <Field label="Estrategia" required>
-          {(id) => (
-            <Select
-              id={id}
-              value={v.strategy_id}
-              onChange={(x) => change('strategy_id', x)}
-              options={strategies.map((s) => ({ value: String(s.id), label: s.name }))}
-            />
-          )}
-        </Field>
-        <Field label="Canal" required>
-          {(id) => (
-            <Select
-              id={id}
-              value={v.channel_id}
-              onChange={(x) => change('channel_id', x)}
-              placeholder={v.strategy_id ? 'Elegir…' : 'Primero la estrategia'}
-              options={channels.map((c) => ({ value: String(c.id), label: c.name }))}
-            />
-          )}
-        </Field>
+        <div data-field="strategy">
+          <Field label="Estrategia" required>
+            {(id) => (
+              <Select
+                id={id}
+                value={v.strategy_id}
+                onChange={(x) => change('strategy_id', x)}
+                options={strategies.map((s) => ({ value: String(s.id), label: s.name }))}
+              />
+            )}
+          </Field>
+        </div>
+        <div data-field="channel">
+          <Field label="Canal" required>
+            {(id) => (
+              <Select
+                id={id}
+                value={v.channel_id}
+                onChange={(x) => change('channel_id', x)}
+                placeholder={v.strategy_id ? 'Elegir…' : 'Primero la estrategia'}
+                options={channels.map((c) => ({ value: String(c.id), label: c.name }))}
+              />
+            )}
+          </Field>
+        </div>
         {editing ? (
           <Field label="Subcanal" optional>
             {(id) => (
@@ -302,6 +345,7 @@ export function AssignmentDialog({
                   sub={s}
                   on={picked.includes(s.id)}
                   goals={goals[s.id] ?? { goal: '', share_goal: '' }}
+                  fieldSuffix={`-${s.id}`}
                   onToggle={(on) => toggle(s.id, on)}
                   onGoal={(k, x) => setGoal(s.id, k, x)}
                 />
@@ -316,6 +360,7 @@ export function AssignmentDialog({
                     Nombre del subcanal nuevo
                     <input
                       autoFocus
+                      data-field="new-subchannel"
                       value={adding}
                       maxLength={80}
                       placeholder="Ej.: Kardex de ventas"
@@ -335,7 +380,7 @@ export function AssignmentDialog({
             </fieldset>
           )
         )}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2" data-field="times">
           <label className="flex flex-col gap-1 text-sm font-semibold text-ink/70">
             Hora inicio
             <input
@@ -363,8 +408,9 @@ export function AssignmentDialog({
         </div>
         {!editing && picked.length > 1 && <p className="-mt-2 text-sm text-ink/55">El horario es el mismo para todos los subcanales marcados.</p>}
         {clash.length > 0 && (
-          <p role="status" className="-mt-2 rounded-xl bg-amber-50 p-2 text-sm text-amber-900 ring-1 ring-amber-200">
-            Esta persona ya tiene otra asignación que se cruza ({clash.map((c) => `${c.start_time}–${c.end_time}`).join(', ')}). Se puede guardar igual.
+          <p role="status" data-testid="clash-warning" className="-mt-2 rounded-xl bg-amber-50 p-2 text-sm text-amber-900 ring-1 ring-amber-200">
+            {duplicate ? 'Ya existe una asignación igual para esta persona' : 'Esta persona ya tiene otra asignación que se cruza'}:{' '}
+            <strong>{clash.map(clashLabel).join(', ')}</strong>. Se puede guardar igual.
           </p>
         )}
         {show.place && (
@@ -376,7 +422,7 @@ export function AssignmentDialog({
         )}
         {/* Con subcanales marcados, las metas van dentro de cada uno; si no, las del canal (o del subcanal al editar). */}
         {(editing || picked.length === 0) && (
-          <GoalFields flags={show} goals={v} onGoal={(k, x) => change(k, x)} noGoalText={editing && v.subchannel_id ? 'Este subcanal no lleva meta.' : 'Este canal no lleva meta.'} />
+          <GoalFields flags={show} goals={v} fieldSuffix="" onGoal={(k, x) => change(k, x)} noGoalText={editing && v.subchannel_id ? 'Este subcanal no lleva meta.' : 'Este canal no lleva meta.'} />
         )}
         {withFlyers && (
           <fieldset className="flex flex-col gap-1" aria-label="Volanteras que van">
@@ -402,7 +448,7 @@ export function AssignmentDialog({
             )}
           </fieldset>
         )}
-        <label className="flex flex-col gap-1.5 text-sm font-semibold text-ink/80">
+        <label className="flex flex-col gap-1.5 text-sm font-semibold text-ink/80" data-field="notes">
           <span>
             Observaciones <span className="font-normal text-ink/40">(opcional)</span>
           </span>
@@ -421,29 +467,39 @@ export function AssignmentDialog({
         {!editing && picked.length > 1 && v.notes.trim() && (
           <p className="-mt-3 text-sm text-ink/55">La observación va en todas las asignaciones de esta carga.</p>
         )}
-        {err && <p className="text-sm font-medium text-rb-red">{err}</p>}
-        <div className="sticky bottom-0 flex gap-2 bg-cream pt-1">
-          <Button variant="secondary" className="flex-1" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button className="flex-1" disabled={busy} onClick={() => void submit()}>
-            {busy ? 'Guardando…' : 'Guardar'}
-          </Button>
+        {/* Pie fijo: el error queda siempre a la vista junto a los botones (spec 007, FR-006). */}
+        <div className="sticky bottom-0 flex flex-col gap-2 bg-cream pt-1">
+          {err && (
+            <p role="alert" data-testid="form-error" className="rounded-xl bg-rb-red/10 px-3 py-2 text-sm font-medium text-rb-red">
+              {err.message}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button className="flex-1" disabled={busy} onClick={() => void submit()}>
+              {busy ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </div>
         </div>
       </div>
     </Dialog>
   )
 }
 
-/** Campos de meta según la marca efectiva; ambos obligatorios cuando aplican. */
+/** Campos de meta según la marca efectiva: captación obligatoria; compartidas opcional (spec 007, FR-011). */
 function GoalFields({
   flags,
   goals,
+  fieldSuffix,
   onGoal,
   noGoalText,
 }: {
   flags: GoalFlags
   goals: Goals
+  /** Sufijo del `data-field` para llevar la vista al campo con error (`-<subcanal>` en una carga múltiple). */
+  fieldSuffix: string
   onGoal: (k: keyof Goals, v: string) => void
   noGoalText: string
 }) {
@@ -453,17 +509,27 @@ function GoalFields({
         {noGoalText}
       </p>
     )
-  const input = (k: keyof Goals, label: string, placeholder: string) => (
-    <Field label={label} required>
+  const input = (k: keyof Goals, label: string, placeholder: string, required: boolean) => (
+    <Field label={label} required={required} optional={!required}>
       {(id) => (
-        <TextInput id={id} type="number" inputMode="numeric" min={0} max={9999} value={goals[k]} placeholder={placeholder} onChange={(e) => onGoal(k, e.target.value)} />
+        <TextInput
+          id={id}
+          data-field={`${k}${fieldSuffix}`}
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={9999}
+          value={goals[k]}
+          placeholder={placeholder}
+          onChange={(e) => onGoal(k, e.target.value)}
+        />
       )}
     </Field>
   )
   return (
     <div className="grid grid-cols-2 gap-2">
-      {flags.goal && input('goal', 'Meta de captación (contactos)', 'Ej.: 30')}
-      {flags.share && input('share_goal', 'Meta de compartidas', 'Ej.: 15')}
+      {flags.goal && input('goal', 'Meta de captación (contactos)', 'Ej.: 30', true)}
+      {flags.share && input('share_goal', 'Meta de compartidas', 'Ej.: 15', false)}
     </div>
   )
 }
@@ -473,12 +539,14 @@ function SubchannelOption({
   sub,
   on,
   goals,
+  fieldSuffix,
   onToggle,
   onGoal,
 }: {
   sub: Subchannel
   on: boolean
   goals: Goals
+  fieldSuffix: string
   onToggle: (on: boolean) => void
   onGoal: (k: keyof Goals, v: string) => void
 }) {
@@ -490,7 +558,7 @@ function SubchannelOption({
       </label>
       {on && (
         <div role="group" aria-label={`Metas de ${sub.name}`} className="mt-2">
-          <GoalFields flags={{ goal: sub.uses_goal, share: sub.uses_share_goal }} goals={goals} onGoal={onGoal} noGoalText="Este subcanal no lleva meta." />
+          <GoalFields flags={{ goal: sub.uses_goal, share: sub.uses_share_goal }} goals={goals} fieldSuffix={fieldSuffix} onGoal={onGoal} noGoalText="Este subcanal no lleva meta." />
         </div>
       )}
     </div>

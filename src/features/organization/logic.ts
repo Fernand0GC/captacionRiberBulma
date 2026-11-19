@@ -1,3 +1,4 @@
+import { laPazDate, shiftFor } from '@/lib/dates'
 import type { Assignment, Catalog, Shift, Subchannel } from './api'
 
 // Lógica pura de la organización: sin React ni red, para probarla con Vitest.
@@ -16,7 +17,7 @@ type Slot = Pick<Assignment, 'id' | 'profile_id' | 'work_date' | 'start_time' | 
  * Otras asignaciones de la misma persona ese día con horario que se cruza (FR-015). Sin horario completo no se
  * puede saber si se cruzan, así que no cuentan. Que una termine justo cuando empieza la otra no es cruce.
  */
-export function overlaps(candidate: Slot, others: Slot[]): Slot[] {
+export function overlaps<T extends Slot>(candidate: Slot, others: T[]): T[] {
   const { start_time: s, end_time: e } = candidate
   if (!s || !e) return []
   return others.filter(
@@ -29,6 +30,27 @@ export function overlaps(candidate: Slot, others: Slot[]): Slot[] {
       o.start_time < e &&
       s < o.end_time,
   )
+}
+
+type Placed = Pick<Assignment, 'shift' | 'start_time' | 'end_time' | 'channel_id' | 'subchannel_id'>
+
+/**
+ * Asignación «igual» (spec 007, research R2): misma persona y día (lo da `overlaps`) y además mismo turno, horario,
+ * canal y subcanal. Es la misma regla con la que la copia de días salta las que ya existen.
+ */
+export function sameSlot(a: Placed, b: Placed): boolean {
+  return (
+    a.shift === b.shift &&
+    (a.start_time ?? '') === (b.start_time ?? '') &&
+    (a.end_time ?? '') === (b.end_time ?? '') &&
+    a.channel_id === b.channel_id &&
+    (a.subchannel_id ?? null) === (b.subchannel_id ?? null)
+  )
+}
+
+/** «Llamadas a clientes de pedidos (16:20–19:00)»: para encontrar la otra asignación del aviso de cruce (FR-008). */
+export function clashLabel(o: Pick<Assignment, 'channel' | 'subchannel' | 'start_time' | 'end_time'>): string {
+  return `${o.subchannel ?? o.channel} (${o.start_time ?? ''}–${o.end_time ?? ''})`
 }
 
 /** Columnas por las que se filtra (FR-022). La fecha se filtra con el rango. */
@@ -116,9 +138,12 @@ export function formFields(
   return { place: s?.uses_place ?? true, ...goalFlags(cat, channelId, subchannelId) }
 }
 
-/** Valida una meta escrita en el formulario: '' = falta. Devuelve el número o un mensaje de error. */
-export function parseGoal(raw: string, label: string): number | string {
-  if (raw.trim() === '') return `Escribe la ${label}.`
+/**
+ * Valida una meta escrita en el formulario. Vacía: falta (mensaje) o, si es opcional, null (spec 007: la de
+ * compartidas). Devuelve el número, null o un mensaje de error.
+ */
+export function parseGoal(raw: string, label: string, optional = false): number | null | string {
+  if (raw.trim() === '') return optional ? null : `Escribe la ${label}.`
   const n = Number(raw)
   return Number.isInteger(n) && n >= 0 && n <= 9999 ? n : `La ${label} tiene que ser un número entero entre 0 y 9999.`
 }
@@ -157,6 +182,56 @@ export function groupByPerson<T extends PersonRow>(rows: T[]): PersonGroup<T>[] 
     else groups.set(key, { key, rows: [r] })
   }
   return [...groups.values()]
+}
+
+/** Personas de una sucursal, con sus filas; una fila junta los subcanales de una misma carga (spec 007, FR-015). */
+export type PersonBlock<T> = { key: string; person: string; work_date: string; count: number; lines: T[][] }
+export type BranchBlock<T> = { key: string; branch_id: number; branch: string; lead: string | null; people: PersonBlock<T>[] }
+
+type CompactRow = PersonRow & Pick<Assignment, 'branch' | 'person' | 'lead' | 'batch_id' | 'shift' | 'start_time' | 'end_time'>
+
+/**
+ * Tabla compacta (spec 007, research R8): sucursal → persona → filas. Las asignaciones de una misma carga con igual
+ * turno y horario van en una sola fila; si a una se le cambió la hora después, queda en su propia fila. Respeta el
+ * orden de llegada (la base ordena por fecha, sucursal, persona y hora).
+ */
+export function groupRows<T extends CompactRow & { id: string }>(rows: T[]): BranchBlock<T>[] {
+  const branches = new Map<number, BranchBlock<T>>()
+  for (const g of groupByPerson(rows)) {
+    const first = g.rows[0]!
+    let b = branches.get(first.branch_id)
+    if (!b) {
+      b = { key: String(first.branch_id), branch_id: first.branch_id, branch: first.branch, lead: null, people: [] }
+      branches.set(first.branch_id, b)
+    }
+    b.lead ??= g.rows.find((r) => r.lead)?.lead ?? null
+    const lines = new Map<string, T[]>()
+    for (const r of g.rows) {
+      const k = r.batch_id ? `${r.batch_id}|${r.shift}|${r.start_time ?? ''}|${r.end_time ?? ''}` : r.id
+      const line = lines.get(k)
+      if (line) line.push(r)
+      else lines.set(k, [r])
+    }
+    b.people.push({ key: g.key, person: first.person, work_date: first.work_date, count: g.rows.length, lines: [...lines.values()] })
+  }
+  return [...branches.values()]
+}
+
+/**
+ * Filtro Turno al abrir (spec 007, FR-010): el día de hoy, desde las 13:00 de La Paz y si hay asignaciones de la
+ * tarde, «Tarde»; en otro caso, sin filtro.
+ */
+export function defaultShiftFilter(from: string, to: string, now: Date, rows: Pick<Assignment, 'shift'>[]): Shift | undefined {
+  const today = laPazDate(now)
+  return from === today && to === today && shiftFor(now) === 'afternoon' && rows.some((r) => r.shift === 'afternoon')
+    ? 'afternoon'
+    : undefined
+}
+
+/** «Capt 10 · Comp 30», o null si no tiene metas (spec 007, FR-014). */
+export function goalsText(r: Pick<Assignment, 'goal' | 'share_goal'>): string | null {
+  const parts = [r.goal !== null && `Capt ${r.goal}`, r.share_goal !== null && `Comp ${r.share_goal}`].filter(Boolean)
+  return parts.length ? parts.join(' · ') : null
 }
 
 /** «15 · verificadas 12» o null si no hay verificación (spec 006, FR-014). */
