@@ -51,9 +51,12 @@ select tests.login_as('00000000-0000-4000-8000-000000000003');
 select throws_ok(format($$ select public.org_save(%L) $$,
   pg_temp.base(jsonb_build_object('subchannel_id', (select whatsapp from k), 'share_goal', 15))),
   'P0001', 'invalid_input', 'WhatsApp sin meta de captación rechazado');
-select throws_ok(format($$ select public.org_save(%L) $$,
-  pg_temp.base(jsonb_build_object('subchannel_id', (select whatsapp from k), 'goal', 20))),
-  'P0001', 'invalid_input', 'WhatsApp sin meta de compartidas rechazado');
+-- 007 (FR-011): la meta de compartidas es opcional; se borra enseguida para no alterar la copia de más abajo.
+insert into ids select 'wa_no_share', public.org_save(
+  pg_temp.base(jsonb_build_object('subchannel_id', (select whatsapp from k), 'goal', 20)));
+select is(pg_temp.row_of((select id from ids where name = 'wa_no_share')) ->> 'share_goal', null,
+  'WhatsApp sin meta de compartidas se guarda (007: opcional)');
+select public.org_delete((select id from ids where name = 'wa_no_share'));
 select throws_ok(format($$ select public.org_save(%L) $$,
   pg_temp.base(jsonb_build_object('subchannel_id', (select whatsapp from k), 'goal', 20, 'share_goal', 10000))),
   'P0001', 'invalid_input', 'meta de compartidas fuera de rango rechazada');
@@ -96,8 +99,8 @@ select throws_ok(format($$ select public.org_save_many(%L) $$, pg_temp.base(json
 select throws_ok(format($$ select public.org_save_many(%L) $$, pg_temp.base(jsonb_build_object('profile_id',
   '00000000-0000-4000-8000-000000000005', 'items', jsonb_build_array(
   jsonb_build_object('subchannel_id', (select whatsapp from k), 'goal', 20, 'share_goal', 15),
-  jsonb_build_object('subchannel_id', (select barrios_chinos from k), 'goal', 10))))),
-  'P0001', 'invalid_input', 'un ítem sin meta rechaza la carga');
+  jsonb_build_object('subchannel_id', (select barrios_chinos from k), 'share_goal', 30))))),
+  'P0001', 'invalid_input', 'un ítem sin meta de captación rechaza la carga'); -- 007: la de compartidas es opcional
 select tests.logout(); -- org_assignments solo se lee por RPC
 select is((select count(*)::int from public.org_assignments where profile_id = '00000000-0000-4000-8000-000000000005'
   and work_date = (select tomorrow from k)), 0, 'todo o nada: no quedó ninguna fila de la carga fallida');
@@ -120,7 +123,9 @@ select tests.login_as('00000000-0000-4000-8000-000000000003');
 
 -- Copia de día: share_goal y batch_id nuevo
 select tests.logout();
-create temp table n as select count(*)::int as n from public.org_assignments where branch_id = 5 and work_date = (select tomorrow from k);
+-- 007: la copia salta las repetidas del origen; se esperan las distintas (persona, turno, horario, canal, subcanal).
+create temp table n as select count(distinct (profile_id, shift, start_time, end_time, channel_id, subchannel_id))::int as n
+from public.org_assignments where branch_id = 5 and work_date = (select tomorrow from k);
 grant select on n to authenticated;
 select tests.login_as('00000000-0000-4000-8000-000000000003');
 select is(public.org_copy_day(5::smallint, (select tomorrow from k), (select tomorrow + 2 from k)), (select n from n), 'copia las asignaciones del día');

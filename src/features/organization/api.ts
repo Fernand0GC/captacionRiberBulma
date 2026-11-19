@@ -226,8 +226,9 @@ export const setAssignmentResult = (v: { id: string; result: number | null; shar
 export const addSubchannel = (v: { branch: number; channel: number; name: string }) =>
   rpc<{ id: number; existed: boolean }>('org_add_subchannel', { p_branch: v.branch, p_channel: v.channel, p_name: v.name })
 export const deleteAssignment = (id: string) => rpc<null>('org_delete', { p_id: id })
+/** Copia un día sin duplicar: salta las asignaciones iguales que ya están en el destino (spec 007, FR-001/FR-002). */
 export const copyDay = (v: { branch: number; from: string; to: string }) =>
-  rpc<number>('org_copy_day', { p_branch: v.branch, p_from: v.from, p_to: v.to })
+  rpc<{ copied: number; skipped: number }>('org_copy_day_v2', { p_branch: v.branch, p_from: v.from, p_to: v.to })
 
 // Escritura del catálogo (solo Sistemas; la base lo exige con RLS) ---------------------------------------
 
