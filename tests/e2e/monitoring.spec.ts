@@ -101,11 +101,11 @@ test('monitoreo: seguimientos, actividad por persona, detalle, ficha y Excel', a
   const visits = supRow.getByRole('button', { name: /^Visitas pactadas de Supervisor Verdolago: \d+$/ })
   await expect(visits).toBeVisible()
   await expect(supRow.getByRole('button', { name: /^No contestó de Supervisor Verdolago: \d+$/ })).toBeVisible()
-  // Total = suma de las filas (columna Total)
+  // Total = suma de las filas (columna Total; la 10.ª desde que está «Asignados», spec 012)
   const totalCol = await enc.getByTestId('activity-row').evaluateAll((rows) =>
-    rows.reduce((s, r) => s + Number(r.querySelectorAll('td')[8]?.textContent ?? 0), 0),
+    rows.reduce((s, r) => s + Number(r.querySelectorAll('td')[9]?.textContent ?? 0), 0),
   )
-  const footer = Number(await enc.getByTestId('activity-total').locator('td').nth(8).innerText())
+  const footer = Number(await enc.getByTestId('activity-total').locator('td').nth(9).innerText())
   expect(footer).toBe(totalCol)
   expect(await num(enc, 'total')).toBe(footer)
   // Ordenar por Ventas lo deja en la URL
@@ -134,6 +134,40 @@ test('monitoreo: seguimientos, actividad por persona, detalle, ficha y Excel', a
   await expect(enc).toHaveURL(/orden=sales/)
   await expect(enc.getByRole('dialog', { name: /Supervisor Verdolago · Visitas pactadas/ })).toBeVisible()
   await enc.getByRole('dialog').getByRole('button', { name: 'Cerrar' }).click()
+  await expect(enc).not.toHaveURL(/persona=/)
+
+  // --- 012 Asignados del día: A y B se los asignó el encargado; A pasó a Seguimiento y B a Recaptación ---
+  await expect(supRow.getByText(/contactados · \d+%/)).toBeVisible()
+  await supRow.getByRole('button', { name: /^Clientes asignados de Supervisor Verdolago: \d+$/ }).click()
+  await expect(enc).toHaveURL(/metrica=assigned/)
+  const det = enc.getByRole('dialog')
+  await expect(det.getByRole('tab', { name: /^Asignados del día/ })).toHaveAttribute('aria-selected', 'true')
+  const rowA = det.getByTestId('assigned-row').filter({ hasText: a })
+  const rowB = det.getByTestId('assigned-row').filter({ hasText: b })
+  await expect(rowA).toContainText('Asignó Encargado Verdolago')
+  await expect(rowA).toContainText('Captación')
+  await expect(rowA).toContainText('Seguimiento')
+  await expect(rowA).toContainText(`Viene el sábado ${tag}`)
+  await expect(rowB).toContainText('Recaptación')
+  await expect(det.getByRole('region', { name: 'De dónde vienen' }).getByRole('button', { name: /^Captación/ })).toBeEnabled()
+  // Filtro «A qué proceso pasaron»: solo los que pasaron a Recaptación
+  await det.getByRole('button', { name: /^Recaptación \(no contestó\)/ }).click()
+  await expect(rowA).toHaveCount(0)
+  await expect(rowB).toHaveCount(1)
+  // Excel de la lista
+  const dl3 = enc.waitForEvent('download')
+  await det.getByRole('button', { name: 'Descargar Excel' }).click()
+  expect((await dl3).suggestedFilename()).toMatch(/^Asignados_.+\.xlsx$/)
+  // Pestaña de contactos: los dos son «Asignado hoy»
+  await det.getByRole('tab', { name: /^Todos los contactos/ }).click()
+  await expect(enc).toHaveURL(/metrica=all/)
+  const items = det.getByRole('list', { name: 'Contactos' }).getByRole('listitem')
+  await expect(items.filter({ hasText: a })).toContainText('Asignado hoy')
+  await expect(items.filter({ hasText: b })).toContainText('Asignado hoy')
+  await expect(det.getByTestId('contacts-split')).toContainText('Cartera')
+  // Ancha y sin scroll horizontal en el celular
+  expect(await enc.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
+  await det.getByRole('button', { name: 'Cerrar' }).click()
   await expect(enc).not.toHaveURL(/persona=/)
 })
 

@@ -68,7 +68,8 @@ export function ActivityView({ scope }: { scope: ManageScope }) {
     sort.key === key ? (sort.desc ? 'descending' : 'ascending') : ('none' as const)
   const arrow = (key: ActivitySortKey) => (sort.key === key ? (sort.desc ? ' ↓' : ' ↑') : '')
   const open = (actorId: string, m: ActivityMetric | 'all') =>
-    setSearch({ persona: actorId, metrica: m === 'all' ? 'all' : contactMetricOf(m) })
+    setSearch({ persona: actorId, metrica: m === 'assigned' ? 'assigned' : m === 'all' ? 'all' : contactMetricOf(m) })
+  const assignedContacted = rows.reduce((a, r) => a + r.assigned_contacted, 0)
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6">
@@ -233,8 +234,24 @@ export function ActivityView({ scope }: { scope: ManageScope }) {
                     </span>
                   </th>
                   {ACTIVITY_METRICS.map((m) => (
-                    <td key={m.key} className={`px-3 py-2.5 text-right tabular-nums group-even:bg-cream/60 ${m.key === 'total' ? 'font-semibold' : ''}`}>
-                      {r[m.key] > 0 ? (
+                    <td
+                      key={m.key}
+                      className={`px-3 py-2.5 text-right tabular-nums group-even:bg-cream/60 ${m.key === 'total' ? 'font-semibold' : ''} ${m.key === 'assigned' ? 'bg-gold/5' : ''}`}
+                    >
+                      {m.key === 'assigned' && r.assigned > 0 ? (
+                        // Asignados (spec 012): el número abre la pestaña Asignados; debajo, cuántos contactó.
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => open(r.actor_id, 'assigned')}
+                            aria-label={`${m.label} de ${r.full_name}: ${r.assigned}`}
+                            className="min-w-8 rounded-lg px-1.5 py-0.5 font-semibold hover:bg-gold/15 hover:text-gold-dark hover:underline"
+                          >
+                            {r.assigned}
+                          </button>
+                          <AssignedPct n={r.assigned} done={r.assigned_contacted} />
+                        </>
+                      ) : r[m.key] > 0 ? (
                         <button
                           type="button"
                           onClick={() => open(r.actor_id, m.key)}
@@ -259,6 +276,7 @@ export function ActivityView({ scope }: { scope: ManageScope }) {
                 {ACTIVITY_METRICS.map((m) => (
                   <td key={m.key} className="px-3 py-3 text-right tabular-nums">
                     {totals[m.key]}
+                    {m.key === 'assigned' && totals.assigned > 0 && <AssignedPct n={totals.assigned} done={assignedContacted} />}
                   </td>
                 ))}
               </tr>
@@ -274,10 +292,22 @@ export function ActivityView({ scope }: { scope: ManageScope }) {
           actorName={person?.full_name ?? 'Contactos'}
           metric={search.metrica ?? 'all'}
           periodLabel={periodLabel}
+          assignedCount={person?.assigned}
+          onMetric={(m) => setSearch({ metrica: m })}
           onClose={() => setSearch({ persona: undefined, metrica: undefined })}
         />
       )}
     </main>
+  )
+}
+
+/** «9 contactados · 75%» bajo el número de Asignados; en rojo si contactó a menos del 70%. */
+function AssignedPct({ n, done }: { n: number; done: number }) {
+  const pct = Math.round((done * 100) / n)
+  return (
+    <span className={`block whitespace-nowrap text-[11px] font-medium ${pct < 70 ? 'text-rb-red' : 'text-ink/45'}`}>
+      {done} contactados · {pct}%
+    </span>
   )
 }
 

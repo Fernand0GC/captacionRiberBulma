@@ -112,6 +112,10 @@ export type AgentActivityRow = {
   visits: number
   sales: number
   clients: number
+  /** Clientes que se le asignaron en el período (spec 012). */
+  assigned: number
+  /** De esos, a cuántos contactó desde que se le asignaron. */
+  assigned_contacted: number
   total: number
 }
 
@@ -134,7 +138,14 @@ export function useAgentActivity(filters: AgentActivityFilters, enabled = true) 
       const { data, error } = await supabase.rpc('agent_activity', { f: filters })
       if (error) throw toAppError(error)
       // by_branch: null con una sucursal elegida; undefined si la base aún no tiene la migración 20261120000100.
-      return data as { rows: AgentActivityRow[]; by_branch?: BranchActivityRow[] | null }
+      const res = data as { rows: AgentActivityRow[]; by_branch?: BranchActivityRow[] | null }
+      // assigned: undefined si la base aún no tiene la migración 20261121000200 → se muestra 0.
+      const fill = <T extends { assigned?: number; assigned_contacted?: number }>(r: T): T => ({
+        ...r,
+        assigned: r.assigned ?? 0,
+        assigned_contacted: r.assigned_contacted ?? 0,
+      })
+      return { rows: res.rows.map(fill), by_branch: res.by_branch?.map(fill) ?? res.by_branch }
     },
   })
 }
@@ -148,6 +159,8 @@ export type AgentContactRow = {
   result: ContactResult
   effective: boolean
   note: string | null
+  /** El cliente se le asignó en el período (antes del contacto): «Asignado hoy»; si no, «Cartera» (spec 012). */
+  assigned?: boolean
 }
 
 export function useAgentContacts(filters: AgentActivityFilters, actorId: string | undefined, metric: ContactMetric) {
@@ -162,11 +175,49 @@ export function useAgentContacts(filters: AgentActivityFilters, actorId: string 
         p_offset: pageParam,
       })
       if (error) throw toAppError(error)
-      return data as { total: number; rows: AgentContactRow[] }
+      return data as { total: number; assigned_total?: number; rows: AgentContactRow[] }
     },
     getNextPageParam: (last, all) => {
       const loaded = all.reduce((n, p) => n + p.rows.length, 0)
       return loaded < last.total && last.rows.length > 0 ? loaded : undefined
+    },
+  })
+}
+
+// --- Asignados del día (spec 012) ---------------------------------------------------------------------------------
+
+export type ProspectStage = 'capture' | 'recapture' | 'followup' | 'interested' | 'sale' | 'lost'
+
+/** Un cliente asignado a la persona en el período (list_agent_assigned). Contactos = los suyos desde la asignación. */
+export type AgentAssignedRow = {
+  prospect_id: string
+  full_name: string
+  assigned_at: string
+  /** true = lo tomó la propia persona («Hacer seguimiento» o lo captó con interés alto). */
+  self_assigned: boolean
+  assigned_by: string | null
+  stage_at: ProspectStage
+  stage_now: ProspectStage
+  contacts: number
+  first_at: string | null
+  last_at: string | null
+  last_method: ContactMethod | null
+  last_result: ContactResult | null
+  last_note: string | null
+  /** Ya no está a su cargo; reassigned_to null = quedó sin responsable. */
+  reassigned: boolean
+  reassigned_to: string | null
+  reassigned_at: string | null
+}
+
+export function useAgentAssigned(filters: AgentActivityFilters, actorId: string | undefined) {
+  return useQuery({
+    queryKey: ['monitoring', 'agent-assigned', filters, actorId],
+    enabled: !!actorId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('list_agent_assigned', { f: { ...filters, actor_id: actorId } })
+      if (error) throw toAppError(error)
+      return data as { total: number; rows: AgentAssignedRow[] }
     },
   })
 }
