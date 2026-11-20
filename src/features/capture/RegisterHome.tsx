@@ -3,6 +3,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { MdCall } from 'react-icons/md'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { FOLLOWUP_ROLES } from '@/features/auth/types'
+import { dismissReferrerNotice, onReferrerNotices, readReferrerNotices } from '@/features/sync/referrerNotices'
 import { SyncBadge } from '@/features/sync/SyncBadge'
 import { onSyncEvent } from '@/features/sync/syncLoop'
 import { useSyncStatus } from '@/features/sync/useSyncStatus'
@@ -42,6 +43,10 @@ export function RegisterHome() {
   const chosenBranch = branchOptions.find((b) => b.id === pickedBranch) ?? (branchOptions.length === 1 ? branchOptions[0] : undefined)
   const needsBranch = ownBranch === null && !chosenBranch
 
+  // Captaciones que entraron sin el referidor escrito (spec 010): aviso local hasta que se cierre.
+  const [referrerNotices, setReferrerNotices] = useState(() => readReferrerNotices(userId))
+  useEffect(() => onReferrerNotices(() => setReferrerNotices(readReferrerNotices(userId))), [userId])
+
   // Cada confirmación del servidor refresca el conteo y los avisos de duplicado.
   useEffect(() => onSyncEvent(() => setRefreshKey((k) => k + 1)), [])
 
@@ -79,6 +84,18 @@ export function RegisterHome() {
               El teléfono <strong>{r.phone_masked}</strong> ya estaba registrado. No se duplicó.
             </p>
             <button className="min-h-10 px-2 font-semibold text-gold-dark" onClick={() => dismiss(r.id)} aria-label="Cerrar aviso">
+              ✕
+            </button>
+          </div>
+        ))}
+
+        {referrerNotices.map((n) => (
+          <div key={n.id} role="alert" className="flex items-start justify-between gap-3 rounded-2xl bg-gold/10 p-4 text-ink ring-1 ring-gold/30">
+            <p>
+              <strong>{n.client}</strong> se guardó sin referidor. Pide a tu jefe de ventas que agregue a «{n.referrer}» y lo
+              marque en la ficha.
+            </p>
+            <button className="min-h-10 px-2 font-semibold text-gold-dark" onClick={() => dismissReferrerNotice(userId, n.id)} aria-label="Cerrar aviso">
               ✕
             </button>
           </div>

@@ -10,11 +10,21 @@ import { uuidv7 } from '@/lib/uuidv7'
 import { Button } from '@/ui/Button'
 import { PageTitle } from '@/ui/PageTitle'
 import { Field, TextInput } from '@/ui/Field'
-import { Select } from '@/ui/Select'
 import { useToast } from '@/ui/Toast'
 import { getCaptureBranch, getDayChannel, getDayChannelDetail } from './channel'
 import { InterestToggle } from './InterestToggle'
 import { ProductPicker } from './ProductPicker'
+import { ReferrerPicker } from './ReferrerPicker'
+import {
+  findExact,
+  mergeOptions,
+  nextRemembered,
+  optionToChoice,
+  readRemembered,
+  saveRemembered,
+  toPayload,
+  type ReferrerChoice,
+} from './referrerPick'
 import { useCatalogs } from './useCatalogs'
 
 type Form = { full_name: string; phone: string; interest: string; occupation: string; address: string }
@@ -56,11 +66,13 @@ export function CaptureForm() {
   const channelId = getDayChannel(profile!.id)
   const channelDetail = getDayChannelDetail(profile!.id)
   const channelName = catalogs?.channels.find((c) => Number(c.value) === channelId)?.label
-  // Referidos (spec 005): la lista de la sucursal donde se registra, desde el catálogo guardado (sirve sin señal).
+  // Referidos (specs 005 y 010): se elige de la lista de la sucursal (catálogo guardado, sirve sin señal) o se
+  // escribe uno nuevo, que viaja dentro de la captación. La casilla se muestra siempre, haya lista o no.
   const [referred, setReferred] = useState(false)
-  const [referrerId, setReferrerId] = useState('')
+  const [referrer, setReferrer] = useState<ReferrerChoice | null>(null)
+  const [referrerQuery, setReferrerQuery] = useState('')
   const captureBranch = profile!.branch_id ?? getCaptureBranch(profile!.id)
-  const referrers = (catalogs?.referrers ?? []).filter((r) => r.branch_id === captureBranch)
+  const referrerOptions = mergeOptions(catalogs?.referrers ?? [], readRemembered(profile!.id), captureBranch)
 
   const set = (k: keyof Form) => (v: string) => {
     setForm((f) => ({ ...f, [k]: v }))
@@ -70,7 +82,12 @@ export function CaptureForm() {
   async function onSubmit(ev: FormEvent) {
     ev.preventDefault()
     const errs = validate(form)
-    if (referred && !referrerId) errs.referrer = 'Elige de quién vino el contacto.'
+    // Si escribió un nombre que ya existe y no lo tocó en la lista, se toma ese.
+    const exact = referred && !referrer ? findExact(referrerOptions, referrerQuery) : undefined
+    const choice: ReferrerChoice | null = referrer ?? (exact ? optionToChoice(exact) : null)
+    if (referred && !choice) {
+      errs.referrer = referrerQuery.trim() ? 'Elige uno de la lista o toca «Agregar».' : 'Escribe quién lo recomendó.'
+    }
     setErrors(errs)
     if (Object.keys(errs).length) return
     setSaving(true)
@@ -91,9 +108,16 @@ export function CaptureForm() {
         address: form.address.trim() || undefined,
         // Sin sucursal propia: la elegida en Registrar (el servidor valida que pueda registrar ahí).
         branch_id: profile!.branch_id === null ? (getCaptureBranch(profile!.id) ?? undefined) : undefined,
-        referrer_id: referred && referrerId ? Number(referrerId) : undefined,
+        ...(referred && choice ? toPayload(choice) : {}),
         client_created_at: new Date().toISOString(),
       })
+      // Un referidor recién escrito se recuerda para sugerirlo en el próximo registro, aun sin señal.
+      if (referred && choice && choice.id === null && captureBranch !== null) {
+        saveRemembered(
+          profile!.id,
+          nextRemembered(readRemembered(profile!.id), { name: choice.name, kind: choice.kind, branch_id: captureBranch }, catalogs?.referrers ?? []),
+        )
+      }
       requestFlush()
       toast(navigator.onLine ? '✓ Guardado' : '✓ Guardado sin señal. Se subirá solo.', 'success')
       void navigate({ to: '/registrar', replace: true })
@@ -191,40 +215,36 @@ export function CaptureForm() {
           )}
         </div>
 
-        {referrers.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <label className="flex min-h-11 items-center gap-3 text-sm font-semibold text-ink/80">
-              <input
-                type="checkbox"
-                className="h-5 w-5 accent-gold-dark"
-                checked={referred}
-                onChange={(e) => {
-                  setReferred(e.target.checked)
-                  setErrors((er) => ({ ...er, referrer: undefined }))
-                }}
-              />
-              Es referido
-            </label>
-            {referred && (
-              <Field label="¿De quién vino?" required error={errors.referrer}>
-                {(id, d) => (
-                  <Select
-                    id={id}
-                    describedBy={d}
-                    invalid={!!errors.referrer}
-                    value={referrerId}
-                    onChange={(v) => {
-                      setReferrerId(v)
-                      setErrors((er) => ({ ...er, referrer: undefined }))
-                    }}
-                    options={referrers.map((r) => ({ value: String(r.id), label: r.name }))}
-                    placeholder="Elegir referidor…"
-                  />
-                )}
-              </Field>
-            )}
-          </div>
-        )}
+        <div className="flex flex-col gap-2">
+          <label className="flex min-h-11 items-center gap-3 text-sm font-semibold text-ink/80">
+            <input
+              type="checkbox"
+              className="h-5 w-5 accent-gold-dark"
+              checked={referred}
+              onChange={(e) => {
+                setReferred(e.target.checked)
+                setErrors((er) => ({ ...er, referrer: undefined }))
+              }}
+            />
+            Es referido <span className="font-normal text-ink/50">(alguien lo recomendó)</span>
+          </label>
+          {referred && (
+            <ReferrerPicker
+              options={referrerOptions}
+              value={referrer}
+              onChange={(v) => {
+                setReferrer(v)
+                setErrors((er) => ({ ...er, referrer: undefined }))
+              }}
+              query={referrerQuery}
+              onQueryChange={(q) => {
+                setReferrerQuery(q)
+                setErrors((er) => ({ ...er, referrer: undefined }))
+              }}
+              error={errors.referrer}
+            />
+          )}
+        </div>
 
         <Field label="Dirección o referencia" optional>
           {(id) => <TextInput id={id} autoComplete="off" value={form.address} onChange={(e) => set('address')(e.target.value)} />}

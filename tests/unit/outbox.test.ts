@@ -31,6 +31,14 @@ describe('flushOutbox', () => {
     expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'duplicate' }))
   })
 
+  it('avisa cuando la captación entró sin el referidor escrito (spec 010)', async () => {
+    await enqueue(U1, { ...payload('a'), referrer_new: { name: 'Doña Susi', kind: 'client' } })
+    const onEvent = vi.fn()
+    await flushOutbox({ userId: U1, submit: vi.fn().mockResolvedValue({ id: 'a', result: 'accepted', referrer: 'skipped' }), onEvent })
+    expect(await db.outbox.count()).toBe(0)
+    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'accepted', referrerSkipped: true }))
+  })
+
   it('envía en orden de creación', async () => {
     await enqueue(U1, payload('b', '2026-10-28T10:00:00-04:00'))
     await enqueue(U1, payload('a', '2026-10-28T09:00:00-04:00'))

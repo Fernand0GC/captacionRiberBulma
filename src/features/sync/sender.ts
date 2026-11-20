@@ -1,11 +1,12 @@
 import { AppError, isTransient, toAppError } from '@/lib/errors'
 import { db, type CapturePayload, type OutboxRow } from './db'
 
-export type SubmitResult = { id: string; result: 'accepted' | 'duplicate' }
+/** `referrer: 'skipped'`: la captación entró, pero el referidor escrito no se pudo aplicar (spec 010). */
+export type SubmitResult = { id: string; result: 'accepted' | 'duplicate'; referrer?: 'skipped' }
 export type SubmitFn = (payload: CapturePayload) => Promise<SubmitResult>
 export type FlushEvent =
-  | { type: 'accepted'; row: OutboxRow }
-  | { type: 'duplicate'; row: OutboxRow }
+  | { type: 'accepted'; row: OutboxRow; referrerSkipped?: boolean }
+  | { type: 'duplicate'; row: OutboxRow; referrerSkipped?: boolean }
   | { type: 'blocked'; row: OutboxRow; error: AppError }
 
 export type FlushSummary = { accepted: number; duplicates: number; blocked: number; retried: number }
@@ -75,12 +76,13 @@ async function doFlush({
     try {
       const res = await submit(row.payload)
       await db.outbox.delete(row.id)
+      const referrerSkipped = res.referrer === 'skipped'
       if (res.result === 'duplicate') {
         summary.duplicates++
-        onEvent?.({ type: 'duplicate', row })
+        onEvent?.({ type: 'duplicate', row, referrerSkipped })
       } else {
         summary.accepted++
-        onEvent?.({ type: 'accepted', row })
+        onEvent?.({ type: 'accepted', row, referrerSkipped })
       }
     } catch (err) {
       const e = toAppError(err)

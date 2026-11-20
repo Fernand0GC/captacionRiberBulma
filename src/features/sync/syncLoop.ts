@@ -1,3 +1,4 @@
+import { addReferrerNotice } from './referrerNotices'
 import { flushOutbox, recoverInterrupted, type FlushEvent } from './sender'
 import { submitCapture } from './submit'
 import { bumpToday } from './todayCount'
@@ -22,6 +23,10 @@ export function requestFlush(): void {
     submit: submitCapture,
     onEvent: async (e) => {
       if (e.type === 'accepted') await bumpToday(userId, e.row.createdAt, e.row.id)
+      // El cliente entró sin el referidor escrito: se avisa con los datos que aún están en la fila (spec 010).
+      if (e.type === 'accepted' && e.referrerSkipped && e.row.payload.referrer_new) {
+        addReferrerNotice(userId, { id: e.row.id, client: e.row.payload.full_name, referrer: e.row.payload.referrer_new.name })
+      }
       listeners.forEach((l) => l(e))
     },
   })

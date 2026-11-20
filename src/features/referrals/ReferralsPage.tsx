@@ -318,6 +318,12 @@ function ReferrerRow({ r, row, month, branch }: { r: Referrer; row: ReportRow | 
     <tr className={`border-b border-ink/5 ${d.active ? '' : 'text-ink/45'}`} data-testid={`referrer-edit-${r.name}`}>
       <td className="py-2 pr-2">
         <input aria-label="Nombre" maxLength={60} value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} className={`${inputCls} w-full min-w-40`} />
+        {r.source === 'capture' && (
+          <p className="mt-1 text-xs text-gold-dark" data-testid={`referrer-source-${r.name}`}>
+            Agregado en el registro{r.creator ? ` por ${r.creator.full_name}` : ''}
+            {r.created_at ? ` · ${fmtDate(r.created_at)}` : ''}
+          </p>
+        )}
       </td>
       <td className="py-2 pr-2">
         <select aria-label="Tipo" value={d.kind} onChange={(e) => setD({ ...d, kind: e.target.value as ReferrerKind })} className={inputCls}>

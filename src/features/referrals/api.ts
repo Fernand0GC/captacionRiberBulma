@@ -35,7 +35,19 @@ export type ReportContact = {
 
 export type ReferralReport = { branch: string; month: string; days: number; referrers: ReportRow[]; contacts: ReportContact[] }
 
-export type Referrer = { id: number; branch_id: number; name: string; kind: ReferrerKind; sort: number; active: boolean }
+export type Referrer = {
+  id: number
+  branch_id: number
+  name: string
+  kind: ReferrerKind
+  sort: number
+  active: boolean
+  /** manager = cargado por un jefe; capture = escrito al registrar una captación (spec 010). */
+  source?: 'manager' | 'capture'
+  created_at?: string
+  /** Quién lo agregó; null si quien consulta no puede ver ese perfil. */
+  creator?: { full_name: string } | null
+}
 
 const reportKey = (branch: number, month: string) => ['referrals', 'report', branch, month]
 
@@ -60,12 +72,12 @@ export function useReferrers(branch: number | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('referrers')
-        .select('id, branch_id, name, kind, sort, active')
+        .select('id, branch_id, name, kind, sort, active, source, created_at, creator:profiles!referrers_created_by_fkey(full_name)')
         .eq('branch_id', branch ?? 0)
         .order('sort')
         .order('name')
       if (error) throw toAppError(error)
-      return data as Referrer[]
+      return data as unknown as Referrer[]
     },
   })
 }
