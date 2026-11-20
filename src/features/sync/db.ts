@@ -14,6 +14,8 @@ export type CapturePayload = {
   branch_id?: number
   /** De quién vino el contacto (spec 005). Si al sincronizar no es válido, el servidor lo guarda nulo. */
   referrer_id?: number
+  /** Referidor escrito al registrar que aún no existe (spec 010). El servidor lo busca por nombre o lo crea. */
+  referrer_new?: { name: string; kind: 'client' | 'staff' | 'freelance' | 'other' }
   client_created_at: string
 }
 

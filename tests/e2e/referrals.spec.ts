@@ -20,7 +20,10 @@ async function captureReferred(page: Page, client: string, referrer: string): Pr
   await fillCapture(page, client, randomPhone())
   const referred = page.getByRole('checkbox', { name: 'Es referido' })
   await referred.check()
-  await page.getByLabel(/De quién vino/).selectOption({ label: referrer })
+  // Spec 010: se escribe el nombre y se elige de las sugerencias de la sucursal.
+  await page.getByLabel(/Quién lo recomendó/).fill(referrer)
+  await page.getByRole('group', { name: 'Sugerencias de referidores' }).getByRole('button', { name: referrer }).click()
+  await expect(page.getByTestId('referrer-chosen')).toContainText(referrer)
   await page.getByRole('button', { name: 'Guardar' }).click()
   await expect(page).toHaveURL(/\/registrar$/)
 }
@@ -56,7 +59,7 @@ test('referidos: alta con meta, registro referido con y sin señal, corrección 
   await fillCapture(page, `Sin Origen ${tag}`, randomPhone())
   await page.getByRole('checkbox', { name: 'Es referido' }).check()
   await page.getByRole('button', { name: 'Guardar' }).click()
-  await expect(page.getByText('Elige de quién vino el contacto.')).toBeVisible()
+  await expect(page.getByText('Escribe quién lo recomendó.')).toBeVisible()
   await page.getByRole('button', { name: 'Cancelar' }).click()
   await logoutFromManage(page)
 
