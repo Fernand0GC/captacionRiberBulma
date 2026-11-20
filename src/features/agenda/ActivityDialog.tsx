@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/ui/Button'
 import { Dialog } from '@/ui/Dialog'
+import { digits, NUMERIC_INPUT } from '@/lib/numeric'
 import { Field, TextInput } from '@/ui/Field'
 import { Select } from '@/ui/Select'
 import { useToast } from '@/ui/Toast'
@@ -97,7 +98,7 @@ export function ActivityDialog({
           </Field>
           <Field label="Meta de captaciones">
             {(id) => (
-              <TextInput id={id} type="number" inputMode="numeric" min={1} value={v.goal_count} placeholder="Ej.: 30" onChange={(e) => set('goal_count')(e.target.value)} />
+              <TextInput id={id} {...NUMERIC_INPUT} value={v.goal_count} placeholder="Ej.: 30" onChange={(e) => set('goal_count')(digits(e.target.value))} />
             )}
           </Field>
         </div>

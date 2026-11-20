@@ -84,7 +84,8 @@ select throws_ok(format($$ select public.org_save(%L) $$,
   'P0001', 'invalid_input', 'Llamadas sin meta de captación rechazado');
 
 -- Selección múltiple (FR-010, FR-012)
-insert into ids select 'many', unnest(public.org_save_many(pg_temp.base(jsonb_build_object('items', jsonb_build_array(
+-- 011: horario propio para no quedar igual a 'whatsapp' y 'tiktok' (08:30–12:30).
+insert into ids select 'many', unnest(public.org_save_many(pg_temp.base(jsonb_build_object('start_time', '13:00', 'end_time', '14:00', 'items', jsonb_build_array(
   jsonb_build_object('subchannel_id', (select whatsapp from k), 'goal', 20, 'share_goal', 15),
   jsonb_build_object('subchannel_id', (select barrios_chinos from k), 'goal', 10, 'share_goal', 30),
   jsonb_build_object('subchannel_id', (select tiktok from k)))))));
@@ -110,7 +111,7 @@ select tests.logout(); -- org_assignments solo se lee por RPC
 select is((select count(*)::int from public.org_assignments where profile_id = '00000000-0000-4000-8000-000000000005'
   and work_date = (select tomorrow from k)), 0, 'todo o nada: no quedó ninguna fila de la carga fallida');
 select tests.login_as('00000000-0000-4000-8000-000000000003');
-insert into ids select 'single', unnest(public.org_save_many(pg_temp.base(jsonb_build_object('channel_id', (select no_subs from k)))));
+insert into ids select 'single', unnest(public.org_save_many(pg_temp.base(jsonb_build_object('channel_id', (select no_subs from k), 'start_time', '14:00', 'end_time', '15:00'))));
 select tests.logout(); -- org_assignments solo se lee por RPC
 select ok((select batch_id is null and subchannel_id is null from public.org_assignments where id = (select id from ids where name = 'single')),
   'sin ítems: una asignación sin subcanal y sin batch_id');

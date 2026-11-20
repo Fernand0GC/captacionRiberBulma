@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { digits, NUMERIC_INPUT } from '@/lib/numeric'
 import { Button } from '@/ui/Button'
 import { Dialog } from '@/ui/Dialog'
 import { Field, TextInput } from '@/ui/Field'
@@ -247,6 +248,10 @@ export function AssignmentDialog({
       ? [placing(editing && v.subchannel_id ? Number(v.subchannel_id) : null)]
       : picked.map(placing)
   const duplicate = clash.some((c) => candidates.some((x) => sameSlot(c, x)))
+  // 011: lo igual ya no se guarda. Con varios subcanales, se nombran los que ya existen.
+  const dupNames = clash
+    .filter((c) => candidates.some((x) => sameSlot(c, x)))
+    .map(clashLabel)
 
   /**
    * Metas según la marca: la que no aplica va vacía. La de captación es obligatoria si aplica; la de compartidas es
@@ -278,6 +283,11 @@ export function AssignmentDialog({
       return fail('La hora de fin tiene que ser después de la de inicio.', 'times')
     if (v.notes.trim().length > NOTES_MAX)
       return fail(`Las observaciones admiten hasta ${NOTES_MAX} caracteres.`, 'notes')
+    if (duplicate)
+      return fail(
+        `Ya existe una asignación igual para esta persona: ${dupNames.join(', ')}. Cambia el horario o el subcanal.`,
+        'times',
+      )
     const common = {
       branch_id: branch,
       work_date: day,
@@ -513,7 +523,8 @@ export function AssignmentDialog({
             {duplicate
               ? 'Ya existe una asignación igual para esta persona'
               : 'Esta persona ya tiene otra asignación que se cruza'}
-            : <strong>{clash.map(clashLabel).join(', ')}</strong>. Se puede guardar igual.
+            : <strong>{clash.map(clashLabel).join(', ')}</strong>.{' '}
+            {duplicate ? 'No se puede guardar: cambia el horario o el subcanal.' : 'Se puede guardar igual.'}
           </p>
         )}
         {show.place && (
@@ -644,13 +655,10 @@ function GoalFields({
         <TextInput
           id={id}
           data-field={`${k}${fieldSuffix}`}
-          type="number"
-          inputMode="numeric"
-          min={0}
-          max={9999}
+          {...NUMERIC_INPUT}
           value={goals[k]}
           placeholder={placeholder}
-          onChange={(e) => onGoal(k, e.target.value)}
+          onChange={(e) => onGoal(k, digits(e.target.value))}
         />
       )}
     </Field>

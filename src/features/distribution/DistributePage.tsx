@@ -5,6 +5,7 @@ import { useBranchScope } from '@/features/auth/useBranchScope'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { useBranches } from '@/features/prospects/api'
 import { laPazDate } from '@/lib/dates'
+import { digits, NUMERIC_INPUT } from '@/lib/numeric'
 import { Button } from '@/ui/Button'
 import { PageTitle } from '@/ui/PageTitle'
 import { useToast } from '@/ui/Toast'
@@ -64,12 +65,10 @@ function Stepper({
         −
       </button>
       <input
-        type="number"
-        inputMode="numeric"
-        min={0}
+        {...NUMERIC_INPUT}
         aria-label={`Recibirá ${label}`}
         value={value}
-        onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
+        onChange={(e) => onChange(Number(digits(e.target.value)) || 0)}
         className="h-10 w-16 rounded-xl border border-ink/15 text-center font-display text-xl font-bold tabular-nums"
       />
       <button

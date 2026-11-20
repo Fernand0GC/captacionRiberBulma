@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { digits, NUMERIC_INPUT } from '@/lib/numeric'
 import { Button } from '@/ui/Button'
 import { Dialog } from '@/ui/Dialog'
 import { Field, TextInput } from '@/ui/Field'
@@ -104,13 +105,10 @@ function ResultField({
         <TextInput
           id={id}
           aria-describedby={describedBy}
-          type="number"
-          inputMode="numeric"
-          min={0}
-          max={9999}
+          {...NUMERIC_INPUT}
           value={value}
           placeholder="Vacío = sin resultado"
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(digits(e.target.value))}
         />
       )}
     </Field>

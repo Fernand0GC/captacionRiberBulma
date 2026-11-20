@@ -5,6 +5,7 @@ import { Card } from '@/features/dashboard/charts'
 import { useBranches } from '@/features/prospects/api'
 import { fmtDate } from '@/features/prospects/format'
 import { laPazDate } from '@/lib/dates'
+import { digits, NUMERIC_INPUT } from '@/lib/numeric'
 import { Button } from '@/ui/Button'
 import { PageTitle } from '@/ui/PageTitle'
 import { useToast } from '@/ui/Toast'
@@ -32,12 +33,13 @@ function GoalInputs({ value, onChange, idPrefix }: { value: GoalSet; onChange: (
           {GOAL_LABEL[k]}
           <input
             id={`${idPrefix}-${k}`}
-            type="number"
-            inputMode="numeric"
-            min={0}
+            {...NUMERIC_INPUT}
             placeholder="Sin meta"
             value={value[k] ?? ''}
-            onChange={(e) => onChange({ ...value, [k]: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })}
+            onChange={(e) => {
+              const n = digits(e.target.value)
+              onChange({ ...value, [k]: n === '' ? null : Number(n) })
+            }}
             className={inputCls}
           />
         </label>
@@ -201,13 +203,11 @@ function MonthlyTab({ branch, isGlobal }: { branch: number | undefined; isGlobal
                   <td className="py-2 pr-3 font-semibold">{LINE_LABEL[r.line]}</td>
                   <td className="py-2 pr-3">
                     <input
-                      type="number"
-                      min={0}
-                      inputMode="numeric"
+                      {...NUMERIC_INPUT}
                       aria-label={`Meta ${LINE_LABEL[r.line]} ${r.branch_name}`}
                       placeholder="—"
                       value={draft[key] ?? (r.goal ?? '')}
-                      onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+                      onChange={(e) => setDraft((d) => ({ ...d, [key]: digits(e.target.value) }))}
                       onBlur={() => void save(r.branch_id, r.line, key)}
                       className="min-h-10 w-24 rounded-lg border border-ink/15 px-2 tabular-nums"
                     />

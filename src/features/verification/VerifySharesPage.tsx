@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { laPazDate, SHIFT_LABEL } from '@/lib/dates'
+import { digits, NUMERIC_INPUT } from '@/lib/numeric'
 import { addDays, daysBetween } from '@/features/organization/logic'
 import { Button } from '@/ui/Button'
 import { PageTitle } from '@/ui/PageTitle'
@@ -69,13 +70,10 @@ function ShareCard({ r }: { r: ShareRow }) {
         <label className="flex flex-col gap-1 text-sm font-semibold text-ink/70">
           Verificadas
           <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={9999}
+            {...NUMERIC_INPUT}
             value={verified}
             placeholder="—"
-            onChange={(e) => setVerified(e.target.value)}
+            onChange={(e) => setVerified(digits(e.target.value))}
             className="min-h-11 rounded-xl border border-ink/15 bg-white px-3 text-lg font-normal outline-none focus:border-gold focus:ring-4 focus:ring-gold/20"
           />
         </label>
