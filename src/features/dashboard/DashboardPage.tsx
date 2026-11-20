@@ -18,6 +18,7 @@ const PERIODS: { v: Period; label: string }[] = [
   { v: 'hoy', label: 'Hoy' },
   { v: '7d', label: '7 días' },
   { v: 'mes', label: 'Este mes' },
+  { v: 'rango', label: 'Rango' },
 ]
 const FUNNEL = ['capture', 'recapture', 'followup', 'interested', 'sale', 'lost'] as const
 const pct = (a: number, b: number) => (b > 0 ? `${Math.round((a / b) * 100)}%` : '—')
@@ -36,7 +37,10 @@ export function DashboardPage() {
   const branch = branchSel ?? scope.fallback
   const branches = useBranches()
   const channels = useChannels()
-  const { from, to } = periodRange({ periodo: period })
+  // Rango propio (mismo patrón que Gestión): periodRange corrige «Hasta» si queda antes de «Desde».
+  const [desde, setDesde] = useState<string | undefined>(undefined)
+  const [hasta, setHasta] = useState<string | undefined>(undefined)
+  const { from, to } = periodRange({ periodo: period, desde, hasta })
   const m = useMetrics({ from, to, branch_id: isGlobal ? branch : undefined })
   // Clientes distintos con seguimiento en el período (spec 009, US4): misma regla que «Del día», sin listas.
   const followed = useDailyReport({ from, to, branch_id: isGlobal ? branch : undefined, lists: false })
@@ -84,6 +88,26 @@ export function DashboardPage() {
                 </button>
               ))}
             </div>
+            {period === 'rango' && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  aria-label="Desde"
+                  value={from}
+                  onChange={(e) => setDesde(e.target.value || undefined)}
+                  className="min-h-10 rounded-xl border border-ink/15 bg-white px-2 text-sm"
+                />
+                <span className="text-ink/40">a</span>
+                <input
+                  type="date"
+                  aria-label="Hasta"
+                  value={to}
+                  min={from}
+                  onChange={(e) => setHasta(e.target.value || undefined)}
+                  className="min-h-10 rounded-xl border border-ink/15 bg-white px-2 text-sm"
+                />
+              </div>
+            )}
           </div>
         }
       />
@@ -140,7 +164,7 @@ export function DashboardPage() {
               {m.data.by_day.length > 1 ? (
                 <DayColumns data={m.data.by_day} label={dayLabel} />
               ) : (
-                <p className="py-6 text-center text-ink/45">Elige “7 días” o “Este mes” para ver la evolución.</p>
+                <p className="py-6 text-center text-ink/45">Elige “7 días”, “Este mes” o un rango de varios días para ver la evolución.</p>
               )}
             </Card>
             <Card title="Embudo" subtitle="Etapa actual de las captaciones del período">
