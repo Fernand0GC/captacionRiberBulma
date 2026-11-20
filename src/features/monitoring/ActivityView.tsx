@@ -6,8 +6,9 @@ import {
   ViewSwitch,
   type ManageScope,
 } from '@/features/prospects/ManageFilterBar'
-import { activityTotals, parseActivitySort, sortActivity, sortParam, type ActivitySortKey } from './activity'
+import { activityTotals, parseActivitySort, sortActivity, sortBranches, sortParam, type ActivitySortKey } from './activity'
 import { AgentContactsDialog } from './AgentContactsDialog'
+import { BranchActivityTable } from './BranchActivityTable'
 import { useAgentActivity, type AgentActivityFilters } from './api'
 import { ExportButton } from './ExportButton'
 import { ACTIVITY_METRICS, contactMetricOf, type ActivityMetric } from './labels'
@@ -22,6 +23,11 @@ export function ActivityView({ scope }: { scope: ManageScope }) {
   const totals = activityTotals(rows)
   const periodLabel = from === to ? fmtDay(from) : `${fmtDay(from)} al ${fmtDay(to)}`
   const person = search.persona ? rows.find((r) => r.actor_id === search.persona) : undefined
+  // Pestañas solo con «Todas las sucursales» y si el servidor mandó el resumen (Gerencia/Sistemas).
+  const byBranch = activity.data?.by_branch
+  const showTabs = isGlobal && sucursal === undefined && Array.isArray(byBranch)
+  const tab: 'sucursal' | 'persona' = showTabs && search.agrupar !== 'persona' ? 'sucursal' : 'persona'
+  const branchRows = sortBranches(byBranch ?? [], sort)
 
   const onSort = (key: ActivitySortKey) => {
     const next = sort.key === key ? { key, desc: !sort.desc } : { key, desc: key !== 'full_name' }
@@ -42,8 +48,14 @@ export function ActivityView({ scope }: { scope: ManageScope }) {
         actions={
           <div className="flex max-w-full flex-wrap items-center gap-2">
             <ExportButton
-              disabled={!rows.length}
+              disabled={tab === 'sucursal' ? !branchRows.length : !rows.length}
               run={async () => {
+                // Exporta lo que se está viendo: la pestaña activa.
+                if (tab === 'sucursal') {
+                  const { exportBranchActivity } = await import('./exportActivity')
+                  await exportBranchActivity(branchRows, filters, scopeName)
+                  return `✓ Excel descargado: ${branchRows.length} sucursales`
+                }
                 const { exportActivity } = await import('./exportActivity')
                 await exportActivity(rows, filters, scopeName)
                 return `✓ Excel descargado: ${rows.length} personas`
@@ -74,7 +86,40 @@ export function ActivityView({ scope }: { scope: ManageScope }) {
         </p>
       ) : null}
 
-      {rows.length > 0 && (
+      {showTabs && (
+        <div className="flex gap-1 border-b-2 border-ink px-2" role="tablist" aria-label="Agrupar por">
+          {(
+            [
+              ['sucursal', 'Por sucursal'],
+              ['persona', 'Por persona'],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              role="tab"
+              aria-selected={tab === v}
+              // Se limpia el orden: cada tabla arranca por Total.
+              onClick={() => setSearch({ agrupar: v === 'persona' ? 'persona' : undefined, orden: undefined })}
+              className={`min-h-11 rounded-t-2xl px-5 font-semibold ${tab === v ? 'bg-ink text-gold-light' : 'bg-sand text-ink/60'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === 'sucursal' && (
+        <BranchActivityTable
+          rows={branchRows}
+          onSort={onSort}
+          ariaSort={ariaSort}
+          arrow={arrow}
+          onPick={(id) => setSearch({ sucursal: id, agrupar: undefined, orden: undefined })}
+        />
+      )}
+
+      {tab === 'persona' && rows.length > 0 && (
         <div className="overflow-x-auto rounded-3xl bg-white shadow-sm ring-1 ring-ink/5">
           <table className="w-full min-w-[56rem] text-sm" aria-label="Actividad por persona">
             <thead className="bg-ink text-gold-light">

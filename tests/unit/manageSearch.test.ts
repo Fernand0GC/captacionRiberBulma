@@ -43,5 +43,7 @@ describe('validateManageSearch: vistas de monitoreo', () => {
   it('persona solo uuid; métrica de la lista', () => {
     expect(validateManageSearch({ persona: UUID, metrica: 'visits' })).toMatchObject({ persona: UUID, metrica: 'visits' })
     expect(validateManageSearch({ persona: 'Ana', metrica: 'clients' })).toMatchObject({ persona: undefined, metrica: undefined })
+    expect(validateManageSearch({ agrupar: 'persona' }).agrupar).toBe('persona')
+    expect(validateManageSearch({ agrupar: 'otro' }).agrupar).toBeUndefined()
   })
 })

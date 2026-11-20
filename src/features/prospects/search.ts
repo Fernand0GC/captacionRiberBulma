@@ -25,6 +25,8 @@ export type ManageSearch = {
   orden?: string
   persona?: string
   metrica?: MetricParam
+  /** Actividad: pestaña «Por persona» (sin el parámetro = «Por sucursal» cuando se ven todas las sucursales). */
+  agrupar?: 'persona'
   // Del día (specs/009-reporte-del-dia)
   dia?: string
   origen?: 'referidos'
@@ -40,7 +42,7 @@ export type StaleDays = 3 | 7 | 15 | 30
 export type MetricParam = 'all' | 'calls' | 'messages' | 'store' | 'effective' | 'no_answer' | 'visits' | 'sales'
 
 /** Parámetros propios de Seguimientos y Actividad: se limpian al cambiar de vista. */
-export const MONITORING_KEYS = ['estado', 'interes', 'intentos', 'vencidos', 'sin_contacto', 'motivo', 'orden', 'persona', 'metrica', 'dia', 'origen', 'referidor', 'lista'] as const
+export const MONITORING_KEYS = ['estado', 'interes', 'intentos', 'vencidos', 'sin_contacto', 'motivo', 'orden', 'persona', 'metrica', 'agrupar', 'dia', 'origen', 'referidor', 'lista'] as const
 
 const VIEWS: ManageView[] = ['visitas', 'seguimiento', 'actividad', 'dia']
 const TABS: FollowupTabParam[] = ['sin_contactar', 'seguimiento', 'potencial', 'venta', 'sin_interes']
@@ -79,6 +81,7 @@ export function validateManageSearch(raw: Record<string, unknown>): ManageSearch
     orden: typeof raw.orden === 'string' && /^-?[a-z_]+$/.test(raw.orden) ? raw.orden : undefined,
     persona: isUuid(raw.persona) ? raw.persona : undefined,
     metrica: oneOf(METRICS, raw.metrica),
+    agrupar: raw.agrupar === 'persona' ? 'persona' : undefined,
     dia: isDate(raw.dia) ? raw.dia : undefined,
     origen: raw.origen === 'referidos' ? 'referidos' : undefined,
     referidor: toInt(raw.referidor),

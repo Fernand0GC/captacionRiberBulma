@@ -115,6 +115,16 @@ export type AgentActivityRow = {
   total: number
 }
 
+/** Resumen por sucursal (sucursal del cliente). Solo llega cuando la consulta abarca todas las sucursales. */
+export type BranchActivityRow = Omit<AgentActivityRow, 'actor_id' | 'full_name' | 'role' | 'active'> & {
+  branch_id: number
+  name: string
+  /** Auxiliares y supervisores activos de la sucursal. */
+  staff: number
+  /** Personas distintas que contactaron a clientes de la sucursal. */
+  actors: number
+}
+
 export function useAgentActivity(filters: AgentActivityFilters) {
   return useQuery({
     queryKey: ['monitoring', 'activity', filters],
@@ -122,7 +132,8 @@ export function useAgentActivity(filters: AgentActivityFilters) {
     queryFn: async () => {
       const { data, error } = await supabase.rpc('agent_activity', { f: filters })
       if (error) throw toAppError(error)
-      return data as { rows: AgentActivityRow[] }
+      // by_branch: null con una sucursal elegida; undefined si la base aún no tiene la migración 20261120000100.
+      return data as { rows: AgentActivityRow[]; by_branch?: BranchActivityRow[] | null }
     },
   })
 }

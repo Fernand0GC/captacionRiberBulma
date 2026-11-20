@@ -1,4 +1,4 @@
-import type { AgentActivityRow } from './api'
+import type { AgentActivityRow, BranchActivityRow } from './api'
 import type { ActivityMetric } from './labels'
 
 // Cálculos puros de la vista Actividad (probados en tests/unit/activity.test.ts).
@@ -8,7 +8,7 @@ export type ActivityTotals = Record<ActivityMetric, number>
 const KEYS: ActivityMetric[] = ['calls', 'messages', 'store', 'effective', 'no_answer', 'visits', 'sales', 'clients', 'total']
 
 /** Fila Total: suma de cada columna (Clientes contactados suma por persona; un cliente tocado por dos cuenta dos veces). */
-export function activityTotals(rows: AgentActivityRow[]): ActivityTotals {
+export function activityTotals(rows: Pick<AgentActivityRow, ActivityMetric>[]): ActivityTotals {
   const t = Object.fromEntries(KEYS.map((k) => [k, 0])) as ActivityTotals
   for (const r of rows) for (const k of KEYS) t[k] += r[k]
   return t
@@ -36,6 +36,31 @@ export function sortParam(s: ActivitySort): string {
 /** Ordena sin mutar; desempate por nombre (A→Z) para que el orden sea estable. */
 export function sortActivity(rows: AgentActivityRow[], s: ActivitySort): AgentActivityRow[] {
   const byName = (a: AgentActivityRow, b: AgentActivityRow) => a.full_name.localeCompare(b.full_name, 'es')
+  return [...rows].sort((a, b) => {
+    const c = s.key === 'full_name' ? byName(a, b) : a[s.key] - b[s.key]
+    if (c !== 0) return s.desc ? -c : c
+    return byName(a, b)
+  })
+}
+
+// --- Resumen por sucursal (pestaña «Por sucursal») ---
+
+export type BranchTotals = ActivityTotals & { staff: number; actors: number }
+
+/**
+ * Fila Total del resumen. Clientes sí se puede sumar acá: cada cliente es de una sola sucursal.
+ * actors puede contar dos veces a quien contactó clientes de dos sucursales.
+ */
+export function branchTotals(rows: BranchActivityRow[]): BranchTotals {
+  return { ...activityTotals(rows), staff: rows.reduce((a, r) => a + r.staff, 0), actors: rows.reduce((a, r) => a + r.actors, 0) }
+}
+
+/** Contactos por persona activa de la sucursal (null si no tiene personal). */
+export const perStaff = (total: number, staff: number): number | null => (staff > 0 ? total / staff : null)
+
+/** Mismo `orden` que la tabla por persona: "full_name" ordena por nombre de sucursal. */
+export function sortBranches(rows: BranchActivityRow[], s: ActivitySort): BranchActivityRow[] {
+  const byName = (a: BranchActivityRow, b: BranchActivityRow) => a.name.localeCompare(b.name, 'es')
   return [...rows].sort((a, b) => {
     const c = s.key === 'full_name' ? byName(a, b) : a[s.key] - b[s.key]
     if (c !== 0) return s.desc ? -c : c

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { activityTotals, parseActivitySort, sortActivity, sortParam } from '@/features/monitoring/activity'
-import type { AgentActivityRow } from '@/features/monitoring/api'
+import { activityTotals, branchTotals, parseActivitySort, perStaff, sortActivity, sortBranches, sortParam } from '@/features/monitoring/activity'
+import type { AgentActivityRow, BranchActivityRow } from '@/features/monitoring/api'
 
 const row = (full_name: string, n: Partial<AgentActivityRow> = {}): AgentActivityRow => ({
   actor_id: full_name,
@@ -57,5 +57,46 @@ describe('orden de Actividad', () => {
     const copy = [...rows]
     sortActivity(rows, parseActivitySort('sales'))
     expect(rows).toEqual(copy)
+  })
+})
+
+const branch = (name: string, n: Partial<BranchActivityRow> = {}): BranchActivityRow => ({
+  branch_id: name.length,
+  name,
+  staff: 0,
+  actors: 0,
+  calls: 0,
+  messages: 0,
+  store: 0,
+  effective: 0,
+  no_answer: 0,
+  visits: 0,
+  sales: 0,
+  clients: 0,
+  total: 0,
+  ...n,
+})
+
+describe('resumen por sucursal', () => {
+  const branches = [
+    branch('TRINIDAD', { staff: 6, actors: 3, total: 12, clients: 9, effective: 5 }),
+    branch('COBIJA', { staff: 2, actors: 1, total: 4, clients: 4 }),
+    branch('REYES', { staff: 0, total: 0 }),
+  ]
+
+  it('branchTotals suma métricas, personal y quienes contactaron', () => {
+    const t = branchTotals(branches)
+    expect(t).toMatchObject({ total: 16, clients: 13, effective: 5, staff: 8, actors: 4 })
+  })
+
+  it('perStaff divide por el personal activo y da null sin personal', () => {
+    expect(perStaff(12, 6)).toBe(2)
+    expect(perStaff(5, 0)).toBeNull()
+  })
+
+  it('sortBranches usa el mismo orden que la tabla por persona', () => {
+    expect(sortBranches(branches, { key: 'total', desc: true }).map((b) => b.name)).toEqual(['TRINIDAD', 'COBIJA', 'REYES'])
+    expect(sortBranches(branches, { key: 'full_name', desc: false }).map((b) => b.name)).toEqual(['COBIJA', 'REYES', 'TRINIDAD'])
+    expect(branches[0]?.name).toBe('TRINIDAD') // no muta
   })
 })
