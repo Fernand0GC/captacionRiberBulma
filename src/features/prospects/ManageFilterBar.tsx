@@ -43,7 +43,8 @@ export function fmtDay(iso: string): string {
   return `${d}/${m}/${y}`
 }
 
-export type SetManageSearch = (patch: Partial<ManageSearch>) => void
+/** push: agrega un paso al historial (el «atrás» del celular vuelve acá). Por defecto reemplaza la URL. */
+export type SetManageSearch = (patch: Partial<ManageSearch>, opts?: { push?: boolean }) => void
 
 /** Filtros de la URL, período y sucursal efectiva de quien gestiona. */
 export function useManageScope() {
@@ -52,8 +53,8 @@ export function useManageScope() {
   const isGlobal = branchScope.canPick
   const search = validateManageSearch(useSearch({ strict: false }) as Record<string, unknown>)
   const navigate = useNavigate()
-  const setSearch: SetManageSearch = (patch) =>
-    void navigate({ to: '/gestion', search: { ...search, pagina: undefined, ...patch }, replace: true })
+  const setSearch: SetManageSearch = (patch, opts) =>
+    void navigate({ to: '/gestion', search: { ...search, pagina: undefined, ...patch }, replace: !opts?.push })
   const { from, to } = periodRange(search)
   const sucursal = search.sucursal ?? branchScope.fallback
   const branchId = isGlobal ? sucursal : (profile?.branch_id ?? undefined)

@@ -15,12 +15,15 @@ export function BranchActivityTable({
   ariaSort,
   arrow,
   onPick,
+  highlight,
 }: {
   rows: BranchActivityRow[]
   onSort: (key: ActivitySortKey) => void
   ariaSort: (key: ActivitySortKey) => 'ascending' | 'descending' | 'none'
   arrow: (key: ActivitySortKey) => string
   onPick: (branchId: number) => void
+  /** Sucursal que se acaba de ver: se resalta un momento al volver. */
+  highlight?: number
 }) {
   const t = branchTotals(rows)
   const max = Math.max(1, ...rows.map((r) => r.total))
@@ -54,7 +57,12 @@ export function BranchActivityTable({
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.branch_id} data-testid="branch-row" className="group border-t border-ink/5">
+              <tr
+                key={r.branch_id}
+                data-testid="branch-row"
+                data-highlight={r.branch_id === highlight || undefined}
+                className="group border-t border-ink/5 [&[data-highlight]>*]:bg-gold/35 [&>*]:transition-colors [&>*]:duration-700"
+              >
                 <th scope="row" className="sticky left-0 z-10 bg-white px-3 py-2.5 text-left font-normal group-even:bg-cream">
                   <button
                     type="button"
@@ -62,6 +70,9 @@ export function BranchActivityTable({
                     className="text-left font-semibold hover:text-gold-dark hover:underline"
                   >
                     {r.name}
+                    <span aria-hidden className="ml-1 text-gold-dark">
+                      ›
+                    </span>
                   </button>
                   {/* Barrita: peso de la sucursal en el total del período */}
                   <span className="mt-1 block h-1 w-28 overflow-hidden rounded-full bg-sand" aria-hidden>

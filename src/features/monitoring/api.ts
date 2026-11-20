@@ -125,9 +125,10 @@ export type BranchActivityRow = Omit<AgentActivityRow, 'actor_id' | 'full_name' 
   actors: number
 }
 
-export function useAgentActivity(filters: AgentActivityFilters) {
+export function useAgentActivity(filters: AgentActivityFilters, enabled = true) {
   return useQuery({
     queryKey: ['monitoring', 'activity', filters],
+    enabled,
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('agent_activity', { f: filters })

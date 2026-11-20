@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react'
+import { MdClose } from 'react-icons/md'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { PageTitle } from '@/ui/PageTitle'
 import {
@@ -9,13 +11,14 @@ import {
 import { activityTotals, parseActivitySort, sortActivity, sortBranches, sortParam, type ActivitySortKey } from './activity'
 import { AgentContactsDialog } from './AgentContactsDialog'
 import { BranchActivityTable } from './BranchActivityTable'
+import { BranchDrillBar } from './BranchDrillBar'
 import { useAgentActivity, type AgentActivityFilters } from './api'
 import { ExportButton } from './ExportButton'
 import { ACTIVITY_METRICS, contactMetricOf, type ActivityMetric } from './labels'
 
 /** Vista Actividad de /gestion (FR-020…FR-026): cuántos contactos hizo cada persona en el período. */
 export function ActivityView({ scope }: { scope: ManageScope }) {
-  const { search, setSearch, from, to, isGlobal, sucursal, scopeName } = scope
+  const { search, setSearch, from, to, isGlobal, sucursal, scopeName, branchScope } = scope
   const filters: AgentActivityFilters = { from, to, branch_id: isGlobal ? sucursal : undefined }
   const activity = useAgentActivity(filters)
   const sort = parseActivitySort(search.orden)
@@ -28,6 +31,33 @@ export function ActivityView({ scope }: { scope: ManageScope }) {
   const showTabs = isGlobal && sucursal === undefined && Array.isArray(byBranch)
   const tab: 'sucursal' | 'persona' = showTabs && search.agrupar !== 'persona' ? 'sucursal' : 'persona'
   const branchRows = sortBranches(byBranch ?? [], sort)
+
+  // Dentro de una sucursal (Gerencia/Sistemas): el resumen de todas da el orden para Anterior/Siguiente y los
+  // datos clave. Es la misma consulta que la pestaña «Por sucursal», así que si se viene de ahí sale del caché.
+  const inBranch = isGlobal && branchScope.allowAll && search.sucursal !== undefined
+  const overview = useAgentActivity({ from, to }, inBranch)
+  const order = inBranch ? (overview.data?.by_branch ?? null) : null
+  const current = order?.find((b) => b.branch_id === search.sucursal)
+  const tabsVisible = showTabs || (inBranch && Array.isArray(order))
+
+  // Al volver al resumen, la sucursal que se estaba viendo queda resaltada un momento.
+  const [flash, setFlash] = useState<number | undefined>(undefined)
+  const prevBranch = useRef(search.sucursal)
+  useEffect(() => {
+    const prev = prevBranch.current
+    prevBranch.current = search.sucursal
+    if (prev === undefined || search.sucursal !== undefined) return
+    setFlash(prev)
+    const t = setTimeout(() => setFlash(undefined), 1800)
+    return () => clearTimeout(t)
+  }, [search.sucursal])
+
+  const clearDetail = { agrupar: undefined, orden: undefined, persona: undefined, metrica: undefined } as const
+  // Entrar agrega un paso al historial: el «atrás» del celular vuelve al resumen en vez de salir de Gestión.
+  const enterBranch = (id: number) => setSearch({ ...clearDetail, sucursal: id }, { push: true })
+  // Anterior/Siguiente y volver reemplazan: no llenan el historial y conservan el período elegido.
+  const stepBranch = (id: number) => setSearch({ ...clearDetail, sucursal: id })
+  const backToSummary = () => setSearch({ ...clearDetail, sucursal: undefined })
 
   const onSort = (key: ActivitySortKey) => {
     const next = sort.key === key ? { key, desc: !sort.desc } : { key, desc: key !== 'full_name' }
@@ -68,6 +98,16 @@ export function ActivityView({ scope }: { scope: ManageScope }) {
 
       <ManageFilterBar scope={scope} />
 
+      {inBranch && search.sucursal !== undefined && (
+        <BranchDrillBar
+          order={order ?? []}
+          current={search.sucursal}
+          name={scopeName}
+          onBack={backToSummary}
+          onStep={stepBranch}
+        />
+      )}
+
       <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
         <p className="text-ink/60">
           <span className="font-display text-3xl font-bold text-ink" data-testid="total">
@@ -75,6 +115,22 @@ export function ActivityView({ scope }: { scope: ManageScope }) {
           </span>{' '}
           {totals.total === 1 ? 'contacto' : 'contactos'} · {periodLabel}
         </p>
+        {current && (
+          <div className="flex flex-wrap gap-1.5 text-sm text-ink/55" data-testid="branch-kpis">
+            <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-ink/10">
+              <b className="text-ink">
+                {current.actors} de {current.staff}
+              </b>{' '}
+              personas contactaron
+            </span>
+            <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-ink/10">
+              <b className="text-ink">{current.total ? Math.round((current.effective / current.total) * 100) : 0}%</b> efectivos
+            </span>
+            <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-ink/10">
+              <b className="text-ink">{current.sales}</b> {current.sales === 1 ? 'venta' : 'ventas'}
+            </span>
+          </div>
+        )}
         {activity.isFetching && <span className="text-sm text-ink/40">Actualizando…</span>}
       </div>
 
@@ -86,26 +142,43 @@ export function ActivityView({ scope }: { scope: ManageScope }) {
         </p>
       ) : null}
 
-      {showTabs && (
-        <div className="flex gap-1 border-b-2 border-ink px-2" role="tablist" aria-label="Agrupar por">
-          {(
-            [
-              ['sucursal', 'Por sucursal'],
-              ['persona', 'Por persona'],
-            ] as const
-          ).map(([v, label]) => (
+      {tabsVisible && (
+        // Las pestañas siguen visibles dentro de una sucursal: «Por sucursal» (o la ✕) vuelve al resumen.
+        <div className="flex items-end gap-1 border-b-2 border-ink px-2" role="tablist" aria-label="Agrupar por">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!inBranch && tab === 'sucursal'}
+            onClick={() => (inBranch ? backToSummary() : setSearch({ agrupar: undefined, orden: undefined }))}
+            className={`min-h-11 whitespace-nowrap rounded-t-2xl px-4 font-semibold sm:px-5 ${!inBranch && tab === 'sucursal' ? 'bg-ink text-gold-light' : 'bg-sand text-ink/60'}`}
+          >
+            Por sucursal
+          </button>
+          <div
+            className={`flex min-h-11 items-center rounded-t-2xl font-semibold ${inBranch || tab === 'persona' ? 'bg-ink text-gold-light' : 'bg-sand text-ink/60'}`}
+          >
             <button
-              key={v}
               type="button"
               role="tab"
-              aria-selected={tab === v}
-              // Se limpia el orden: cada tabla arranca por Total.
-              onClick={() => setSearch({ agrupar: v === 'persona' ? 'persona' : undefined, orden: undefined })}
-              className={`min-h-11 rounded-t-2xl px-5 font-semibold ${tab === v ? 'bg-ink text-gold-light' : 'bg-sand text-ink/60'}`}
+              aria-selected={inBranch || tab === 'persona'}
+              onClick={() => !inBranch && setSearch({ agrupar: 'persona', orden: undefined })}
+              className="min-h-11 whitespace-nowrap px-4 sm:px-5"
             >
-              {label}
+              Por persona
+              {/* En el celular el nombre ya está en la barra de arriba */}
+              {inBranch && <span className="hidden sm:inline"> · {scopeName}</span>}
             </button>
-          ))}
+            {inBranch && (
+              <button
+                type="button"
+                onClick={backToSummary}
+                aria-label="Quitar sucursal y volver al resumen"
+                className="mr-2 grid h-7 w-7 place-items-center rounded-full bg-white/15 hover:bg-white/25"
+              >
+                <MdClose aria-hidden />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -115,7 +188,8 @@ export function ActivityView({ scope }: { scope: ManageScope }) {
           onSort={onSort}
           ariaSort={ariaSort}
           arrow={arrow}
-          onPick={(id) => setSearch({ sucursal: id, agrupar: undefined, orden: undefined })}
+          onPick={enterBranch}
+          highlight={flash}
         />
       )}
 
