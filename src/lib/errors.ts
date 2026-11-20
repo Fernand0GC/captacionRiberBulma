@@ -1,5 +1,6 @@
 // code estable de las RPC (contracts/rpc.md) → mensaje en español.
 export type RpcErrorCode =
+  | 'duplicate_assignment'
   | 'forbidden'
   | 'invalid_input'
   | 'invalid_phone'
@@ -8,6 +9,8 @@ export type RpcErrorCode =
   | 'rate_limited'
 
 const MESSAGES: Record<RpcErrorCode, string> = {
+  duplicate_assignment:
+    'Ya existe una asignación igual para esta persona (mismo turno, horario, canal y subcanal). Cambia el horario o el subcanal.',
   forbidden: 'No tienes permiso para esta acción.',
   invalid_input: 'Revisa los datos ingresados.',
   invalid_phone: 'El teléfono no es válido. Usa un celular de 8 dígitos (6 o 7…) o un fijo con código de área.',

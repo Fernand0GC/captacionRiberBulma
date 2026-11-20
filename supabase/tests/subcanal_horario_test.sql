@@ -64,7 +64,8 @@ select lives_ok(format($$ select public.org_set_result(%L, 7, 'ok') $$, (select 
 select throws_ok(format($$ select public.org_save(%L) $$,
   pg_temp.p(jsonb_build_object('id', (select id from ids where name = 'old'), 'subchannel_id', null))),
   'P0001', 'invalid_input', 'al editar una vieja sin subcanal se pide completarlo');
-select lives_ok(format($$ select public.org_save(%L) $$, pg_temp.p(jsonb_build_object('id', (select id from ids where name = 'old')))),
+select lives_ok(format($$ select public.org_save(%L) $$, pg_temp.p(jsonb_build_object('id', (select id from ids where name = 'old'),
+  'start_time', '11:00', 'end_time', '12:00'))), -- 011: otro horario que la de arriba (si no, sería igual)
   'al editar con subcanal y horas se guarda');
 
 select * from finish();

@@ -15,6 +15,8 @@ const row = (full_name: string, n: Partial<AgentActivityRow> = {}): AgentActivit
   visits: 0,
   sales: 0,
   clients: 0,
+  assigned: 0,
+  assigned_contacted: 0,
   total: 0,
   ...n,
 })
@@ -73,6 +75,8 @@ const branch = (name: string, n: Partial<BranchActivityRow> = {}): BranchActivit
   visits: 0,
   sales: 0,
   clients: 0,
+  assigned: 0,
+  assigned_contacted: 0,
   total: 0,
   ...n,
 })

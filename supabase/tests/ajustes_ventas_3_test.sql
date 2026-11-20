@@ -31,7 +31,14 @@ select tests.login_as('00000000-0000-4000-8000-000000000003');
 -- Origen d1: dos asignaciones distintas y una repetida de la primera (como las que dejaba la copia doble).
 select public.org_save(pg_temp.call((select d1 from k), '10:00', '11:00'));
 select public.org_save(pg_temp.call((select d1 from k), '11:00', '12:00'));
-select public.org_save(pg_temp.call((select d1 from k), '10:00', '11:00'));
+-- Desde la 011 org_save rechaza la repetida: se inserta directo, como las que quedaron de antes.
+reset role;
+insert into public.org_assignments (branch_id, work_date, shift, start_time, end_time, profile_id, strategy_id,
+  channel_id, subchannel_id, goal, lead_id, created_by)
+select a.branch_id, a.work_date, a.shift, a.start_time, a.end_time, a.profile_id, a.strategy_id, a.channel_id,
+  a.subchannel_id, a.goal, a.lead_id, a.created_by
+from public.org_assignments a, k where a.branch_id = 5 and a.work_date = k.d1 and a.start_time = '10:00';
+select tests.login_as('00000000-0000-4000-8000-000000000003');
 
 -- Copia sin duplicar (FR-001, FR-002) -------------------------------------------------------------------------------
 select is(public.org_copy_day_v2(5::smallint, (select d1 from k), (select d1 + 1 from k)),

@@ -7,12 +7,15 @@ export function Dialog({
   title,
   description,
   children,
+  size = 'md',
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
   description?: string
   children: ReactNode
+  /** `xl`: ventana ancha para listas con varias columnas (detalle de Actividad, spec 012). */
+  size?: 'md' | 'xl'
 }) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -40,7 +43,7 @@ export function Dialog({
         if (closingByApp.current) closingByApp.current = false
         else onOpenChange(false)
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-3xl bg-cream p-6 shadow-2xl backdrop:bg-ink/60 backdrop:backdrop-blur-sm"
+      className={`m-auto w-[calc(100%-2rem)] ${size === 'xl' ? 'max-w-4xl' : 'max-w-md'} rounded-3xl bg-cream p-6 shadow-2xl backdrop:bg-ink/60 backdrop:backdrop-blur-sm`}
     >
       <h2 id={titleId} className="font-display text-xl font-semibold text-ink">
         {title}

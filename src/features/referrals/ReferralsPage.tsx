@@ -4,6 +4,7 @@ import { useBranchScope } from '@/features/auth/useBranchScope'
 import { Card } from '@/features/dashboard/charts'
 import { fmtDate, fmtTime, STAGE_LABEL } from '@/features/prospects/format'
 import { laPazDate } from '@/lib/dates'
+import { digits, NUMERIC_INPUT } from '@/lib/numeric'
 import { Button } from '@/ui/Button'
 import { PageTitle } from '@/ui/PageTitle'
 import { useToast } from '@/ui/Toast'
@@ -335,18 +336,15 @@ function ReferrerRow({ r, row, month, branch }: { r: Referrer; row: ReportRow | 
         </select>
       </td>
       <td className="py-2 pr-2">
-        <input aria-label="Orden" type="number" inputMode="numeric" value={d.sort} onChange={(e) => setD({ ...d, sort: e.target.value })} className={`${inputCls} w-16`} />
+        <input aria-label="Orden" {...NUMERIC_INPUT} value={d.sort} onChange={(e) => setD({ ...d, sort: digits(e.target.value) })} className={`${inputCls} w-16`} />
       </td>
       <td className="py-2 pr-2">
         <input
           aria-label={`Meta de ${r.name}`}
-          type="number"
-          inputMode="numeric"
-          min={0}
-          max={9999}
+          {...NUMERIC_INPUT}
           placeholder={inherited ? String(row.goal) : '—'}
           value={d.goal}
-          onChange={(e) => setD({ ...d, goal: e.target.value })}
+          onChange={(e) => setD({ ...d, goal: digits(e.target.value) })}
           className={`${inputCls} w-20`}
         />
         {inherited && d.goal === '' && <span className="block text-xs text-ink/45">de {monthLabel(row.goal_from ?? month)}</span>}
@@ -401,7 +399,7 @@ function NewReferrer({ branch, month }: { branch: number; month: string }) {
       </label>
       <label className="flex flex-col gap-1 text-sm font-semibold text-ink/70">
         Meta del mes
-        <input type="number" inputMode="numeric" min={0} max={9999} value={d.goal} placeholder="—" onChange={(e) => setD({ ...d, goal: e.target.value })} className={`${inputCls} w-24`} />
+        <input {...NUMERIC_INPUT} value={d.goal} placeholder="—" onChange={(e) => setD({ ...d, goal: digits(e.target.value) })} className={`${inputCls} w-24`} />
       </label>
       <Button className="min-h-10" disabled={create.isPending} onClick={() => void onAdd()}>
         Agregar

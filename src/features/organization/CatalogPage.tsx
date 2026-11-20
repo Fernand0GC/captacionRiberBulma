@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { digits, NUMERIC_INPUT } from '@/lib/numeric'
 import { Button } from '@/ui/Button'
 import { PageTitle } from '@/ui/PageTitle'
 import { useToast } from '@/ui/Toast'
@@ -84,7 +85,7 @@ function Row({
   return (
     <div className={`flex flex-wrap items-center gap-2 py-1.5 ${d.active ? '' : 'opacity-60'}`} data-testid={`catalog-row-${level}`}>
       <input aria-label="Nombre" value={d.name} placeholder="Nombre nuevo…" onChange={(e) => set('name', e.target.value)} className={`${inputCls} min-w-48 flex-1`} />
-      <input aria-label="Orden" type="number" value={d.sort} onChange={(e) => set('sort', e.target.value)} className={`${inputCls} w-16`} />
+      <input aria-label="Orden" {...NUMERIC_INPUT} value={d.sort} onChange={(e) => set('sort', digits(e.target.value))} className={`${inputCls} w-16`} />
       {withTimes && (
         <span className="flex flex-wrap items-center gap-1 text-xs text-ink/60">
           Mañana

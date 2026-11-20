@@ -39,7 +39,8 @@ export type FollowupTabParam = 'sin_contactar' | 'seguimiento' | 'potencial' | '
 export type InterestParam = 'alto' | 'medio' | 'bajo' | 'sin'
 export type AttemptsParam = 'ninguno' | '1-2' | '3+'
 export type StaleDays = 3 | 7 | 15 | 30
-export type MetricParam = 'all' | 'calls' | 'messages' | 'store' | 'effective' | 'no_answer' | 'visits' | 'sales'
+/** `assigned` abre la pestaña «Asignados» del detalle de Actividad (spec 012). */
+export type MetricParam = 'all' | 'calls' | 'messages' | 'store' | 'effective' | 'no_answer' | 'visits' | 'sales' | 'assigned'
 
 /** Parámetros propios de Seguimientos y Actividad: se limpian al cambiar de vista. */
 export const MONITORING_KEYS = ['estado', 'interes', 'intentos', 'vencidos', 'sin_contacto', 'motivo', 'orden', 'persona', 'metrica', 'agrupar', 'dia', 'origen', 'referidor', 'lista'] as const
@@ -49,7 +50,7 @@ const TABS: FollowupTabParam[] = ['sin_contactar', 'seguimiento', 'potencial', '
 const INTERESTS: InterestParam[] = ['alto', 'medio', 'bajo', 'sin']
 const ATTEMPTS: AttemptsParam[] = ['ninguno', '1-2', '3+']
 const STALE: StaleDays[] = [3, 7, 15, 30]
-const METRICS: MetricParam[] = ['all', 'calls', 'messages', 'store', 'effective', 'no_answer', 'visits', 'sales']
+const METRICS: MetricParam[] = ['all', 'calls', 'messages', 'store', 'effective', 'no_answer', 'visits', 'sales', 'assigned']
 const isUuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f-]{36}$/.test(v)
 const oneOf = <T>(list: readonly T[], v: unknown): T | undefined => (list.includes(v as T) ? (v as T) : undefined)
 

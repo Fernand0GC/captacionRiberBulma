@@ -90,7 +90,8 @@ select public.org_set_result(pg_temp.id_of('notes'), 10, 'Desde resultado', null
 select is(pg_temp.row_of(pg_temp.id_of('notes')) ->> 'notes', 'Desde resultado', '«Resultado» la sigue pudiendo cambiar');
 
 -- Volanteras (FR-008 a FR-010) ---------------------------------------------------------------------------
-insert into ids select 'flyers', public.org_save(pg_temp.act(jsonb_build_object('flyer_ids', jsonb_build_array(
+-- 011: horario propio (12:00–13:00) para no quedar igual a 'notes'.
+insert into ids select 'flyers', public.org_save(pg_temp.act(jsonb_build_object('start_time', '12:00', 'end_time', '13:00', 'flyer_ids', jsonb_build_array(
   '00000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-000000000006'))));
 select is(jsonb_array_length(pg_temp.row_of(pg_temp.id_of('flyers')) -> 'flyer_ids'), 2, 'guarda volanteras de la sucursal sin repetir');
 select is((select array_agg(f ->> 'name' order by f ->> 'name') from jsonb_array_elements(pg_temp.row_of(pg_temp.id_of('flyers')) -> 'flyers') f),
@@ -115,9 +116,9 @@ select is(pg_temp.row_of(pg_temp.id_of('no_flyers')) -> 'flyer_ids', '[]'::jsonb
 select tests.logout();
 update public.profiles set active = false, deactivated_at = now() where id = '00000000-0000-4000-8000-0000000000b1';
 select tests.login_as('00000000-0000-4000-8000-000000000003');
-select public.org_save(pg_temp.act(jsonb_build_object('id', pg_temp.id_of('flyers'), 'goal', 31)));
+select public.org_save(pg_temp.act(jsonb_build_object('id', pg_temp.id_of('flyers'), 'goal', 31, 'start_time', '12:00', 'end_time', '13:00')));
 select is(jsonb_array_length(pg_temp.row_of(pg_temp.id_of('flyers')) -> 'flyer_ids'), 2, 'al editar sin flyer_ids se conservan (también la de baja)');
-select lives_ok(format($$ select public.org_save(%L) $$, pg_temp.act(jsonb_build_object('id', pg_temp.id_of('flyers'),
+select lives_ok(format($$ select public.org_save(%L) $$, pg_temp.act(jsonb_build_object('id', pg_temp.id_of('flyers'), 'start_time', '12:00', 'end_time', '13:00',
   'flyer_ids', jsonb_build_array('00000000-0000-4000-8000-0000000000b1')))), 'al editar se acepta la de baja que ya estaba');
 -- Horario propio (007): la copia salta las asignaciones iguales y en este test hay otras a las 10:00–12:00.
 select public.org_save(pg_temp.act(jsonb_build_object('id', pg_temp.id_of('flyers'), 'goal', 31,
@@ -128,6 +129,7 @@ select throws_ok(format($$ select public.org_save(%L) $$, pg_temp.act(jsonb_buil
 
 -- Carga múltiple: notes y flyer_ids van a todas.
 insert into ids select 'many', unnest(public.org_save_many(pg_temp.act(jsonb_build_object('notes', 'Todas', 'subchannel_id', null,
+  'start_time', '13:00', 'end_time', '14:00', -- 011: no igual a 'notes'
   'flyer_ids', jsonb_build_array('00000000-0000-4000-8000-000000000006'), 'items', jsonb_build_array(
     jsonb_build_object('subchannel_id', (select plazas from k), 'goal', 10),
     jsonb_build_object('subchannel_id', (select id from public.org_subchannels where name = 'Activaciones en barrios'), 'goal', 20))))));

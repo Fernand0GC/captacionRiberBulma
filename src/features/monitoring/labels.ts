@@ -31,6 +31,7 @@ export type ActivityMetric =
   | 'visits'
   | 'sales'
   | 'clients'
+  | 'assigned'
   | 'total'
 
 /** Columnas numéricas de Actividad, en orden. */
@@ -43,6 +44,7 @@ export const ACTIVITY_METRICS: { key: ActivityMetric; label: string; short: stri
   { key: 'visits', label: 'Visitas pactadas', short: 'Visitas' },
   { key: 'sales', label: 'Ventas', short: 'Ventas' },
   { key: 'clients', label: 'Clientes contactados', short: 'Clientes' },
+  { key: 'assigned', label: 'Clientes asignados', short: 'Asignados' },
   { key: 'total', label: 'Total de contactos', short: 'Total' },
 ]
 
@@ -50,7 +52,8 @@ export const ACTIVITY_METRICS: { key: ActivityMetric; label: string; short: stri
 export type ContactMetric = 'all' | 'calls' | 'messages' | 'store' | 'effective' | 'no_answer' | 'visits' | 'sales'
 export const CONTACT_METRICS: ContactMetric[] = ['all', 'calls', 'messages', 'store', 'effective', 'no_answer', 'visits', 'sales']
 
-export const contactMetricOf = (m: ActivityMetric): ContactMetric => (m === 'clients' || m === 'total' ? 'all' : m)
+export const contactMetricOf = (m: ActivityMetric): ContactMetric =>
+  m === 'clients' || m === 'total' || m === 'assigned' ? 'all' : m
 
 export const metricLabel = (m: ContactMetric): string =>
   m === 'all' ? 'Todos los contactos' : (ACTIVITY_METRICS.find((x) => x.key === m)?.label ?? m)
