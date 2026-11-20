@@ -3,6 +3,7 @@ import { toAppError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 import type { AppRole } from '@/features/auth/types'
 import type { ContactMethod, ContactResult } from '@/features/followup/api'
+import type { DailyTotals } from './daily'
 import type { ContactMetric, FollowupTab } from './labels'
 
 // Lecturas de monitoreo (specs/002-monitoreo-seguimiento/contracts/rpc.md). Todo por POST: la búsqueda no viaja en la URL.
@@ -155,5 +156,72 @@ export function useAgentContacts(filters: AgentActivityFilters, actorId: string 
       const loaded = all.reduce((n, p) => n + p.rows.length, 0)
       return loaded < last.total && last.rows.length > 0 ? loaded : undefined
     },
+  })
+}
+
+// --- Reporte del día (specs/009-reporte-del-dia/contracts/rpc.md) ----------------------------------
+
+export type DailyFilters = {
+  from: string
+  to?: string
+  branch_id?: number
+  origin?: 'all' | 'referred'
+  referrer_id?: number
+  /** false: solo números (Panel). */
+  lists?: boolean
+}
+
+export type DailyNewRow = {
+  id: string
+  registered_at: string
+  full_name: string
+  phone: string
+  channel: string | null
+  channel_detail: string | null
+  referrer: string | null
+  created_by: string
+  assigned_to: string | null
+  stage: string
+  branch: string
+}
+
+export type DailyFollowedRow = {
+  id: string
+  full_name: string
+  phone: string
+  contacts: number
+  effective: boolean
+  last_at: string
+  last_method: ContactMethod
+  last_result: ContactResult
+  last_actor: string
+  registered_at: string
+  channel: string | null
+  referrer: string | null
+  stage: string
+  branch: string
+}
+
+export type DailyReport = {
+  from: string
+  to: string
+  totals: DailyTotals
+  new_rows: DailyNewRow[]
+  followed_rows: DailyFollowedRow[]
+  truncated: boolean
+}
+
+export async function dailyReport(f: DailyFilters): Promise<DailyReport> {
+  const { data, error } = await supabase.rpc('daily_report', { f })
+  if (error) throw toAppError(error)
+  return data as DailyReport
+}
+
+export function useDailyReport(f: DailyFilters, enabled = true) {
+  return useQuery({
+    queryKey: ['monitoring', 'daily', f],
+    enabled,
+    placeholderData: keepPreviousData,
+    queryFn: () => dailyReport(f),
   })
 }

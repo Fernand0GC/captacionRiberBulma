@@ -26,6 +26,8 @@ import { fmtDay, ManageFilterBar, useDebounced, useManageScope, ViewSwitch } fro
 // Vistas de monitoreo (specs/002-monitoreo-seguimiento): se cargan solo al entrar.
 const FollowupStatusView = lazy(() => import('@/features/monitoring/FollowupStatusView'))
 const ActivityView = lazy(() => import('@/features/monitoring/ActivityView'))
+// Reporte del día (specs/009-reporte-del-dia).
+const DailyView = lazy(() => import('@/features/monitoring/DailyView'))
 
 const viewFallback = <p className="px-4 py-8 text-center text-ink/50">Cargando…</p>
 
@@ -41,6 +43,12 @@ export function ProspectsPage() {
     return (
       <Suspense fallback={viewFallback}>
         <ActivityView scope={scope} />
+      </Suspense>
+    )
+  if (scope.search.ver === 'dia')
+    return (
+      <Suspense fallback={viewFallback}>
+        <DailyView scope={scope} />
       </Suspense>
     )
   return <CapturesView scope={scope} />

@@ -12,18 +12,26 @@ export type Column<T> = {
   date?: boolean
 }
 
-export async function downloadSheet<T>(opts: {
+type SheetOpts<T> = {
   sheet: string
   title: string
   columns: Column<T>[]
   rows: T[]
   /** Fila final (p. ej. TOTAL), en negrita. */
   footer?: (string | number | null)[]
-  fileName: string
-}): Promise<void> {
+}
+type Workbook = InstanceType<typeof import('exceljs').Workbook>
+
+/** Un libro vacío con el autor de la app (exceljs se carga recién acá). */
+export async function newWorkbook(): Promise<Workbook> {
   const { default: ExcelJS } = await import('exceljs')
   const wb = new ExcelJS.Workbook()
   wb.creator = 'Riber Captación'
+  return wb
+}
+
+/** Una hoja con título, encabezado negro y dorado, filas y filtro (para libros de varias hojas, spec 009). */
+export function addSheet<T>(wb: Workbook, opts: SheetOpts<T>): void {
   const HEADER_ROW = 3
   const ws = wb.addWorksheet(opts.sheet, { views: [{ state: 'frozen', ySplit: HEADER_ROW }] })
   ws.getCell('A1').value = opts.title
@@ -50,14 +58,24 @@ export async function downloadSheet<T>(opts: {
     row.font = { bold: true }
   }
   ws.autoFilter = { from: { row: HEADER_ROW, column: 1 }, to: { row: HEADER_ROW, column: opts.columns.length } }
+}
 
+/** Descarga el libro con ese nombre de archivo. */
+export async function saveWorkbook(wb: Workbook, fileName: string): Promise<void> {
   const buf = await wb.xlsx.writeBuffer()
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = opts.fileName
+  a.download = fileName
   a.click()
   setTimeout(() => URL.revokeObjectURL(a.href), 10_000)
+}
+
+/** Una sola hoja y descarga (Seguimientos y Actividad). */
+export async function downloadSheet<T>(opts: SheetOpts<T> & { fileName: string }): Promise<void> {
+  const wb = await newWorkbook()
+  addSheet(wb, opts)
+  await saveWorkbook(wb, opts.fileName)
 }
 
 export const fileSafe = (s: string) => s.replace(/\s+/g, '-')

@@ -25,9 +25,14 @@ export type ManageSearch = {
   orden?: string
   persona?: string
   metrica?: MetricParam
+  // Del día (specs/009-reporte-del-dia)
+  dia?: string
+  origen?: 'referidos'
+  referidor?: number
+  lista?: 'seguimiento'
 }
 
-export type ManageView = 'visitas' | 'seguimiento' | 'actividad'
+export type ManageView = 'visitas' | 'seguimiento' | 'actividad' | 'dia'
 export type FollowupTabParam = 'sin_contactar' | 'seguimiento' | 'potencial' | 'venta' | 'sin_interes'
 export type InterestParam = 'alto' | 'medio' | 'bajo' | 'sin'
 export type AttemptsParam = 'ninguno' | '1-2' | '3+'
@@ -35,9 +40,9 @@ export type StaleDays = 3 | 7 | 15 | 30
 export type MetricParam = 'all' | 'calls' | 'messages' | 'store' | 'effective' | 'no_answer' | 'visits' | 'sales'
 
 /** Parámetros propios de Seguimientos y Actividad: se limpian al cambiar de vista. */
-export const MONITORING_KEYS = ['estado', 'interes', 'intentos', 'vencidos', 'sin_contacto', 'motivo', 'orden', 'persona', 'metrica'] as const
+export const MONITORING_KEYS = ['estado', 'interes', 'intentos', 'vencidos', 'sin_contacto', 'motivo', 'orden', 'persona', 'metrica', 'dia', 'origen', 'referidor', 'lista'] as const
 
-const VIEWS: ManageView[] = ['visitas', 'seguimiento', 'actividad']
+const VIEWS: ManageView[] = ['visitas', 'seguimiento', 'actividad', 'dia']
 const TABS: FollowupTabParam[] = ['sin_contactar', 'seguimiento', 'potencial', 'venta', 'sin_interes']
 const INTERESTS: InterestParam[] = ['alto', 'medio', 'bajo', 'sin']
 const ATTEMPTS: AttemptsParam[] = ['ninguno', '1-2', '3+']
@@ -74,6 +79,10 @@ export function validateManageSearch(raw: Record<string, unknown>): ManageSearch
     orden: typeof raw.orden === 'string' && /^-?[a-z_]+$/.test(raw.orden) ? raw.orden : undefined,
     persona: isUuid(raw.persona) ? raw.persona : undefined,
     metrica: oneOf(METRICS, raw.metrica),
+    dia: isDate(raw.dia) ? raw.dia : undefined,
+    origen: raw.origen === 'referidos' ? 'referidos' : undefined,
+    referidor: toInt(raw.referidor),
+    lista: raw.lista === 'seguimiento' ? 'seguimiento' : undefined,
   }
 }
 
