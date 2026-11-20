@@ -73,6 +73,7 @@ const VIEW_OPTIONS: { v: ManageView | undefined; label: string }[] = [
   { v: 'visitas', label: 'Visitas pactadas' },
   { v: 'seguimiento', label: 'Seguimientos' },
   { v: 'actividad', label: 'Actividad' },
+  { v: 'dia', label: 'Del día' },
 ]
 
 export const VIEW_TITLE: Record<ManageView | 'captaciones', string> = {
@@ -80,6 +81,7 @@ export const VIEW_TITLE: Record<ManageView | 'captaciones', string> = {
   visitas: 'Visitas pactadas',
   seguimiento: 'Seguimientos',
   actividad: 'Actividad',
+  dia: 'Del día',
 }
 
 /** Selector de vista. Conserva período y sucursal; limpia lo propio de cada vista. */

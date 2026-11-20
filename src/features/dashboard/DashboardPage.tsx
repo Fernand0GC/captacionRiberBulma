@@ -9,6 +9,7 @@ import { STAGE_LABEL } from '@/features/prospects/format'
 import { periodRange, type Period } from '@/features/prospects/search'
 import { PageTitle } from '@/ui/PageTitle'
 import { useMetrics } from './api'
+import { useDailyReport } from '@/features/monitoring/api'
 import { useGoalsForDay } from '@/features/goals/api'
 import { GoalProgress } from '@/features/goals/GoalProgress'
 import { Card, DayColumns, HBars, InlineBar, StatTile } from './charts'
@@ -37,6 +38,8 @@ export function DashboardPage() {
   const channels = useChannels()
   const { from, to } = periodRange({ periodo: period })
   const m = useMetrics({ from, to, branch_id: isGlobal ? branch : undefined })
+  // Clientes distintos con seguimiento en el período (spec 009, US4): misma regla que «Del día», sin listas.
+  const followed = useDailyReport({ from, to, branch_id: isGlobal ? branch : undefined, lists: false })
   const goals = useGoalsForDay(isGlobal ? branch : undefined)
   const hasGoals = !!goals.data && Object.values(goals.data.goals).some((v) => v !== null)
   const k = m.data?.kpis
@@ -106,9 +109,24 @@ export function DashboardPage() {
             )}
           </Card>
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6" data-testid="kpis">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7" data-testid="kpis">
             <StatTile accent label="Captaciones" value={k.captures} hint={`${pct(k.captures_sold, k.captures)} ya compró`} />
             <StatTile label="Contactos" value={k.contacts} hint={`${pct(k.effective, k.contacts)} efectivos`} />
+            {period === 'hoy' ? (
+              <Link
+                to="/gestion"
+                search={{ ver: 'dia', lista: 'seguimiento' }}
+                className="rounded-3xl focus-visible:outline-2 focus-visible:outline-gold"
+              >
+                <StatTile
+                  label="Clientes con seguimiento"
+                  value={followed.data?.totals.followed ?? '…'}
+                  hint="clientes distintos · ver lista →"
+                />
+              </Link>
+            ) : (
+              <StatTile label="Clientes con seguimiento" value={followed.data?.totals.followed ?? '…'} hint="clientes distintos" />
+            )}
             <StatTile label="Clientes potenciales" value={k.potential} hint="pasaron a etapa 4" />
             <StatTile label="Ventas" value={k.sales} hint="cerradas en el período" />
             <StatTile label="Visitas pactadas" value={k.visits} hint="para el período" />
