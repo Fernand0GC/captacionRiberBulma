@@ -15,6 +15,7 @@ import { CaptureForm } from '@/features/capture/CaptureForm'
 import { RegisterHome } from '@/features/capture/RegisterHome'
 import { PortalProvider } from '@/features/portal/PortalProvider'
 import { validateManageSearch } from '@/features/prospects/search'
+import { validateReferralSearch } from '@/features/referrals/search'
 import { AppShell } from './AppShell'
 import { HomeRedirect, RequireRole } from './guards'
 
@@ -202,6 +203,7 @@ const referralsLayout = createRoute({
 const referralsRoute = createRoute({
   getParentRoute: () => referralsLayout,
   path: '/referidos',
+  validateSearch: validateReferralSearch,
   component: lazyRouteComponent(() => import('@/features/referrals/ReferralsPage'), 'ReferralsPage'),
 })
 

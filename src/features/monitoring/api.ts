@@ -26,6 +26,8 @@ export type FollowupStatusFilters = {
   overdue?: boolean
   stale_days?: number
   lost_reason_id?: number
+  /** Spec 014: 'any' = solo referidos; número = un referidor. */
+  referrer?: 'any' | number
 }
 
 export type FollowupStatusRow = {
@@ -51,6 +53,8 @@ export type FollowupStatusRow = {
   client_created_at: string
   channel_name: string | null
   created_by_name: string
+  /** Spec 014: de quién vino (null = no es referido). */
+  referrer_name?: string | null
 }
 
 export type FollowupStatusPage = {

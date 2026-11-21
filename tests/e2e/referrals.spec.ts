@@ -39,7 +39,7 @@ test('referidos: alta con meta, registro referido con y sin señal, corrección 
   await login(page, 'jefe.ventas')
   await expect(page).toHaveURL(/\/panel/)
   await page.goto('/referidos')
-  await expect(page.getByRole('combobox', { name: 'Sucursal' }).locator('option')).toHaveText(['VERDOLAGO', 'TRINIDAD'])
+  await expect(page.getByRole('combobox', { name: 'Sucursal' }).locator('option')).toHaveText(['Todas mis sucursales', 'VERDOLAGO', 'TRINIDAD'])
   await page.getByRole('tab', { name: 'Referidores y metas' }).click()
   await addReferrer(page, fernanda, 'Personal', '4')
   await addReferrer(page, walker, 'Freelance', '10')

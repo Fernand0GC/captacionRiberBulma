@@ -23,6 +23,7 @@ import { MdFileDownload } from 'react-icons/md'
 import { PageTitle } from '@/ui/PageTitle'
 import { CaptureHeaders } from './CaptureHeaders'
 import { fmtDay, ManageFilterBar, useDebounced, useManageScope, ViewSwitch } from './ManageFilterBar'
+import { referrerFilter } from './search'
 
 // Vistas de monitoreo (specs/002-monitoreo-seguimiento): se cargan solo al entrar.
 const FollowupStatusView = lazy(() => import('@/features/monitoring/FollowupStatusView'))
@@ -74,6 +75,7 @@ function CapturesView({ scope }: { scope: ReturnType<typeof useManageScope> }) {
     assigned: search.responsable === 'sin' ? 'none' : search.responsable,
     stage: search.etapa,
     product_id: search.producto,
+    referrer: referrerFilter(search),
     view: search.ver === 'visitas' ? ('visits' as const) : undefined,
   }
 
@@ -234,7 +236,7 @@ function CapturesView({ scope }: { scope: ReturnType<typeof useManageScope> }) {
         scope={scope}
         q={q}
         setQ={setQ}
-        show={{ search: true, author: true, assignee: true, stage: true, channel: true, product: true }}
+        show={{ search: true, author: true, assignee: true, stage: true, channel: true, product: true, referrer: true }}
       />
 
       {/* Cantidad por canal: chips que además filtran (con todos los demás filtros aplicados). */}
@@ -559,7 +561,7 @@ function ProspectsTable({
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td colSpan={(showBranch ? 8 : 7) + (selecting ? 1 : 0)} className="px-4 py-10 text-center text-ink/50">
+              <td colSpan={(showBranch ? 9 : 8) + (selecting ? 1 : 0)} className="px-4 py-10 text-center text-ink/50">
                 {emptyText}
               </td>
             </tr>
@@ -608,6 +610,7 @@ function ProspectsTable({
                 {r.channel_name ?? <span className="text-ink/30">—</span>}
                 {r.channel_detail && <span className="block text-xs text-ink/55">{r.channel_detail}</span>}
               </td>
+              <td className="px-4 py-3">{r.referrer_name ?? <span className="text-ink/30">—</span>}</td>
               {showBranch && <td className="px-4 py-3">{r.branch_name}</td>}
               <td className="px-4 py-3">
                 <span className="font-medium">{r.created_by_name}</span>
@@ -673,6 +676,7 @@ function ProspectsCards({
               Canal: {r.channel_name ?? 'sin canal'}
             </span>
             {r.channel_detail && <span className="text-ink/70">{r.channel_detail}</span>}
+            {r.referrer_name && <span className="rounded-full bg-gold/15 px-3 py-0.5 font-semibold text-gold-dark">Referido · {r.referrer_name}</span>}
             {[r.product_name, showBranch ? r.branch_name : null].filter(Boolean).join(' · ')}
           </p>
           <p className="mt-2 border-t border-ink/5 pt-2 text-sm text-ink/55">

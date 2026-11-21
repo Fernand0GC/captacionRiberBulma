@@ -1,9 +1,8 @@
 import { MdArrowBack, MdChevronLeft, MdChevronRight } from 'react-icons/md'
-import type { BranchActivityRow } from './api'
 
 /**
  * Barra de ubicación al ver una sucursal desde el resumen (Actividad): dice dónde se está, vuelve a todas las
- * sucursales y recorre las demás en el orden del resumen (más contactos primero).
+ * sucursales y recorre las demás en el orden del resumen (más contactos primero). También la usa Referidos (spec 014).
  */
 export function BranchDrillBar({
   order,
@@ -12,7 +11,7 @@ export function BranchDrillBar({
   onBack,
   onStep,
 }: {
-  order: BranchActivityRow[]
+  order: { branch_id: number; name: string }[]
   current: number
   name: string
   onBack: () => void

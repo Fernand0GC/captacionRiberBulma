@@ -12,7 +12,7 @@ import {
   ViewSwitch,
   type ManageScope,
 } from '@/features/prospects/ManageFilterBar'
-import type { AttemptsParam, InterestParam, StaleDays } from '@/features/prospects/search'
+import { referrerFilter, type AttemptsParam, type InterestParam, type StaleDays } from '@/features/prospects/search'
 import { MONITORING_PAGE, useFollowupStatus, useLostReasons, type FollowupStatusFilters, type FollowupStatusRow } from './api'
 import { FOLLOWUP_TABS, TAB_EMPTY } from './labels'
 import { ExportButton } from './ExportButton'
@@ -52,6 +52,7 @@ export function FollowupStatusView({ scope }: { scope: ManageScope }) {
     overdue: search.vencidos,
     stale_days: search.sin_contacto,
     lost_reason_id: search.estado === 'sin_interes' ? search.motivo : undefined,
+    referrer: referrerFilter(search),
   }
   const status = useFollowupStatus(filters, page)
   const lostReasons = useLostReasons()
@@ -109,6 +110,15 @@ export function FollowupStatusView({ scope }: { scope: ManageScope }) {
           <option value="ninguno">Ninguno</option>
           <option value="1-2">1 o 2 veces</option>
           <option value="3+">3 o más</option>
+        </select>
+        <select
+          aria-label="Origen"
+          className={selectCls}
+          value={search.origen ?? ''}
+          onChange={(e) => setSearch({ origen: e.target.value === 'referidos' ? 'referidos' : undefined, referidor: undefined })}
+        >
+          <option value="">Origen: todos</option>
+          <option value="referidos">Solo referidos</option>
         </select>
         <select
           aria-label="Sin contacto hace más de"

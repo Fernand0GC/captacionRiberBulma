@@ -31,6 +31,9 @@ export type ProspectRow = {
   assigned_to_name: string | null
   contact_attempts: number
   visit_at: string | null
+  /** Referidor (spec 014); null = no es referido. */
+  referrer_id?: number | null
+  referrer_name?: string | null
 }
 
 export type ProspectFilters = {
@@ -43,6 +46,8 @@ export type ProspectFilters = {
   assigned?: string
   stage?: string
   product_id?: number
+  /** Spec 014: 'any' = solo referidos; número = un referidor. */
+  referrer?: 'any' | number
   view?: 'visits'
 }
 

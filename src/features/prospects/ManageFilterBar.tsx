@@ -5,6 +5,7 @@ import { useBranchScope } from '@/features/auth/useBranchScope'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { groupChannels } from '@/features/capture/channelGroups'
 import { GROUP_LABEL, type ProductGroup } from '@/features/capture/useCatalogs'
+import { useReferrers } from '@/features/referrals/api'
 import { useChannels, useProducts, useStaff, type Staff } from './api'
 import { STAGE_LABEL } from './format'
 import {
@@ -122,6 +123,8 @@ export function useScopedStaff(branchId: number | undefined) {
 
 export type FilterBarShow = {
   search?: boolean
+  /** «Referido por» (spec 014): solo referidos o un referidor de la sucursal elegida. */
+  referrer?: boolean
   author?: boolean
   assignee?: boolean
   stage?: boolean
@@ -147,6 +150,7 @@ export function ManageFilterBar({
   const { all: staffInScope, assignees } = useScopedStaff(branchId)
   const channels = useChannels()
   const products = useProducts()
+  const referrers = useReferrers(show.referrer ? branchId : undefined)
 
   return (
     <section className="flex flex-col gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5" aria-label="Filtros">
@@ -215,6 +219,8 @@ export function ManageFilterBar({
                 responsable: undefined,
                 persona: undefined,
                 metrica: undefined,
+                // Los referidores son de cada sucursal (spec 014).
+                referidor: undefined,
               })
             }
           >
@@ -315,6 +321,30 @@ export function ManageFilterBar({
                   ))}
               </optgroup>
             ))}
+          </select>
+        )}
+        {show.referrer && (
+          <select
+            aria-label="Referido por"
+            className={selectCls}
+            value={search.origen !== 'referidos' ? '' : (search.referidor ?? 'any')}
+            onChange={(e) =>
+              setSearch({
+                origen: e.target.value ? 'referidos' : undefined,
+                referidor: e.target.value && e.target.value !== 'any' ? Number(e.target.value) : undefined,
+              })
+            }
+          >
+            <option value="">Referido por: todos</option>
+            <option value="any">Solo referidos</option>
+            {branchId !== undefined &&
+              (referrers.data ?? [])
+                .filter((r) => r.merged_into == null)
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
           </select>
         )}
         {children}

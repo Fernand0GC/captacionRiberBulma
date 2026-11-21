@@ -1,6 +1,7 @@
 import { ROLE_LABEL } from '@/features/auth/types'
 import { groupChannels } from '@/features/capture/channelGroups'
 import { GROUP_LABEL, type ProductGroup } from '@/features/capture/useCatalogs'
+import { useReferrers } from '@/features/referrals/api'
 import { ColumnFilter, FilterOptions, type FilterOption } from '@/ui/ColumnFilter'
 import { useChannels, useProducts } from './api'
 import { STAGE_LABEL } from './format'
@@ -27,6 +28,8 @@ export function CaptureHeaders({
   const staff = useScopedStaff(branchId)
   const channels = useChannels()
   const products = useProducts()
+  // Referidores de la sucursal elegida (son de cada sucursal); con «Todas» solo «Solo referidos».
+  const referrers = useReferrers(branchId)
 
   const period = search.periodo ?? 'hoy'
   const periodLabel = period === 'rango' ? (from === to ? fmtDay(from) : `${fmtDay(from)}–${fmtDay(to)}`) : PERIOD_LABEL[period]
@@ -47,6 +50,11 @@ export function CaptureHeaders({
     { value: 'sin', label: 'Sin asignar', special: true },
     ...staff.assignees.map((s) => ({ value: s.id, label: s.full_name })),
   ]
+  const referrerOptions: FilterOption[] = [
+    { value: 'any', label: 'Solo referidos', special: true },
+    ...(branchId === undefined ? [] : (referrers.data ?? []).filter((r) => r.merged_into == null).map((r) => ({ value: String(r.id), label: r.name }))),
+  ]
+  const referrerValue = search.origen !== 'referidos' ? undefined : search.referidor === undefined ? 'any' : String(search.referidor)
   const stageOptions: FilterOption[] = Object.entries(STAGE_LABEL).map(([value, label]) => ({ value, label }))
   const labelOf = (opts: FilterOption[], v: string | number | undefined) =>
     v === undefined ? undefined : opts.find((o) => o.value === String(v))?.label
@@ -54,7 +62,7 @@ export function CaptureHeaders({
   // Cambiar de sucursal limpia a las personas: son de la sucursal anterior (igual que la barra).
   const pickBranch = (v: string | undefined) => {
     if (v === undefined && !branchScope.allowAll) return
-    setSearch({ sucursal: v ? Number(v) : undefined, autor: undefined, responsable: undefined, persona: undefined, metrica: undefined })
+    setSearch({ sucursal: v ? Number(v) : undefined, autor: undefined, responsable: undefined, persona: undefined, metrica: undefined, referidor: undefined })
   }
 
   return (
@@ -133,6 +141,26 @@ export function CaptureHeaders({
             options={channelOptions}
             value={search.canal === undefined ? undefined : String(search.canal)}
             onPick={(v) => setSearch({ canal: v === 'sin' ? 'sin' : v ? Number(v) : undefined })}
+          />
+        </ColumnFilter>
+      </th>
+      <th scope="col" className={th}>
+        <ColumnFilter
+          label="Referido por"
+          active={referrerValue !== undefined}
+          valueLabel={labelOf(referrerOptions, referrerValue)}
+          onClear={() => setSearch({ origen: undefined, referidor: undefined })}
+        >
+          <FilterOptions
+            noun="referidor"
+            options={referrerOptions}
+            value={referrerValue}
+            onPick={(v) =>
+              setSearch({
+                origen: v ? 'referidos' : undefined,
+                referidor: v && v !== 'any' ? Number(v) : undefined,
+              })
+            }
           />
         </ColumnFilter>
       </th>

@@ -118,3 +118,9 @@ export function periodRange(s: ManageSearch, now: Date = new Date()): { from: st
       return { from: today, to: today }
   }
 }
+
+/** Filtro «Referido por» de Captaciones y Seguimientos (spec 014): un referidor, «solo referidos» o nada. */
+export function referrerFilter(s: Pick<ManageSearch, 'origen' | 'referidor'>): 'any' | number | undefined {
+  if (s.origen !== 'referidos') return undefined
+  return s.referidor ?? 'any'
+}

@@ -47,6 +47,8 @@ export type Referrer = {
   created_at?: string
   /** Quién lo agregó; null si quien consulta no puede ver ese perfil. */
   creator?: { full_name: string } | null
+  /** Unido a otro referidor (spec 014): desactivado, no se edita. */
+  merged_into?: number | null
 }
 
 const reportKey = (branch: number, month: string) => ['referrals', 'report', branch, month]
@@ -72,7 +74,7 @@ export function useReferrers(branch: number | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('referrers')
-        .select('id, branch_id, name, kind, sort, active, source, created_at, creator:profiles!referrers_created_by_fkey(full_name)')
+        .select('id, branch_id, name, kind, sort, active, source, created_at, merged_into, creator:profiles!referrers_created_by_fkey(full_name)')
         .eq('branch_id', branch ?? 0)
         .order('sort')
         .order('name')
@@ -90,6 +92,9 @@ const INVALID_DETAIL: Record<string, string> = {
   goal: 'La meta debe ser un número entre 0 y 9999.',
   month: 'Elige un mes válido.',
   referrer_id: 'El referidor no es de esta sucursal.',
+  merged: 'Este referidor está unido a otro: ya no se edita.',
+  into_id: 'Elige otro referidor de la misma sucursal (que no esté unido).',
+  from_id: 'Este referidor ya está unido a otro.',
 }
 
 /** Error de la RPC → mensaje en español (con el campo de invalid_input cuando lo hay). */
@@ -121,6 +126,92 @@ export function useReferralMutation<V, R>(fn: (v: V) => Promise<R>) {
     mutationFn: fn,
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['referrals'] })
+    },
+  })
+}
+
+// Spec 014: reporte por rango y sucursales, unir referidores --------------------------------------------
+
+export type RangeRow = Counts & {
+  id: number
+  name: string
+  kind: ReferrerKind
+  active: boolean
+  sort: number
+  source: 'manager' | 'capture'
+  /** Meta del rango (con un decimal si se prorrateó). null = sin meta. */
+  goal: number | null
+  /** Fecha ISO ("2026-11-04") → llegados y compras. Solo días con movimiento. */
+  by_day: Record<string, { arrived: number; sold: number }>
+}
+
+export type BranchRow = Counts & { id: number; name: string; referrers: number; goal: number | null; captures: number }
+
+export type RangeContact = {
+  id: string
+  branch_id: number
+  branch_name: string
+  referrer_id: number
+  referrer_name: string
+  full_name: string
+  phone: string
+  product: string | null
+  assigned_to: string | null
+  registered_by: string | null
+  stage: Stage
+  arrived_at: string
+  sold_at: string | null
+  last_contact_at: string | null
+  /** Días desde que llegó, solo si sigue sin contactar. */
+  days_waiting: number | null
+}
+
+export type Registrar = { id: string; name: string; role: string; branch_name: string; captures: number; referred: number }
+
+export type RangeReport = {
+  branch_id: number | null
+  branch: string | null
+  from: string
+  to: string
+  days: number
+  goal_prorated: boolean
+  totals: Counts & { goal: number | null; captures: number }
+  by_branch: BranchRow[]
+  referrers: RangeRow[]
+  contacts: RangeContact[]
+  registrars: Registrar[]
+}
+
+export type RangeFilters = { branch_id?: number; from: string; to: string; lists?: boolean }
+
+export function useReferralRange(filters: RangeFilters, enabled = true) {
+  return useQuery({
+    queryKey: ['referrals', 'range', filters],
+    enabled,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('referral_report_range', { p: filters })
+      if (error) throw toAppError(error)
+      return data as RangeReport
+    },
+  })
+}
+
+export async function mergeReferrer(input: { from_id: number; into_id: number }): Promise<void> {
+  const { error } = await supabase.rpc('referrer_merge', { p: input })
+  if (error) throw rpcError(error)
+}
+
+/** Metas propias de un mes (sin arrastre), para «Copiar metas del mes anterior» y la edición en bloque. */
+export function useOwnGoals(branch: number | undefined, month: string) {
+  return useQuery({
+    queryKey: ['referrals', 'goals', branch, month],
+    enabled: branch !== undefined,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('referral_report', { p_branch: branch, p_month: month })
+      if (error) throw toAppError(error)
+      const report = data as ReferralReport
+      return report.referrers.map((r) => ({ id: r.id, goal: r.goal, own: r.goal_from === report.month }))
     },
   })
 }
