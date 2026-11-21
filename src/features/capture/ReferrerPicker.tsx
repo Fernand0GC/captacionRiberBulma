@@ -14,6 +14,9 @@ import {
   type ReferrerOption,
 } from './referrerPick'
 
+export type PickerText = { label: string; chosen: string; placeholder: string }
+const PICKER_TEXT: PickerText = { label: '¿Quién lo recomendó?', chosen: 'Lo recomendó', placeholder: 'Nombre de quien lo recomendó' }
+
 const kindLabel = (o: ReferrerOption) => newKindLabel(o) ?? KIND_LABEL[o.kind as ReferrerKind] ?? ''
 
 /**
@@ -27,6 +30,7 @@ export function ReferrerPicker({
   query,
   onQueryChange,
   error,
+  text = PICKER_TEXT,
 }: {
   options: ReferrerOption[]
   value: ReferrerChoice | null
@@ -35,6 +39,8 @@ export function ReferrerPicker({
   query: string
   onQueryChange: (q: string) => void
   error?: string
+  /** Textos de la pantalla (spec 016: la carga de oficina dice «¿Quién te pasó los contactos?»). */
+  text?: PickerText
 }) {
   const [adding, setAdding] = useState(false)
 
@@ -42,7 +48,7 @@ export function ReferrerPicker({
     return (
       <div className="flex items-center justify-between gap-3 rounded-2xl bg-gold/10 px-4 py-3 ring-1 ring-gold/30" data-testid="referrer-chosen">
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-ink/55">Lo recomendó</p>
+          <p className="text-xs font-semibold text-ink/55">{text.chosen}</p>
           <p className="truncate text-lg font-semibold">{value.name}</p>
           {value.id === null && <p className="text-sm text-ink/60">{NEW_KIND_LABEL[value.kind]} · nuevo, se agrega a la lista</p>}
         </div>
@@ -99,7 +105,7 @@ export function ReferrerPicker({
   return (
     <div className="flex flex-col gap-2">
       <Field
-        label="¿Quién lo recomendó?"
+        label={text.label}
         required
         error={error}
         hint={options.length > 0 ? 'La persona que lo mandó, no el cliente. Elige de la lista o escribe el nombre.' : 'La persona que lo mandó, no el cliente. Escribe su nombre.'}
@@ -112,7 +118,7 @@ export function ReferrerPicker({
             autoComplete="off"
             autoCapitalize="words"
             maxLength={NAME_MAX}
-            placeholder="Nombre de quien lo recomendó"
+            placeholder={text.placeholder}
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
           />

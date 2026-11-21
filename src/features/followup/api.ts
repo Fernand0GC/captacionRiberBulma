@@ -35,6 +35,9 @@ export type FollowupRow = {
   last_note: string | null
   last_contacted_at: string | null
   contacts_count?: number
+  /** Spec 016: quién lo recomendó y quién me lo asignó (si fue otra persona). Faltan si la base no tiene la 016. */
+  referrer_name?: string | null
+  assigned_by_name?: string | null
 }
 
 /** Cerrado que se puede volver a contactar (check "Ver cerrados anteriores" de Mis contactos). */

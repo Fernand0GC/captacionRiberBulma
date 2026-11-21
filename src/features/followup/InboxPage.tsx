@@ -58,6 +58,21 @@ function Badge({ s }: { s: DueStatus }) {
   )
 }
 
+/** Spec 016: el cliente vino recomendado y/o alguien más se lo asignó. Nada si no aplica. */
+function ReferralTag({ r }: { r: FollowupRow }) {
+  if (!r.referrer_name && !r.assigned_by_name) return null
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-1.5" data-testid="referral-tag">
+      {r.referrer_name && (
+        <span className="inline-flex items-center rounded-full bg-gold/15 px-2.5 py-0.5 text-xs font-semibold text-gold-dark ring-1 ring-gold/30">
+          Referido por {r.referrer_name}
+        </span>
+      )}
+      {r.assigned_by_name && <span className="text-xs text-ink/50">te lo asignó {r.assigned_by_name}</span>}
+    </span>
+  )
+}
+
 function StatusBadge({ s }: { s: DueStatus }) {
   if (!s.next) return <Badge s={s} />
   return (
@@ -136,6 +151,7 @@ function ContactsTable({ rows, tab, now, onResult }: { rows: FollowupRow[]; tab:
                   <span className="block text-xs text-ink/45">
                     {STAGE_LABEL[r.stage]} · {r.channel_name ?? 'Sin canal'}
                   </span>
+                  <ReferralTag r={r} />
                 </td>
                 <td className="px-2 py-1.5">
                   <PhoneMenu id={r.id} name={r.full_name} phoneRaw={r.phone_raw} phoneNorm={r.phone_norm} />
@@ -193,6 +209,7 @@ function ContactCards({ rows, tab, now, onResult }: { rows: FollowupRow[]; tab: 
             <p className="text-sm text-ink/55">
               {[r.product_name, r.channel_name].filter(Boolean).join(' · ') || 'Sin producto'} · captó {r.created_by_name}
             </p>
+            <ReferralTag r={r} />
             {tab === 'followup' && (
               <p className="text-sm">
                 <WhatDone r={r} />

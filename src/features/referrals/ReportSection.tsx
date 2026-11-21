@@ -1,12 +1,10 @@
 import { Fragment, useState } from 'react'
-import { Link } from '@tanstack/react-router'
 import { Card, DayColumns, StatTile } from '@/features/dashboard/charts'
 import { BranchDrillBar } from '@/features/monitoring/BranchDrillBar'
-import { fmtDate, fmtTime, STAGE_LABEL } from '@/features/prospects/format'
 import { laPazDate } from '@/lib/dates'
 import { Button } from '@/ui/Button'
 import { useToast } from '@/ui/Toast'
-import { useReferralRange, type RangeContact, type RangeReport, type RangeRow } from './api'
+import { useReferralRange, type RangeReport, type RangeRow } from './api'
 import {
   conversion,
   dayColumns,
@@ -26,11 +24,10 @@ import {
   type ReferrerKind,
 } from './logic'
 import { inputCls, pickBranch, SortHeader, Tabs, td, th, type ReferralScope } from './parts'
+import { ReferrerDetailDialog } from './ReferrerDetailDialog'
 import { previousRange } from './search'
 
 // Reporte de referidos por rango (spec 014, US1–US3): tarjetas, tabla por sucursal o por referidor, «Por día».
-
-const when = (iso: string | null) => (iso ? `${fmtDate(iso)} ${fmtTime(iso)}` : '—')
 
 function CountCells({ r }: { r: CountsWithGoal }) {
   return (
@@ -166,45 +163,13 @@ function BranchTable({ report, s }: { report: RangeReport; s: ReferralScope }) {
 
 // Una sucursal ----------------------------------------------------------------------------------------
 
-function ContactsOf({ list }: { list: RangeContact[] }) {
-  if (list.length === 0) return <p className="py-2 text-sm text-ink/50">Sin contactos en el período.</p>
-  return (
-    <table className="w-full text-left text-sm" aria-label="Contactos del referidor">
-      <thead>
-        <tr className="text-ink/50">
-          {['Nombre', 'Celular', 'Producto', 'Responsable', 'Etapa', 'Llegó', 'Venta'].map((h) => (
-            <th key={h} scope="col" className={th}>
-              {h}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {list.map((c) => (
-          <tr key={c.id} className="border-t border-ink/5">
-            <td className="py-1.5 pr-3">
-              <Link to="/cliente/$id" params={{ id: c.id }} className="font-semibold hover:text-gold-dark hover:underline">
-                {c.full_name}
-              </Link>
-            </td>
-            <td className="py-1.5 pr-3 tabular-nums">{c.phone}</td>
-            <td className="py-1.5 pr-3">{c.product ?? '—'}</td>
-            <td className="py-1.5 pr-3">{c.assigned_to ?? '—'}</td>
-            <td className="py-1.5 pr-3">{c.sold_at ? 'Compró' : (STAGE_LABEL[c.stage] ?? c.stage)}</td>
-            <td className="py-1.5 pr-3 tabular-nums">{when(c.arrived_at)}</td>
-            <td className="py-1.5 pr-3 tabular-nums">{when(c.sold_at)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
 function SummaryTable({ report, rows, s }: { report: RangeReport; rows: RangeRow[]; s: ReferralScope }) {
   const [open, setOpen] = useState<number | null>(null)
   const key = isSortKey(s.search.orden) ? s.search.orden : undefined
   const sorted = sortRows(rows, key, s.search.dir)
   const groups = s.search.agrupar ? groupByKind(sorted) : [{ kind: null, rows: sorted }]
+
+  const openRow = rows.find((r) => r.id === open)
 
   const row = (r: RangeRow) => (
     <Fragment key={r.id}>
@@ -212,9 +177,9 @@ function SummaryTable({ report, rows, s }: { report: RangeReport; rows: RangeRow
         <td className="py-2 pr-3">
           <button
             type="button"
-            className="text-left font-semibold hover:text-gold-dark hover:underline"
-            aria-expanded={open === r.id}
-            onClick={() => setOpen(open === r.id ? null : r.id)}
+            className="text-left font-semibold underline decoration-gold/40 underline-offset-4 hover:text-gold-dark hover:decoration-gold"
+            aria-haspopup="dialog"
+            onClick={() => setOpen(r.id)}
           >
             {r.name}
           </button>
@@ -225,18 +190,19 @@ function SummaryTable({ report, rows, s }: { report: RangeReport; rows: RangeRow
         </td>
         <CountCells r={r} />
       </tr>
-      {open === r.id && (
-        <tr className="border-b border-ink/5 bg-cream/60">
-          <td colSpan={9} className="px-3 py-2">
-            <ContactsOf list={report.contacts.filter((c) => c.referrer_id === r.id)} />
-          </td>
-        </tr>
-      )}
     </Fragment>
   )
 
   return (
     <div className="overflow-x-auto">
+      {openRow && (
+        <ReferrerDetailDialog
+          name={openRow.name}
+          subtitle={`${KIND_LABEL[openRow.kind]} · ${report.branch ?? ''} · ${rangeLabel(report.from, report.to)}`}
+          list={report.contacts.filter((c) => c.referrer_id === openRow.id)}
+          onClose={() => setOpen(null)}
+        />
+      )}
       <table className="w-full min-w-[48rem] text-left text-sm">
         <thead>
           <tr className="border-b border-ink/10 text-ink/50">

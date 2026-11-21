@@ -4,7 +4,7 @@ import { KINDS, type ReferrerKind } from './logic'
 // Filtros de /referidos en la URL (spec 014, FR-009). Solo datos no personales: ids, fechas y nombres de columnas.
 
 export type ReferralPeriod = 'hoy' | '7d' | 'mes' | 'mes_pasado' | 'rango'
-export type ReferralSection = 'reporte' | 'contactos' | 'quien' | 'referidores'
+export type ReferralSection = 'reporte' | 'contactos' | 'quien' | 'referidores' | 'cargar'
 export type SortDir = 'asc' | 'desc'
 
 export type ReferralSearch = {
@@ -41,7 +41,7 @@ export const PERIODS: { v: ReferralPeriod; label: string }[] = [
   { v: 'rango', label: 'Rango' },
 ]
 
-const SECTIONS: ReferralSection[] = ['reporte', 'contactos', 'quien', 'referidores']
+const SECTIONS: ReferralSection[] = ['reporte', 'contactos', 'quien', 'referidores', 'cargar']
 const STAGES = ['capture', 'recapture', 'followup', 'interested', 'sale', 'lost', 'sold']
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
 const isMonth = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}$/.test(v)

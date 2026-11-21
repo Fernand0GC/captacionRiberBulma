@@ -22,11 +22,11 @@ export const STAGE_COLOR: Record<ProspectStage, string> = {
   sale: '#1f8a4c',
   lost: '#e31c25',
 }
-const OUTCOME_COLOR: Record<OutcomeGroup, string> = { ...STAGE_COLOR, same: '#b9b4a6', none: '#e31c25' }
+export const OUTCOME_COLOR: Record<OutcomeGroup, string> = { ...STAGE_COLOR, same: '#b9b4a6', none: '#e31c25' }
 
 const when = (iso: string) => `${fmtDate(iso).slice(0, 5)} ${fmtTime(iso)}`
 
-function StagePill({ stage, outline }: { stage: ProspectStage; outline?: boolean }) {
+export function StagePill({ stage, outline }: { stage: ProspectStage; outline?: boolean }) {
   const c = STAGE_COLOR[stage]
   return (
     <span

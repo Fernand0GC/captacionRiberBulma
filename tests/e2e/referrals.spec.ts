@@ -73,15 +73,19 @@ test('referidos: alta con meta, registro referido con y sin señal, corrección 
   await expect(cells(page, fernanda).nth(8)).toHaveText('50%')
   await expect(cells(page, walker).nth(1)).toHaveText('0')
 
-  // Detalle del referidor → ficha del contacto con «Referido por»
+  // Detalle del referidor (ventana de la spec 016) → ficha del contacto con «Referido por»
   await page.getByRole('button', { name: fernanda }).click()
-  const contacts = page.getByRole('table', { name: 'Contactos del referidor' })
-  await expect(contacts.getByRole('link')).toHaveText([clientOnline, clientOffline])
+  const detail = page.getByRole('dialog', { name: `${fernanda} · Referidos` })
+  const links = detail.getByRole('list', { name: 'Referidos' }).getByRole('link')
+  await expect(links).toHaveCount(2)
+  await expect(links.filter({ hasText: clientOnline })).toHaveCount(1)
+  await expect(links.filter({ hasText: clientOffline })).toHaveCount(1)
+  await detail.getByRole('button', { name: 'Cerrar' }).click()
   await page.getByRole('tab', { name: 'Por día' }).click()
   await expect(page.getByRole('table', { name: 'Avance por día' })).toContainText(fernanda)
   await page.getByRole('tab', { name: 'Resumen' }).click()
   await page.getByRole('button', { name: fernanda }).click()
-  await page.getByRole('link', { name: clientOffline }).click()
+  await page.getByRole('dialog', { name: `${fernanda} · Referidos` }).getByRole('link', { name: clientOffline }).click()
   await expect(page).toHaveURL(/\/cliente\//)
   await expect(page.locator('dt', { hasText: 'Referido por' }).locator('..')).toContainText(fernanda)
 

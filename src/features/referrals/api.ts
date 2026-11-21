@@ -1,6 +1,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toAppError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
+import type { ContactMethod, ContactResult } from '@/features/followup/api'
+import type { Assignee, BatchItem, PhoneHit } from './load'
 import type { Counts, ReferrerKind } from './logic'
 
 // Referidos (spec 005). Contratos en specs/005-referidos/contracts/rpc.md.
@@ -162,6 +164,12 @@ export type RangeContact = {
   arrived_at: string
   sold_at: string | null
   last_contact_at: string | null
+  /** Spec 016 (opcionales hasta que la base tenga la migración): contactos registrados y el último. */
+  contacts?: number
+  first_contact_at?: string | null
+  last_method?: ContactMethod | null
+  last_result?: ContactResult | null
+  last_note?: string | null
   /** Días desde que llegó, solo si sigue sin contactar. */
   days_waiting: number | null
 }
@@ -212,6 +220,83 @@ export function useOwnGoals(branch: number | undefined, month: string) {
       if (error) throw toAppError(error)
       const report = data as ReferralReport
       return report.referrers.map((r) => ({ id: r.id, goal: r.goal, own: r.goal_from === report.month }))
+    },
+  })
+}
+
+// Spec 016: cargar y asignar en lote ---------------------------------------------------------------------
+
+/** Responsables posibles de la sucursal con sus pendientes (auxiliares, supervisores y encargado activos). */
+export function useReferralAssignees(branch: number | undefined) {
+  return useQuery({
+    queryKey: ['referrals', 'assignees', branch],
+    enabled: branch !== undefined,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('referral_assignees', { p_branch: branch })
+      if (error) throw toAppError(error)
+      return data as Assignee[]
+    },
+  })
+}
+
+/** Celulares que ya existen (aviso antes de guardar). `phones` ya normalizados y válidos. */
+export function usePhoneCheck(branch: number | undefined, phones: string[]) {
+  const key = [...new Set(phones)].sort()
+  return useQuery({
+    queryKey: ['referrals', 'phones', branch, key],
+    enabled: branch !== undefined && key.length > 0,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('referral_phone_check', { p_branch: branch, p_phones: key.slice(0, 50) })
+      if (error) throw toAppError(error)
+      return data as PhoneHit[]
+    },
+  })
+}
+
+export type BatchInput = {
+  branch_id: number
+  referrer_id?: number
+  referrer_new?: { name: string; kind: string }
+  items: BatchItem[]
+}
+
+export type BatchResultItem =
+  | { id: string; result: 'accepted'; assigned_to: string | null }
+  | { id: string; result: 'duplicate'; branch_name: string; full_name: string | null; assigned_to_name: string | null }
+
+export type BatchResult = { referrer_id: number; referrer_name: string; accepted: number; duplicates: number; items: BatchResultItem[] }
+
+const BATCH_DETAIL: Record<string, string> = {
+  items: 'Revisa las filas: entre 1 y 50 contactos.',
+  assigned_to: 'Alguno de los responsables ya no se puede asignar en esta sucursal. Vuelve a elegir.',
+  referrer_id: 'Elige quién pasó los contactos.',
+  referrer_new: 'Escribe el nombre (2 a 60 letras) y elige quién es.',
+  branch_id: 'Elige una sucursal.',
+}
+
+export async function saveReferralBatch(input: BatchInput): Promise<BatchResult> {
+  const { data, error } = await supabase.rpc('referral_batch_save', { p: input })
+  if (error) {
+    const detail = error.details ?? ''
+    if (error.message === 'invalid_input' && detail in BATCH_DETAIL) throw new Error(BATCH_DETAIL[detail])
+    throw toAppError(error)
+  }
+  return data as BatchResult
+}
+
+/** Guardar en lote refresca Referidos, Captaciones, Seguimientos y Actividad. */
+export function useSaveReferralBatch() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: saveReferralBatch,
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['referrals'] }),
+        qc.invalidateQueries({ queryKey: ['prospects'] }),
+        qc.invalidateQueries({ queryKey: ['monitoring'] }),
+      ])
     },
   })
 }

@@ -1,11 +1,13 @@
 import { PageTitle } from '@/ui/PageTitle'
 import { ContactsSection, RegistrarsSection } from './ContactsSection'
+import { LoadSection } from './LoadSection'
 import { pickBranch, Tabs, useReferralScope } from './parts'
 import { ReferrersSection } from './ReferrersSection'
 import { ReportSection } from './ReportSection'
 import { PERIODS, type ReferralSection } from './search'
 
-// Referidos (spec 005 + 014): reporte por período y sucursales, contactos, quién registra, referidores y metas.
+// Referidos (spec 005 + 014 + 016): reporte por período y sucursales, contactos, quién registra, referidores y metas,
+// y carga en lote con asignación (016).
 // Solo jefe de ventas (sus sucursales), gerencia y Sistemas; el servidor lo verifica (referral_branches).
 // Todos los filtros viven en la URL (FR-009): recargar o compartir el link abre la misma vista.
 
@@ -14,13 +16,14 @@ const SECTIONS: { v: ReferralSection; label: string }[] = [
   { v: 'contactos', label: 'Contactos' },
   { v: 'quien', label: 'Quién registra' },
   { v: 'referidores', label: 'Referidores y metas' },
+  { v: 'cargar', label: 'Cargar' },
 ]
 
 export function ReferralsPage() {
   const s = useReferralScope()
   const section = s.search.seccion ?? 'reporte'
   const period = s.search.periodo ?? 'mes'
-  const showPeriod = section !== 'referidores'
+  const showPeriod = section !== 'referidores' && section !== 'cargar'
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6">
@@ -97,6 +100,8 @@ export function ReferralsPage() {
         <ContactsSection s={s} />
       ) : section === 'quien' ? (
         <RegistrarsSection s={s} />
+      ) : section === 'cargar' ? (
+        <LoadSection s={s} />
       ) : section === 'referidores' ? (
         <ReferrersSection key={s.branch ?? 'all'} s={s} />
       ) : (
