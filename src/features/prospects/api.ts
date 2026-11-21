@@ -42,6 +42,7 @@ export type ProspectFilters = {
   q?: string
   assigned?: string
   stage?: string
+  product_id?: number
   view?: 'visits'
 }
 
@@ -112,6 +113,21 @@ export function useChannels() {
       const { data, error } = await supabase.from('channels').select('id, name, channel_group').eq('active', true).order('sort')
       if (error) throw toAppError(error)
       return data.map((c) => ({ id: c.id as number, name: c.name as string, group: c.channel_group as ChannelGroup | null }))
+    },
+  })
+}
+
+export type ProductOption = { id: number; name: string; group: ProductGroup }
+
+/** Productos activos del catálogo, para el filtro de la columna Producto. */
+export function useProducts() {
+  return useQuery({
+    queryKey: ['products'],
+    staleTime: Infinity,
+    queryFn: async (): Promise<ProductOption[]> => {
+      const { data, error } = await supabase.from('products').select('id, name, product_group').eq('active', true).order('sort')
+      if (error) throw toAppError(error)
+      return data.map((p) => ({ id: p.id as number, name: p.name as string, group: p.product_group as ProductGroup }))
     },
   })
 }

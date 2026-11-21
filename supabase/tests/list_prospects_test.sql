@@ -1,5 +1,5 @@
 begin;
-select plan(17);
+select plan(19);
 
 -- Datos: 2 captaciones en Verdolago (volantera y encargado), 1 en Trinidad, 1 duplicada, 1 anulada.
 select tests.login_as('00000000-0000-4000-8000-000000000006');
@@ -50,6 +50,13 @@ select tests.login_as('00000000-0000-4000-8000-000000000006');
 select throws_ok($$ select public.list_prospects('{}') $$, 'P0001', 'forbidden', 'volantero no lista');
 select tests.login_as('00000000-0000-4000-8000-000000000004');
 select throws_ok($$ select public.staff_options() $$, 'P0001', 'forbidden', 'auxiliar no ve el personal');
+
+-- Filtro por producto (filtros en los títulos de la tabla, fase 2)
+select tests.logout();
+update public.prospects set product_id = (select id from public.products order by id limit 1) where id = '01900000-0000-7000-8000-0000000000c1';
+select tests.login_as('00000000-0000-4000-8000-000000000003');
+select is((public.list_prospects(jsonb_build_object('from','2026-10-20','to','2026-10-21','product_id',(select id from public.products order by id limit 1))) ->> 'total')::int, 1, 'producto: solo la que tiene ese producto');
+select is((public.list_prospects('{"from":"2026-10-20","to":"2026-10-21","product_id":""}') ->> 'total')::int, 2, 'producto vacío: sin filtro');
 
 select * from finish();
 rollback;

@@ -4,7 +4,8 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { useBranchScope } from '@/features/auth/useBranchScope'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { groupChannels } from '@/features/capture/channelGroups'
-import { useChannels, useStaff, type Staff } from './api'
+import { GROUP_LABEL, type ProductGroup } from '@/features/capture/useCatalogs'
+import { useChannels, useProducts, useStaff, type Staff } from './api'
 import { STAGE_LABEL } from './format'
 import {
   MONITORING_KEYS,
@@ -90,7 +91,7 @@ export function ViewSwitch({ search, setSearch }: { search: ManageSearch; setSea
   const change = (v: ManageView | undefined) => {
     const cleared = Object.fromEntries(MONITORING_KEYS.map((k) => [k, undefined])) as Partial<ManageSearch>
     // La etapa de Captaciones no aplica en Seguimientos (la reemplazan las pestañas) ni en Actividad.
-    setSearch({ ...cleared, etapa: undefined, ver: v })
+    setSearch({ ...cleared, etapa: undefined, producto: undefined, ver: v })
   }
   return (
     <div className="-mx-1 max-w-[calc(100vw-2rem)] overflow-x-auto px-1 sm:max-w-full">
@@ -111,12 +112,21 @@ export function ViewSwitch({ search, setSearch }: { search: ManageSearch; setSea
   )
 }
 
+/** Personal para los filtros «Registrado por» y «Responsable» (lo usan la barra y los títulos de la tabla). */
+export function useScopedStaff(branchId: number | undefined) {
+  const staff = useStaff()
+  const all: Staff[] = (staff.data ?? []).filter((s) => branchId === undefined || s.branch_id === branchId)
+  const assignees = all.filter((s) => s.role === 'field_assistant' || s.role === 'field_supervisor' || s.role === 'branch_manager')
+  return { all, assignees, isLoading: staff.isLoading }
+}
+
 export type FilterBarShow = {
   search?: boolean
   author?: boolean
   assignee?: boolean
   stage?: boolean
   channel?: boolean
+  product?: boolean
 }
 
 /** Barra de filtros de /gestion. `show` elige qué controles aparecen además de período y sucursal. */
@@ -134,9 +144,9 @@ export function ManageFilterBar({
   children?: ReactNode
 }) {
   const { search, setSearch, from, to, isGlobal, sucursal, branchScope, branchId } = scope
-  const staff = useStaff()
+  const { all: staffInScope, assignees } = useScopedStaff(branchId)
   const channels = useChannels()
-  const staffInScope: Staff[] = (staff.data ?? []).filter((s) => branchId === undefined || s.branch_id === branchId)
+  const products = useProducts()
 
   return (
     <section className="flex flex-col gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5" aria-label="Filtros">
@@ -240,9 +250,7 @@ export function ManageFilterBar({
           >
             <option value="">Responsable: todos</option>
             <option value="sin">Sin asignar</option>
-            {staffInScope
-              .filter((s) => s.role === 'field_assistant' || s.role === 'field_supervisor' || s.role === 'branch_manager')
-              .map((s) => (
+            {assignees.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.full_name}
                 </option>
@@ -284,6 +292,27 @@ export function ManageFilterBar({
                     {c.name}
                   </option>
                 ))}
+              </optgroup>
+            ))}
+          </select>
+        )}
+        {show.product && (
+          <select
+            aria-label="Producto"
+            className={selectCls}
+            value={search.producto ?? ''}
+            onChange={(e) => setSearch({ producto: e.target.value ? Number(e.target.value) : undefined })}
+          >
+            <option value="">Producto: todos</option>
+            {(Object.keys(GROUP_LABEL) as ProductGroup[]).map((g) => (
+              <optgroup key={g} label={GROUP_LABEL[g]}>
+                {(products.data ?? [])
+                  .filter((p) => p.group === g)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
               </optgroup>
             ))}
           </select>

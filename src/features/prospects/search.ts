@@ -12,6 +12,8 @@ export type ManageSearch = {
   canal?: number | 'sin'
   responsable?: string // 'sin' (sin asignar) o uuid
   etapa?: string
+  /** Captaciones: filtro por producto (título de la columna Producto). */
+  producto?: number
   ver?: ManageView
   pagina?: number
   // Seguimientos (specs/002-monitoreo-seguimiento/contracts/ui-routes.md)
@@ -71,6 +73,7 @@ export function validateManageSearch(raw: Record<string, unknown>): ManageSearch
         ? (raw.responsable as string)
         : undefined,
     etapa: ['capture', 'recapture', 'followup', 'interested', 'sale', 'lost'].includes(raw.etapa as string) ? (raw.etapa as string) : undefined,
+    producto: toInt(raw.producto),
     ver: oneOf(VIEWS, raw.ver),
     pagina: toInt(raw.pagina),
     estado: oneOf(TABS, raw.estado),

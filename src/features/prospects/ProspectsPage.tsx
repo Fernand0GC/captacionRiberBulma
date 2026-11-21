@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { groupChannels } from '@/features/capture/channelGroups'
 import { ROLE_LABEL } from '@/features/auth/types'
@@ -21,6 +21,7 @@ import {
 import { fmtDate, fmtTime, INTEREST_LABEL, STAGE_LABEL } from './format'
 import { MdFileDownload } from 'react-icons/md'
 import { PageTitle } from '@/ui/PageTitle'
+import { CaptureHeaders } from './CaptureHeaders'
 import { fmtDay, ManageFilterBar, useDebounced, useManageScope, ViewSwitch } from './ManageFilterBar'
 
 // Vistas de monitoreo (specs/002-monitoreo-seguimiento): se cargan solo al entrar.
@@ -72,6 +73,7 @@ function CapturesView({ scope }: { scope: ReturnType<typeof useManageScope> }) {
     q: qDebounced.length >= 2 ? qDebounced : undefined,
     assigned: search.responsable === 'sin' ? 'none' : search.responsable,
     stage: search.etapa,
+    product_id: search.producto,
     view: search.ver === 'visitas' ? ('visits' as const) : undefined,
   }
 
@@ -232,7 +234,7 @@ function CapturesView({ scope }: { scope: ReturnType<typeof useManageScope> }) {
         scope={scope}
         q={q}
         setQ={setQ}
-        show={{ search: true, author: true, assignee: true, stage: true, channel: true }}
+        show={{ search: true, author: true, assignee: true, stage: true, channel: true, product: true }}
       />
 
       {/* Cantidad por canal: chips que además filtran (con todos los demás filtros aplicados). */}
@@ -305,13 +307,16 @@ function CapturesView({ scope }: { scope: ReturnType<typeof useManageScope> }) {
         <p className="rounded-2xl bg-rb-red/10 p-4 text-rb-red">
           No se pudo cargar. {(prospects.error as Error).message}
         </p>
-      ) : prospects.data && prospects.data.rows.length === 0 ? (
-        <p className="rounded-3xl bg-white p-8 text-center text-ink/50 ring-1 ring-ink/5">
-          No hay captaciones con estos filtros.
-        </p>
       ) : (
         <>
+          {prospects.data && rowsOnPage.length === 0 && (
+            <p className="rounded-3xl bg-white p-8 text-center text-ink/50 ring-1 ring-ink/5 md:hidden">
+              No hay captaciones con estos filtros.
+            </p>
+          )}
           <ProspectsTable
+            head={<CaptureHeaders scope={scope} q={q} setQ={setQ} showBranch={isGlobal} />}
+            emptyText={prospects.data ? 'No hay captaciones con estos filtros. Quita alguno en los títulos o arriba.' : 'Cargando…'}
             rows={rowsOnPage}
             showBranch={isGlobal}
             selecting={selecting}
@@ -512,6 +517,8 @@ function StageCell({ r }: { r: ProspectRow }) {
 }
 
 function ProspectsTable({
+  head,
+  emptyText,
   rows,
   showBranch,
   selecting,
@@ -521,12 +528,15 @@ function ProspectsTable({
   allSelected,
   onToggleAll,
 }: {
+  /** Títulos con filtro (CaptureHeaders). */
+  head: ReactNode
+  /** Sin filas: la tabla se queda con sus títulos para poder quitar el filtro desde ahí. */
+  emptyText: string
   rows: ProspectRow[]
   showBranch: boolean
   allSelected: boolean
   onToggleAll: () => void
 } & SelectProps) {
-  const headers = ['Fecha', 'Cliente', 'Producto', 'Canal', ...(showBranch ? ['Sucursal'] : []), 'Registrado por', 'Etapa', 'Responsable']
   return (
     <div className="hidden overflow-x-auto rounded-3xl bg-white shadow-sm ring-1 ring-ink/5 md:block">
       <table className="w-full min-w-[48rem] text-left text-sm">
@@ -543,14 +553,17 @@ function ProspectsTable({
                 />
               </th>
             )}
-            {headers.map((h) => (
-              <th key={h} scope="col" className="px-4 py-3 font-semibold">
-                {h}
-              </th>
-            ))}
+            {head}
           </tr>
         </thead>
         <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={(showBranch ? 8 : 7) + (selecting ? 1 : 0)} className="px-4 py-10 text-center text-ink/50">
+                {emptyText}
+              </td>
+            </tr>
+          )}
           {rows.map((r) => (
             <tr
               key={r.id}
