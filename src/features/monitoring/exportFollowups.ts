@@ -27,6 +27,9 @@ export async function exportFollowups(filters: FollowupStatusFilters, scopeName:
     { header: 'Días sin contacto', width: 10, value: (r) => r.days_without_contact },
     { header: 'Motivo sin interés', width: 22, value: (r) => r.lost_reason },
     { header: 'Canal', width: 16, value: (r) => r.channel_name },
+    { header: 'Detalle del canal', width: 22, value: (r) => r.channel_detail ?? null },
+    { header: 'Producto', width: 22, value: (r) => r.product_name ?? null },
+    { header: 'Referido por', width: 22, value: (r) => r.referrer_name ?? null },
     { header: 'Registrado por', width: 22, value: (r) => r.created_by_name },
     { header: 'Fecha de registro', width: 17, value: (r) => laPazWallClock(r.client_created_at), date: true },
   ]

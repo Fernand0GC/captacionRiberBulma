@@ -99,10 +99,16 @@ function addDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+/** Período sin elegir: Seguimientos abre con «Este mes» (filtra por fecha de registro; «Hoy» casi no tiene contactos,
+ * spec 015); las demás vistas, con «Hoy». */
+export function defaultPeriod(ver?: ManageView): Period {
+  return ver === 'seguimiento' ? 'mes' : 'hoy'
+}
+
 /** Rango de fechas (La Paz) del período elegido. */
 export function periodRange(s: ManageSearch, now: Date = new Date()): { from: string; to: string } {
   const today = laPazDate(now)
-  switch (s.periodo ?? 'hoy') {
+  switch (s.periodo ?? defaultPeriod(s.ver)) {
     case 'ayer':
       return { from: addDays(today, -1), to: addDays(today, -1) }
     case '7d':

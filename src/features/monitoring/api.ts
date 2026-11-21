@@ -28,6 +28,8 @@ export type FollowupStatusFilters = {
   lost_reason_id?: number
   /** Spec 014: 'any' = solo referidos; número = un referidor. */
   referrer?: 'any' | number
+  /** Spec 015: solo clientes con ese producto. */
+  product_id?: number
 }
 
 export type FollowupStatusRow = {
@@ -55,6 +57,10 @@ export type FollowupStatusRow = {
   created_by_name: string
   /** Spec 014: de quién vino (null = no es referido). */
   referrer_name?: string | null
+  /** Spec 015: contexto por fila (opcionales: la base anterior no los manda). */
+  product_name?: string | null
+  channel_detail?: string | null
+  created_by_role?: AppRole
 }
 
 export type FollowupStatusPage = {

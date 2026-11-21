@@ -9,6 +9,7 @@ import { useReferrers } from '@/features/referrals/api'
 import { useChannels, useProducts, useStaff, type Staff } from './api'
 import { STAGE_LABEL } from './format'
 import {
+  defaultPeriod,
   MONITORING_KEYS,
   periodRange,
   validateManageSearch,
@@ -156,7 +157,7 @@ export function ManageFilterBar({
     <section className="flex flex-col gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5" aria-label="Filtros">
       <div className="flex flex-wrap gap-2" role="group" aria-label="Período">
         {(Object.keys(PERIOD_LABEL) as Period[]).map((p) => {
-          const active = (search.periodo ?? 'hoy') === p
+          const active = (search.periodo ?? defaultPeriod(search.ver)) === p
           return (
             <button
               key={p}

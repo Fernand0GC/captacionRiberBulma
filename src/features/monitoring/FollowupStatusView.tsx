@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Badge } from '@/ui/Badge'
 import { PageTitle } from '@/ui/PageTitle'
+import { ROLE_LABEL } from '@/features/auth/types'
+import { SelectToggle, useAssignSelection, type AssignSelectionState } from '@/features/prospects/AssignSelection'
+import { ContactDialog } from '@/features/prospects/ContactDialog'
 import { METHOD_LABEL, RESULT_LABEL } from '@/features/followup/api'
 import { fmtDate, fmtTime, INTEREST_LABEL, STAGE_LABEL } from '@/features/prospects/format'
 import {
@@ -13,7 +16,7 @@ import {
   type ManageScope,
 } from '@/features/prospects/ManageFilterBar'
 import { referrerFilter, type AttemptsParam, type InterestParam, type StaleDays } from '@/features/prospects/search'
-import { MONITORING_PAGE, useFollowupStatus, useLostReasons, type FollowupStatusFilters, type FollowupStatusRow } from './api'
+import { fetchAllFollowupStatus, MONITORING_PAGE, useFollowupStatus, useLostReasons, type FollowupStatusFilters, type FollowupStatusRow } from './api'
 import { FOLLOWUP_TABS, TAB_EMPTY } from './labels'
 import { ExportButton } from './ExportButton'
 
@@ -53,22 +56,35 @@ export function FollowupStatusView({ scope }: { scope: ManageScope }) {
     stale_days: search.sin_contacto,
     lost_reason_id: search.estado === 'sin_interes' ? search.motivo : undefined,
     referrer: referrerFilter(search),
+    product_id: search.producto,
   }
   const status = useFollowupStatus(filters, page)
   const lostReasons = useLostReasons()
   const total = status.data?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / MONITORING_PAGE))
   const rows = status.data?.rows ?? []
+  // Asignar desde Seguimientos (spec 015): la misma barra y reglas que Captaciones.
+  const sel = useAssignSelection({
+    filters,
+    rows,
+    total,
+    branchId: scope.branchId,
+    fetchAll: () => fetchAllFollowupStatus(filters),
+    noun: 'clientes',
+  })
+  const [contactId, setContactId] = useState<string | null>(null)
+  const closeContact = () => setContactId(null)
 
   const emptyText = search.vencidos ? 'No hay clientes vencidos con estos filtros.' : TAB_EMPTY[search.estado ?? 'todos']
 
   return (
-    <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6">
+    <main className={`mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 ${sel.selecting ? 'pb-36' : ''}`}>
       <PageTitle
         title="Seguimientos"
         subtitle={scopeName}
         actions={
           <div className="flex max-w-full flex-wrap items-center gap-2">
+            <SelectToggle sel={sel} disabled={!rows.length} />
             <ExportButton
               disabled={!total}
               run={async () => {
@@ -86,7 +102,7 @@ export function FollowupStatusView({ scope }: { scope: ManageScope }) {
         scope={scope}
         q={q}
         setQ={setQ}
-        show={{ search: true, author: true, assignee: true, channel: true }}
+        show={{ search: true, author: true, assignee: true, channel: true, product: true, referrer: true }}
       >
         <select
           aria-label="Interés"
@@ -110,15 +126,6 @@ export function FollowupStatusView({ scope }: { scope: ManageScope }) {
           <option value="ninguno">Ninguno</option>
           <option value="1-2">1 o 2 veces</option>
           <option value="3+">3 o más</option>
-        </select>
-        <select
-          aria-label="Origen"
-          className={selectCls}
-          value={search.origen ?? ''}
-          onChange={(e) => setSearch({ origen: e.target.value === 'referidos' ? 'referidos' : undefined, referidor: undefined })}
-        >
-          <option value="">Origen: todos</option>
-          <option value="referidos">Solo referidos</option>
         </select>
         <select
           aria-label="Sin contacto hace más de"
@@ -192,6 +199,7 @@ export function FollowupStatusView({ scope }: { scope: ManageScope }) {
             {total}
           </span>{' '}
           {total === 1 ? 'cliente' : 'clientes'} · registrados {from === to ? `el ${fmtDay(from)}` : `del ${fmtDay(from)} al ${fmtDay(to)}`}
+          <span className="block text-xs text-ink/45">El período cuenta la fecha en que se registró el cliente.</span>
         </p>
         {status.isFetching && <span className="text-sm text-ink/40">Actualizando…</span>}
       </div>
@@ -202,10 +210,13 @@ export function FollowupStatusView({ scope }: { scope: ManageScope }) {
         <p className="rounded-3xl bg-white p-8 text-center text-ink/50 ring-1 ring-ink/5">{emptyText}</p>
       ) : (
         <>
-          <StatusTable rows={rows} showBranch={isGlobal && sucursal === undefined} />
-          <StatusCards rows={rows} />
+          <StatusTable rows={rows} showBranch={isGlobal && sucursal === undefined} sel={sel} onContact={setContactId} />
+          <StatusCards rows={rows} sel={sel} onContact={setContactId} />
         </>
       )}
+
+      {contactId && <ContactDialog id={contactId} onClose={closeContact} />}
+      {sel.bar}
 
       {pages > 1 && (
         <nav className="flex items-center justify-center gap-3" aria-label="Páginas">
@@ -281,13 +292,63 @@ function NextContact({ r }: { r: FollowupStatusRow }) {
   )
 }
 
-function StatusTable({ rows, showBranch }: { rows: FollowupStatusRow[]; showBranch: boolean }) {
+type RowProps = { sel: AssignSelectionState; onContact: (id: string) => void }
+
+/** Sin responsable y abierto: botón «Seguimiento» (registra el contacto; quien lo hace queda responsable). Igual que Captaciones. */
+function Assigned({ r, onContact }: { r: FollowupStatusRow; onContact?: (id: string) => void }) {
+  if (r.assigned_to_name) return <span>{r.assigned_to_name}</span>
+  if (!onContact || r.stage === 'sale' || r.stage === 'lost') return <span className="text-ink/40">Sin asignar</span>
+  return (
+    <button
+      type="button"
+      onClick={() => onContact(r.id)}
+      aria-label={`Seguimiento a ${r.full_name}`}
+      className="inline-flex whitespace-nowrap rounded-full bg-ink px-3 py-1 text-xs font-semibold text-gold-light active:bg-charcoal"
+    >
+      Seguimiento
+    </button>
+  )
+}
+
+/** Nombre (a la ficha, salvo al seleccionar), celular y quién lo registró y cuándo. */
+function ClientCell({ r, selecting }: { r: FollowupStatusRow; selecting: boolean }) {
+  return (
+    <>
+      {selecting ? (
+        <span className="font-semibold">{r.full_name}</span>
+      ) : (
+        <Link to="/cliente/$id" params={{ id: r.id }} className="font-semibold hover:text-gold-dark hover:underline">
+          {r.full_name}
+        </Link>
+      )}
+      <span className="block tabular-nums text-ink/60">{r.phone_raw}</span>
+      <span className="block text-xs text-ink/45">
+        {r.created_by_name}
+        {r.created_by_role ? ` (${ROLE_LABEL[r.created_by_role]})` : ''} · <span className="tabular-nums">{fmtDate(r.client_created_at)}</span>
+      </span>
+    </>
+  )
+}
+
+/** Canal (con su detalle) y de quién vino, debajo de la etapa. */
+function Origin({ r }: { r: FollowupStatusRow }) {
+  const channel = [r.channel_name, r.channel_detail].filter(Boolean).join(' · ')
+  return (
+    <>
+      {channel && <span className="block text-xs text-ink/55">{channel}</span>}
+      {r.referrer_name && <span className="block text-xs font-semibold text-gold-dark">Ref. {r.referrer_name}</span>}
+    </>
+  )
+}
+
+function StatusTable({ rows, showBranch, sel, onContact }: { rows: FollowupStatusRow[]; showBranch: boolean } & RowProps) {
+  const { selecting, selected, toggle } = sel
   const headers = [
     'Cliente',
     ...(showBranch ? ['Sucursal'] : []),
     'Responsable',
     'Etapa',
-    'Interés',
+    'Producto',
     'No contestó',
     'Contactos',
     'Último contacto',
@@ -300,6 +361,17 @@ function StatusTable({ rows, showBranch }: { rows: FollowupStatusRow[]; showBran
       <table className="w-full min-w-[64rem] text-left text-sm">
         <thead className="bg-ink text-gold-light">
           <tr>
+            {selecting && (
+              <th scope="col" className="w-10 px-3 py-3">
+                <input
+                  type="checkbox"
+                  aria-label="Seleccionar todos"
+                  checked={sel.allOnPage}
+                  onChange={sel.toggleAll}
+                  className="h-4 w-4 accent-gold"
+                />
+              </th>
+            )}
             {headers.map((h) => (
               <th key={h} scope="col" className="px-3 py-3 font-semibold">
                 {h}
@@ -312,21 +384,43 @@ function StatusTable({ rows, showBranch }: { rows: FollowupStatusRow[]; showBran
             <tr
               key={r.id}
               data-testid="status-row"
-              className={`border-t border-ink/5 align-top ${r.overdue ? 'bg-gold/10' : 'even:bg-cream/60'}`}
+              onClick={selecting ? () => toggle(r.id) : undefined}
+              className={`border-t border-ink/5 align-top ${
+                selected.has(r.id) ? 'bg-gold/15' : r.overdue ? 'bg-gold/10' : 'even:bg-cream/60'
+              } ${selecting ? 'cursor-pointer' : ''}`}
             >
-              <td className="px-3 py-3">
-                <Link to="/cliente/$id" params={{ id: r.id }} className="font-semibold hover:text-gold-dark hover:underline">
-                  {r.full_name}
-                </Link>
+              {selecting && (
+                <td className="px-3 py-3">
+                  <input
+                    type="checkbox"
+                    aria-label={`Seleccionar ${r.full_name}`}
+                    checked={selected.has(r.id)}
+                    onChange={() => toggle(r.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-4 w-4 accent-gold"
+                  />
+                </td>
+              )}
+              {/* Ancho mínimo: nombre, celular y «registró» se leen en 3 renglones, no en 6. */}
+              <td className="min-w-[13rem] px-3 py-3">
+                <ClientCell r={r} selecting={selecting} />
               </td>
               {showBranch && <td className="px-3 py-3">{r.branch_name}</td>}
-              <td className="px-3 py-3">{r.assigned_to_name ?? <span className="text-ink/40">Sin asignar</span>}</td>
-              <td className="whitespace-nowrap px-3 py-3">
-                {STAGE_LABEL[r.stage] ?? r.stage}
+              <td className="px-3 py-3">
+                <Assigned r={r} onContact={selecting ? undefined : onContact} />
+              </td>
+              <td className="min-w-[10rem] px-3 py-3">
+                <span className="whitespace-nowrap">{STAGE_LABEL[r.stage] ?? r.stage}</span>
                 {r.stage === 'lost' && r.lost_reason && <span className="block text-xs text-ink/50">{r.lost_reason}</span>}
+                <Origin r={r} />
               </td>
               <td className="px-3 py-3">
-                <Interest v={r.interest} />
+                {r.product_name ?? dash}
+                {r.interest && (
+                  <span className="mt-1 block">
+                    <Interest v={r.interest} />
+                  </span>
+                )}
               </td>
               <td className="px-3 py-3 tabular-nums">{r.no_answer_streak}/3</td>
               <td className="px-3 py-3 tabular-nums">{r.contacts_total}</td>
@@ -348,44 +442,61 @@ function StatusTable({ rows, showBranch }: { rows: FollowupStatusRow[]; showBran
   )
 }
 
-function StatusCards({ rows }: { rows: FollowupStatusRow[] }) {
+function StatusCards({ rows, sel, onContact }: { rows: FollowupStatusRow[] } & RowProps) {
+  const { selecting, selected, toggle } = sel
   return (
     <ul className="flex flex-col gap-3 md:hidden">
       {rows.map((r) => (
-        <li key={r.id} data-testid="status-card">
-          <Link
-            to="/cliente/$id"
-            params={{ id: r.id }}
-            className={`block rounded-3xl p-4 shadow-sm ring-1 active:bg-sand ${r.overdue ? 'bg-gold/10 ring-gold/40' : 'bg-white ring-ink/5'}`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-semibold">{r.full_name}</p>
-                <p className="text-sm text-ink/60">
-                  {STAGE_LABEL[r.stage] ?? r.stage} · {r.assigned_to_name ?? 'Sin asignar'}
-                </p>
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-1">
-                <Interest v={r.interest} />
-                {r.overdue && <Badge tone="warning">Vencido</Badge>}
-              </div>
+        <li
+          key={r.id}
+          data-testid="status-card"
+          onClick={selecting ? () => toggle(r.id) : undefined}
+          className={`rounded-3xl p-4 shadow-sm ring-1 ${
+            selected.has(r.id) ? 'bg-gold/15 ring-gold/40' : r.overdue ? 'bg-gold/10 ring-gold/40' : 'bg-white ring-ink/5'
+          } ${selecting ? 'cursor-pointer' : ''}`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            {selecting && (
+              <input
+                type="checkbox"
+                aria-label={`Seleccionar ${r.full_name}`}
+                checked={selected.has(r.id)}
+                onChange={() => toggle(r.id)}
+                onClick={(e) => e.stopPropagation()}
+                className="mt-1 h-5 w-5 shrink-0 accent-gold"
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <ClientCell r={r} selecting={selecting} />
+              <p className="mt-1 text-sm text-ink/60">
+                {STAGE_LABEL[r.stage] ?? r.stage}
+                {r.product_name ? ` · ${r.product_name}` : ''}
+              </p>
+              <Origin r={r} />
             </div>
-            <p className="mt-2 text-sm text-ink/80">
-              <NoteText r={r} clamp="two" />
-            </p>
-            <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-ink/5 pt-2 text-xs text-ink/55">
-              <span className="tabular-nums">No contestó {r.no_answer_streak}/3</span>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <Interest v={r.interest} />
+              {r.overdue && <Badge tone="warning">Vencido</Badge>}
+            </div>
+          </div>
+          <p className="mt-2 text-sm text-ink/80">
+            <NoteText r={r} clamp="two" />
+          </p>
+          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-ink/5 pt-2 text-xs text-ink/55">
+            <span className="tabular-nums">No contestó {r.no_answer_streak}/3</span>
+            <span className="tabular-nums">
+              {r.contacts_total} {r.contacts_total === 1 ? 'contacto' : 'contactos'}
+            </span>
+            <span>Sin contacto: {daysLabel(r.days_without_contact)}</span>
+            {r.next_contact_at && (
               <span className="tabular-nums">
-                {r.contacts_total} {r.contacts_total === 1 ? 'contacto' : 'contactos'}
+                Próximo: {fmtDate(r.next_contact_at).slice(0, 5)} {fmtTime(r.next_contact_at)}
               </span>
-              <span>Sin contacto: {daysLabel(r.days_without_contact)}</span>
-              {r.next_contact_at && (
-                <span className="tabular-nums">
-                  Próximo: {fmtDate(r.next_contact_at).slice(0, 5)} {fmtTime(r.next_contact_at)}
-                </span>
-              )}
-            </p>
-          </Link>
+            )}
+          </p>
+          <div className="mt-2 flex justify-end text-sm">
+            <Assigned r={r} onContact={selecting ? undefined : onContact} />
+          </div>
         </li>
       ))}
     </ul>

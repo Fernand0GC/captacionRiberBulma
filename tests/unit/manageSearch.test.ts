@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateManageSearch } from '@/features/prospects/search'
+import { defaultPeriod, periodRange, validateManageSearch } from '@/features/prospects/search'
 
 const UUID = '0190a1b2-0000-7000-8000-000000000001'
 
@@ -45,5 +45,23 @@ describe('validateManageSearch: vistas de monitoreo', () => {
     expect(validateManageSearch({ persona: 'Ana', metrica: 'clients' })).toMatchObject({ persona: undefined, metrica: undefined })
     expect(validateManageSearch({ agrupar: 'persona' }).agrupar).toBe('persona')
     expect(validateManageSearch({ agrupar: 'otro' }).agrupar).toBeUndefined()
+  })
+})
+
+describe('período por defecto según la vista (spec 015)', () => {
+  // 21/11/2026 10:00 en La Paz
+  const now = new Date('2026-11-21T14:00:00Z')
+
+  it('Seguimientos abre con «Este mes»; las demás vistas con «Hoy»', () => {
+    expect(defaultPeriod('seguimiento')).toBe('mes')
+    expect(defaultPeriod(undefined)).toBe('hoy')
+    expect(defaultPeriod('actividad')).toBe('hoy')
+    expect(periodRange({ ver: 'seguimiento' }, now)).toEqual({ from: '2026-11-01', to: '2026-11-21' })
+    expect(periodRange({}, now)).toEqual({ from: '2026-11-21', to: '2026-11-21' })
+  })
+
+  it('un período elegido manda sobre el de la vista', () => {
+    expect(periodRange({ ver: 'seguimiento', periodo: 'hoy' }, now)).toEqual({ from: '2026-11-21', to: '2026-11-21' })
+    expect(periodRange({ ver: 'seguimiento', periodo: '7d' }, now)).toEqual({ from: '2026-11-15', to: '2026-11-21' })
   })
 })

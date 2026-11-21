@@ -83,6 +83,8 @@ export function useAddFollowup() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['inbox'] })
       void qc.invalidateQueries({ queryKey: ['prospects'] })
+      // Seguimientos (spec 015) registra contactos desde la fila.
+      void qc.invalidateQueries({ queryKey: ['monitoring'] })
     },
   })
 }

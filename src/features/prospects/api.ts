@@ -160,6 +160,10 @@ export function useAssign() {
       if (error) throw toAppError(error)
       return data as number
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['prospects'] }),
+    // Captaciones y Seguimientos (spec 015) muestran el responsable.
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['prospects'] })
+      void qc.invalidateQueries({ queryKey: ['monitoring'] })
+    },
   })
 }
