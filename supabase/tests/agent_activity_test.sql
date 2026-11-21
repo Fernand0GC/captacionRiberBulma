@@ -1,5 +1,5 @@
 begin;
-select plan(30);
+select plan(32);
 
 -- Personas del seed: 03 encargado Verdolago, 04 auxiliar Verdolago, 05 supervisor Verdolago, 06 volantera Verdolago,
 -- 07 encargado Trinidad, 09 jefe de ventas (Verdolago y Trinidad), 02 gerente.
@@ -77,6 +77,10 @@ select is((pg_temp.row_of('t', '00000000-0000-4000-8000-000000000004') ->> 'tota
 select tests.login_as('00000000-0000-4000-8000-000000000002');
 insert into r values ('g', public.agent_activity('{"from":"2025-04-10","to":"2025-04-10"}'));
 select is((pg_temp.row_of('g', '00000000-0000-4000-8000-000000000004') ->> 'total')::int, 5, 'gerente: todas (sin el anulado)');
+select is((pg_temp.row_of('g', '00000000-0000-4000-8000-000000000007') ->> 'total')::int, 0, 'encargado activo sin contactos: aparece en cero');
+select is((select (x ->> 'staff')::int from r, jsonb_array_elements(r.v -> 'by_branch') x where r.k = 'g' and x ->> 'branch_id' = '7'),
+  (select count(*)::int from public.profiles where active and branch_id = 7 and role in ('field_assistant', 'field_supervisor', 'branch_manager')),
+  'personal de la sucursal cuenta al encargado');
 
 -- Jefe de ventas: sin elegir = su primera sucursal (Verdolago)
 select tests.login_as('00000000-0000-4000-8000-000000000009');

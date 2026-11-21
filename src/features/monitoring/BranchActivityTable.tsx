@@ -39,7 +39,7 @@ export function BranchActivityTable({
                   Sucursal{arrow('full_name')}
                 </button>
               </th>
-              <th scope="col" className="px-3 py-3 text-right font-semibold" title="Personas que contactaron, de los auxiliares y supervisores activos">
+              <th scope="col" className="px-3 py-3 text-right font-semibold" title="Personas que contactaron, de los auxiliares, supervisores y encargados activos">
                 Personal
               </th>
               <th scope="col" className="px-3 py-3 text-right font-semibold" title="Contactos por persona activa de la sucursal">
@@ -125,7 +125,7 @@ export function BranchActivityTable({
         </table>
       </div>
       <p className="px-1 text-xs text-ink/45">
-        Cada contacto cuenta en la sucursal del cliente. «Personal»: quienes contactaron, de los auxiliares y supervisores
+        Cada contacto cuenta en la sucursal del cliente. «Personal»: quienes contactaron, de los auxiliares, supervisores y encargados
         activos. Toca una sucursal para ver a su personal.
       </p>
     </div>
