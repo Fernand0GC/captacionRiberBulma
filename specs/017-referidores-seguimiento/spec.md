@@ -48,6 +48,12 @@ Decididas por recomendación (**por confirmar con ventas**, regla de trabajo en 
   pedido» en Para hoy. Los otros caminos (Registrar, Cargar) siguen creando referidores como hoy.
 - Q: ¿Celular del referidor? → A: Opcional, celular boliviano válido. Repetido en otro referidor de la sucursal → se
   rechaza nombrando al otro. Solo lo ven quienes ven Referidos (tabla aparte sin lectura directa).
+- Q: ¿En qué quedó con cada referidor, sin abrir su ventana? (ajuste pedido por el usuario 2026-11-21) → A: En la tabla
+  «Ver por Referidor», la columna «Último pedido» pasa a **«En qué quedó»**: chip del resultado del último pedido (con
+  «✓ cumplió» o «venció» si fue una promesa), medio · cuándo · quién, y la observación en una línea (completa al pasar
+  el mouse y en el historial). Sin pedidos: «Nunca se le pidió». `referrer_followup` suma `note` en `last_ask`
+  (migración `20261121001000_referrer_last_ask_note.sql`, aditiva). El Excel «Por referidor» suma «En qué quedó» y
+  «Última observación».
 - Q: ¿Estados por referidor? → A: Rinde (≥ 1 referido por pedido), Regular (< 1), Insistes y no llega (≥ 3 pedidos y 0
   referidos), Sin pedir (0 pedidos), No quiere seguir.
 

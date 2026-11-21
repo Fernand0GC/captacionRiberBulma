@@ -185,9 +185,26 @@ export async function exportFollowup(d: FollowupData, opts: { scopeName: string;
     { header: 'Llegados por pedido', width: 11, numFmt: '0.0' },
     { header: 'Volver a pedir', width: 12, numFmt: 'dd/mm/yyyy' },
     { header: 'Estado', width: 18 },
+    { header: 'En qué quedó', width: 20 },
+    { header: 'Última observación', width: 40 },
   ])
   referrerRows(d).forEach(({ r, s, verdict, next }) =>
-    ws.addRow([r.name, KIND_LABEL[r.kind], branch.get(r.branch_id) ?? '', r.phone ?? '', s.asks, s.answered, s.kept, s.expired, s.arrived, perAsk(s), next ? new Date(`${next}T12:00:00Z`) : null, VERDICT_LABEL[verdict]]),
+    ws.addRow([
+      r.name,
+      KIND_LABEL[r.kind],
+      branch.get(r.branch_id) ?? '',
+      r.phone ?? '',
+      s.asks,
+      s.answered,
+      s.kept,
+      s.expired,
+      s.arrived,
+      perAsk(s),
+      next ? new Date(`${next}T12:00:00Z`) : null,
+      VERDICT_LABEL[verdict],
+      r.last_ask ? ASK_RESULT_LABEL[r.last_ask.result] : 'Nunca se le pidió',
+      r.last_ask?.note ?? '',
+    ]),
   )
 
   const wb2 = addSheet(wb, title, 'POR SUCURSAL', [

@@ -8,7 +8,8 @@ import { ASK_METHOD_LABEL, ASK_RESULT_LABEL, shortDate, type AskResult } from '.
 
 // Historial de pedidos de un referidor en su ventana de detalle (spec 017, US4) con el botón «Pedir referidos».
 
-const TONE: Record<AskResult, string> = {
+/** Color del chip de cada resultado; también lo usa «En qué quedó» en la tabla de Seguimiento. */
+export const ASK_RESULT_TONE: Record<AskResult, string> = {
   passed: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
   promised: 'bg-gold/15 text-gold-dark ring-gold/30',
   none_now: 'bg-gold/15 text-gold-dark ring-gold/30',
@@ -55,7 +56,7 @@ export function ReferrerAsks({ referrerId, branchId }: { referrerId: number; bra
               </span>
               <span className="min-w-0">
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${TONE[a.result]}`}>{ASK_RESULT_LABEL[a.result]}</span>
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${ASK_RESULT_TONE[a.result]}`}>{ASK_RESULT_LABEL[a.result]}</span>
                   <span className="text-sm">
                     {a.auto ? 'Al cargar referidos' : a.method ? ASK_METHOD_LABEL[a.method] : ''}
                     {a.actor_name && ` · ${a.actor_name}`}

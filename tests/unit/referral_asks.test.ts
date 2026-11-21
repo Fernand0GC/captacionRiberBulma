@@ -6,6 +6,7 @@ import {
   motiveOf,
   nextAskOn,
   perAsk,
+  promiseState,
   proposeNext,
   referrerRows,
   todayList,
@@ -154,5 +155,14 @@ describe('números del período', () => {
       ['Carmen', 1, 1, 1, 0, '2026-11-13'],
       ['Fabiola', 0, 0, 0, 0, null],
     ])
+  })
+})
+
+describe('promiseState (En qué quedó)', () => {
+  it('cumplida, vencida a los 7 días o todavía en plazo', () => {
+    expect(promiseState(last('2026-11-10', 'promised', { kept: true }), TODAY)).toBe('kept')
+    expect(promiseState(last('2026-11-10', 'promised'), TODAY)).toBe('expired')
+    expect(promiseState(last('2026-11-18', 'promised'), TODAY)).toBeNull()
+    expect(promiseState(last('2026-11-01', 'passed'), TODAY)).toBeNull()
   })
 })

@@ -1,5 +1,5 @@
 begin;
-select plan(23);
+select plan(24);
 
 -- Spec 017: pedidos a referidores, celular del referidor, datos de Seguimiento, historial, registro automático al
 -- cargar y unión. Jefes de prueba: f5 con Verdolago (5) y Trinidad (7); f7 solo con Trinidad (7).
@@ -64,6 +64,7 @@ select is(public.referrer_ask_save(jsonb_build_object('referrer_ids', jsonb_buil
   'method', 'message', 'result', 'waiting', 'note', 'Mensaje a todos')), 2, 'pedir a varios: uno por referidor (dos sucursales)');
 select is(pg_temp.ask('beto', 'in_person', 'quit', (now() at time zone 'America/La_Paz')::date + 3), 1, 'No quiere seguir');
 select is(pg_temp.fref(5::smallint, 'beto') #>> '{last_ask,next_on}', null, '«No quiere seguir» no lleva fecha');
+select is(pg_temp.fref(7::smallint, 'tere') #>> '{last_ask,note}', 'Mensaje a todos', 'el último pedido trae su observación (En qué quedó)');
 
 -- Datos de Seguimiento ---------------------------------------------------------------------------------------------
 select is(pg_temp.fref(5::smallint, 'ana') #>> '{last_ask,result}' || '/' || (pg_temp.fref(5::smallint, 'ana') #>> '{last_ask,kept}') || '/' ||

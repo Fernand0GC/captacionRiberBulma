@@ -59,6 +59,10 @@ test('referidos 017: alta con celular, pedir desde Para hoy, tabla y historial',
   // 4) Tabla por referidor y por quién pide
   await expect(page.getByTestId(`followup-row-${first}`)).toContainText('1 de 1')
   await expect(page.getByTestId(`followup-row-${second}`)).toContainText('0 de 1')
+  // «En qué quedó»: resultado, cómo y quién, y la observación del último pedido
+  await expect(page.getByTestId(`followup-row-${first}`)).toContainText('Prometió pasar')
+  await expect(page.getByTestId(`followup-row-${first}`)).toContainText('Junta contactos el fin de semana')
+  await expect(page.getByTestId(`followup-row-${second}`)).toContainText('No contestó')
   await page.getByRole('tab', { name: 'Quién pide' }).click()
   await expect(page).toHaveURL(/ver=quien/)
   await expect(page.getByTestId('followup-actor-Jefe de Ventas Prueba')).toBeVisible()

@@ -16,6 +16,7 @@ import {
   keptPct,
   pct,
   perAsk,
+  promiseState,
   referrerRows,
   shortDate,
   todayList,
@@ -28,6 +29,7 @@ import {
 } from './asks'
 import { KIND_LABEL, rangeLabel } from './logic'
 import { Tabs, td, th, type ReferralScope } from './parts'
+import { ASK_RESULT_TONE } from './ReferrerAsks'
 import { ReferrerDetailDialog } from './ReferrerDetailDialog'
 
 // Pestaña «Seguimiento» (spec 017): el único lugar para pedir referidos y medir esos pedidos.
@@ -97,6 +99,29 @@ function Detail({ referrer, d, s, branchName, onClose }: { referrer: FollowupRef
       referrerId={referrer.id}
       branchId={s.branch ?? referrer.branch_id}
     />
+  )
+}
+
+/** «En qué quedó» con el referidor: resultado del último pedido, cómo y quién, y lo que dijo (la observación). */
+function LastAskCell({ l, today }: { l: FollowupReferrer['last_ask']; today: string }) {
+  if (!l) return <span className="text-ink/45">Nunca se le pidió</span>
+  const promise = promiseState(l, today)
+  return (
+    <div className="flex max-w-[20rem] flex-col gap-0.5">
+      <span className="flex flex-wrap items-center gap-1.5">
+        <span className={`${chip} ${ASK_RESULT_TONE[l.result]}`}>{ASK_RESULT_LABEL[l.result]}</span>
+        {promise && <span className={`text-xs font-semibold ${promise === 'kept' ? 'text-emerald-700' : 'text-rb-red'}`}>{promise === 'kept' ? '✓ cumplió' : 'venció'}</span>}
+      </span>
+      <span className="text-xs text-ink/55">
+        {ASK_METHOD_LABEL[l.method]} · {agoLabel(daysAgo(dayOf(l.at), today))}
+        {l.actor_name && ` · ${l.actor_name}`}
+      </span>
+      {l.note && (
+        <span className="truncate text-xs italic text-ink/70" title={l.note}>
+          «{l.note}»
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -239,10 +264,10 @@ function ResultTable({
       </div>
       <div className="overflow-x-auto">
         {by === 'referidor' ? (
-          <table className="w-full min-w-[46rem] text-left text-sm" aria-label="Pedidos por referidor">
+          <table className="w-full min-w-[56rem] text-left text-sm" aria-label="Pedidos por referidor">
             <thead>
               <tr className="border-b border-ink/10 text-ink/50">
-                {['Referidor', 'Pedidos', 'Respondió', 'Último pedido', 'Volver a pedir', 'Llegados', 'Estado'].map((h) => (
+                {['Referidor', 'Pedidos', 'Respondió', 'En qué quedó', 'Volver a pedir', 'Llegados', 'Estado'].map((h) => (
                   <th key={h} scope="col" className={th}>
                     {h}
                   </th>
@@ -251,7 +276,6 @@ function ResultTable({
             </thead>
             <tbody>
               {referrerRows(d).map(({ r, s: x, verdict, next }) => {
-                const lastDay = r.last_ask ? dayOf(r.last_ask.at) : null
                 return (
                   <tr key={r.id} className="border-b border-ink/5" data-testid={`followup-row-${r.name}`}>
                     <td className="py-2 pr-3">
@@ -265,7 +289,9 @@ function ResultTable({
                     </td>
                     <td className={`${td} font-semibold`}>{x.asks}</td>
                     <td className={td}>{x.asks ? `${x.answered} de ${x.asks}` : '—'}</td>
-                    <td className={td}>{lastDay ? agoLabel(daysAgo(lastDay, d.today)) : <span className="text-ink/45">Nunca</span>}</td>
+                    <td className="py-2 pr-3">
+                      <LastAskCell l={r.last_ask} today={d.today} />
+                    </td>
                     <td className={td}>
                       {verdict === 'quit' || next === null ? '—' : next <= d.today ? <span className="font-semibold text-rb-red">Hoy</span> : shortDate(next)}
                     </td>

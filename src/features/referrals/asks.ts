@@ -38,7 +38,23 @@ export const NEW_DAYS = 30
 const ANSWERED: AskResult[] = ['promised', 'passed', 'none_now', 'quit']
 export const isAnswered = (r: AskResult) => ANSWERED.includes(r)
 
-export type LastAsk = { at: string; method: AskMethod; result: AskResult; next_on: string | null; kept: boolean; actor_name: string | null }
+export type LastAsk = {
+  at: string
+  method: AskMethod
+  result: AskResult
+  next_on: string | null
+  kept: boolean
+  actor_name: string | null
+  /** Observación del pedido (lo que dijo). Opcional: la app publicada antes del ajuste no la recibe. */
+  note?: string | null
+}
+
+/** «En qué quedó» una promesa del último pedido: cumplida, vencida (7 días sin nada) o null si sigue en plazo o no es promesa. */
+export function promiseState(l: LastAsk, today: string): 'kept' | 'expired' | null {
+  if (l.result !== 'promised') return null
+  if (l.kept) return 'kept'
+  return today > addDays(dayOf(l.at), DEFAULT_GAP) ? 'expired' : null
+}
 
 export type FollowupReferrer = {
   id: number
