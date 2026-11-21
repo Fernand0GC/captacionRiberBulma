@@ -4,7 +4,7 @@ import { KINDS, type ReferrerKind } from './logic'
 // Filtros de /referidos en la URL (spec 014, FR-009). Solo datos no personales: ids, fechas y nombres de columnas.
 
 export type ReferralPeriod = 'hoy' | '7d' | 'mes' | 'mes_pasado' | 'rango'
-export type ReferralSection = 'reporte' | 'contactos' | 'quien' | 'referidores' | 'cargar'
+export type ReferralSection = 'reporte' | 'contactos' | 'quien' | 'referidores' | 'cargar' | 'seguimiento'
 export type SortDir = 'asc' | 'desc'
 
 export type ReferralSearch = {
@@ -31,6 +31,8 @@ export type ReferralSearch = {
   autor?: string
   // Referidores y metas
   mes?: string
+  /** Seguimiento (017): tabla por sucursal o por quién pide (sin el parámetro = por referidor). */
+  ver?: 'sucursal' | 'quien'
 }
 
 export const PERIODS: { v: ReferralPeriod; label: string }[] = [
@@ -41,7 +43,7 @@ export const PERIODS: { v: ReferralPeriod; label: string }[] = [
   { v: 'rango', label: 'Rango' },
 ]
 
-const SECTIONS: ReferralSection[] = ['reporte', 'contactos', 'quien', 'referidores', 'cargar']
+const SECTIONS: ReferralSection[] = ['reporte', 'contactos', 'quien', 'referidores', 'cargar', 'seguimiento']
 const STAGES = ['capture', 'recapture', 'followup', 'interested', 'sale', 'lost', 'sold']
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
 const isMonth = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}$/.test(v)
@@ -68,6 +70,7 @@ export function validateReferralSearch(raw: Record<string, unknown>): ReferralSe
     producto: shortText(raw.producto),
     autor: shortText(raw.autor),
     mes: isMonth(raw.mes) ? raw.mes : undefined,
+    ver: raw.ver === 'sucursal' || raw.ver === 'quien' ? raw.ver : undefined,
   }
 }
 

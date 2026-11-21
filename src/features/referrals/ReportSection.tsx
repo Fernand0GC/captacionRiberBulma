@@ -201,6 +201,8 @@ function SummaryTable({ report, rows, s }: { report: RangeReport; rows: RangeRow
           subtitle={`${KIND_LABEL[openRow.kind]} · ${report.branch ?? ''} · ${rangeLabel(report.from, report.to)}`}
           list={report.contacts.filter((c) => c.referrer_id === openRow.id)}
           onClose={() => setOpen(null)}
+          referrerId={openRow.id}
+          branchId={report.branch_id ?? undefined}
         />
       )}
       <table className="w-full min-w-[48rem] text-left text-sm">

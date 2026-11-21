@@ -14,16 +14,23 @@ import {
   useOwnGoals,
   useReferralMutation,
   useReferralReport,
+  useReferrerFollowup,
   useReferrers,
   type Referrer,
   type ReportRow,
 } from './api'
+import { AskDialog } from './AskDialog'
+import type { FollowupReferrer } from './asks'
 import { inView, KIND_LABEL, KINDS, monthLabel, monthStart, previousMonth, type ReferrerKind, type ReferrerView as View } from './logic'
 import { inputCls, th, type ReferralScope } from './parts'
 
 // Referidores y metas (spec 005 US3 + spec 014 US7): alta, edición, buscador, filtro, unir, copiar y editar metas.
 
-type Draft = { name: string; kind: ReferrerKind; sort: string; active: boolean; goal: string }
+type Draft = { name: string; kind: ReferrerKind; sort: string; active: boolean; goal: string; phone: string }
+
+/** Celular del referidor (spec 017): solo cifras, hasta 8 (el servidor valida que sea boliviano). */
+const PHONE_INPUT = { type: 'tel', inputMode: 'numeric', autoComplete: 'off', maxLength: 8 } as const
+const phoneDigits = (raw: string) => raw.replace(/\D/g, '').slice(0, 8)
 
 const goalNumber = (s: string) => (s.trim() === '' ? null : Number(s))
 const validGoal = (s: string) => s.trim() === '' || (/^\d{1,4}$/.test(s.trim()) && Number(s) <= 9999)
@@ -33,21 +40,32 @@ function ReferrerRow({
   row,
   month,
   branch,
+  phone,
   onMerge,
 }: {
   r: Referrer
   row: ReportRow | undefined
   month: string
   branch: number
+  /** Spec 017: celular guardado ('' si no tiene). */
+  phone: string
   onMerge: (r: Referrer) => void
 }) {
   const toast = useToast()
   const ownGoal = row && row.goal_from === month ? row.goal : null
-  const initial: Draft = { name: r.name, kind: r.kind, sort: String(r.sort), active: r.active, goal: ownGoal === null ? '' : String(ownGoal) }
+  const initial: Draft = { name: r.name, kind: r.kind, sort: String(r.sort), active: r.active, goal: ownGoal === null ? '' : String(ownGoal), phone }
   const [d, setD] = useState<Draft>(initial)
   const save = useReferralMutation(async (v: Draft) => {
-    if (v.name !== r.name || v.kind !== r.kind || Number(v.sort) !== r.sort || v.active !== r.active) {
-      await saveReferrer({ id: r.id, branch_id: branch, name: v.name.trim(), kind: v.kind, sort: Number(v.sort) || 0, active: v.active })
+    if (v.name !== r.name || v.kind !== r.kind || Number(v.sort) !== r.sort || v.active !== r.active || v.phone !== phone) {
+      await saveReferrer({
+        id: r.id,
+        branch_id: branch,
+        name: v.name.trim(),
+        kind: v.kind,
+        sort: Number(v.sort) || 0,
+        active: v.active,
+        ...(v.phone !== phone ? { phone: v.phone.trim() } : {}),
+      })
     }
     if (v.goal !== initial.goal) await saveReferralGoals({ branch_id: branch, month, referrers: [{ id: r.id, goal: goalNumber(v.goal) }] })
   })
@@ -74,6 +92,16 @@ function ReferrerRow({
             {r.created_at ? ` · ${fmtDate(r.created_at)}` : ''}
           </p>
         )}
+      </td>
+      <td className="py-2 pr-2">
+        <input
+          aria-label={`Celular de ${r.name}`}
+          {...PHONE_INPUT}
+          placeholder="—"
+          value={d.phone}
+          onChange={(e) => setD({ ...d, phone: phoneDigits(e.target.value) })}
+          className={`${inputCls} w-28 tabular-nums`}
+        />
       </td>
       <td className="py-2 pr-2">
         <select aria-label="Tipo" value={d.kind} onChange={(e) => setD({ ...d, kind: e.target.value as ReferrerKind })} className={inputCls}>
@@ -118,7 +146,7 @@ function ReferrerRow({
 function MergedRow({ r, into }: { r: Referrer; into: string | undefined }) {
   return (
     <tr className="border-b border-ink/5 text-ink/50" data-testid={`referrer-merged-${r.name}`}>
-      <td className="py-2 pr-2 font-semibold" colSpan={4}>
+      <td className="py-2 pr-2 font-semibold" colSpan={5}>
         {r.name}
         <span className="block text-xs font-normal">
           Unido a <b>{into ?? 'otro referidor'}</b>: lo que se registre con este nombre se guarda en {into ?? 'el otro'}.
@@ -205,19 +233,37 @@ function MergeDialog({
 
 function NewReferrer({ branch, month }: { branch: number; month: string }) {
   const toast = useToast()
-  const [d, setD] = useState({ name: '', kind: 'staff' as ReferrerKind, goal: '' })
+  const [d, setD] = useState({ name: '', kind: 'staff' as ReferrerKind, goal: '', phone: '', askNow: false })
+  // Spec 017: «Ya le pedí referidos hoy» abre la ventana del pedido con el referidor recién creado.
+  const [asking, setAsking] = useState<FollowupReferrer | null>(null)
   const create = useReferralMutation(async (v: typeof d) => {
-    const id = await saveReferrer({ branch_id: branch, name: v.name.trim(), kind: v.kind, sort: 0, active: true })
+    const id = await saveReferrer({ branch_id: branch, name: v.name.trim(), kind: v.kind, sort: 0, active: true, ...(v.phone ? { phone: v.phone } : {}) })
     if (v.goal.trim() !== '') await saveReferralGoals({ branch_id: branch, month, referrers: [{ id, goal: goalNumber(v.goal) }] })
+    return id
   })
 
   const onAdd = async () => {
     if (d.name.trim().length < 2) return toast('Escribe el nombre del referidor.', 'error')
     if (!validGoal(d.goal)) return toast('La meta debe ser un número entre 0 y 9999.', 'error')
     try {
-      await create.mutateAsync(d)
+      const id = await create.mutateAsync(d)
       toast('✓ Referidor agregado', 'success')
-      setD({ name: '', kind: d.kind, goal: '' })
+      if (d.askNow) {
+        setAsking({
+          id,
+          branch_id: branch,
+          name: d.name.trim().replace(/\s+/g, ' '),
+          kind: d.kind,
+          active: true,
+          phone: d.phone || null,
+          created_at: new Date().toISOString(),
+          created_by: null,
+          created_by_name: null,
+          last_ask: null,
+          last_load_at: null,
+        })
+      }
+      setD({ name: '', kind: d.kind, goal: '', phone: '', askNow: false })
     } catch (e) {
       toast((e as Error).message, 'error')
     }
@@ -240,12 +286,21 @@ function NewReferrer({ branch, month }: { branch: number; month: string }) {
         </select>
       </label>
       <label className="flex flex-col gap-1 text-sm font-semibold text-ink/70">
+        Celular
+        <input {...PHONE_INPUT} value={d.phone} placeholder="—" onChange={(e) => setD({ ...d, phone: phoneDigits(e.target.value) })} className={`${inputCls} w-28`} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-semibold text-ink/70">
         Meta del mes
         <input {...NUMERIC_INPUT} value={d.goal} placeholder="—" onChange={(e) => setD({ ...d, goal: digits(e.target.value) })} className={`${inputCls} w-24`} />
+      </label>
+      <label className="flex min-h-10 items-center gap-2 text-sm font-semibold text-ink/70">
+        <input type="checkbox" className="h-5 w-5 accent-gold-dark" checked={d.askNow} onChange={(e) => setD({ ...d, askNow: e.target.checked })} />
+        Ya le pedí referidos hoy
       </label>
       <Button className="min-h-10" disabled={create.isPending} onClick={() => void onAdd()}>
         Agregar
       </Button>
+      {asking && <AskDialog candidates={[asking]} initial={[asking.id]} today={laPazDate(new Date())} onClose={() => setAsking(null)} />}
     </div>
   )
 }
@@ -313,6 +368,10 @@ export function ReferrersSection({ s }: { s: ReferralScope }) {
   const prevMonth = monthStart(previousMonth(monthInput))
   const list = useReferrers(branch)
   const report = useReferralReport(branch, month)
+  // Spec 017: el celular no se lee de la tabla; viene con los datos de Seguimiento (solo jefes).
+  const today = laPazDate(new Date())
+  const followup = useReferrerFollowup({ branch_id: branch, from: today, to: today }, branch !== undefined)
+  const phones = new Map((followup.data?.referrers ?? []).map((x) => [x.id, x.phone ?? '']))
   const prevGoals = useOwnGoals(branch, prevMonth)
   const [q, setQ] = useState('')
   const [view, setView] = useState<View>('todos')
@@ -423,7 +482,7 @@ export function ReferrersSection({ s }: { s: ReferralScope }) {
               <table className="w-full min-w-[46rem] text-left text-sm">
                 <thead>
                   <tr className="border-b border-ink/10 text-ink/50">
-                    {['Nombre', 'Tipo', 'Orden', 'Meta', 'Activo', ''].map((h) => (
+                    {['Nombre', 'Celular', 'Tipo', 'Orden', 'Meta', 'Activo', ''].map((h) => (
                       <th key={h} scope="col" className={th}>
                         {h}
                       </th>
@@ -437,11 +496,12 @@ export function ReferrersSection({ s }: { s: ReferralScope }) {
                     // La key incluye lo guardado: al refrescar, la fila arranca de nuevo con los valores del servidor.
                     return (
                       <ReferrerRow
-                        key={`${r.id}|${month}|${r.name}|${r.kind}|${r.sort}|${r.active}|${row?.goal_from ?? ''}|${row?.goal ?? ''}`}
+                        key={`${r.id}|${month}|${r.name}|${r.kind}|${r.sort}|${r.active}|${row?.goal_from ?? ''}|${row?.goal ?? ''}|${phones.get(r.id) ?? ''}`}
                         r={r}
                         row={row}
                         month={month}
                         branch={branch}
+                        phone={phones.get(r.id) ?? ''}
                         onMerge={setMerging}
                       />
                     )

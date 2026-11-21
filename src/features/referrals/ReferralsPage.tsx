@@ -4,10 +4,11 @@ import { LoadSection } from './LoadSection'
 import { pickBranch, Tabs, useReferralScope } from './parts'
 import { ReferrersSection } from './ReferrersSection'
 import { ReportSection } from './ReportSection'
+import { SeguimientoSection } from './SeguimientoSection'
 import { PERIODS, type ReferralSection } from './search'
 
 // Referidos (spec 005 + 014 + 016): reporte por período y sucursales, contactos, quién registra, referidores y metas,
-// y carga en lote con asignación (016).
+// carga en lote con asignación (016) y seguimiento a referidores: pedir referidos y medirlo (017).
 // Solo jefe de ventas (sus sucursales), gerencia y Sistemas; el servidor lo verifica (referral_branches).
 // Todos los filtros viven en la URL (FR-009): recargar o compartir el link abre la misma vista.
 
@@ -17,6 +18,7 @@ const SECTIONS: { v: ReferralSection; label: string }[] = [
   { v: 'quien', label: 'Quién registra' },
   { v: 'referidores', label: 'Referidores y metas' },
   { v: 'cargar', label: 'Cargar' },
+  { v: 'seguimiento', label: 'Seguimiento' },
 ]
 
 export function ReferralsPage() {
@@ -100,6 +102,8 @@ export function ReferralsPage() {
         <ContactsSection s={s} />
       ) : section === 'quien' ? (
         <RegistrarsSection s={s} />
+      ) : section === 'seguimiento' ? (
+        <SeguimientoSection s={s} />
       ) : section === 'cargar' ? (
         <LoadSection s={s} />
       ) : section === 'referidores' ? (

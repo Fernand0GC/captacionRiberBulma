@@ -7,6 +7,7 @@ import { Button } from '@/ui/Button'
 import { Dialog } from '@/ui/Dialog'
 import { useToast } from '@/ui/Toast'
 import type { RangeContact } from './api'
+import { ReferrerAsks } from './ReferrerAsks'
 import { contactsOf, filterReferrals, OUTCOME_GROUPS, referralOutcome, summarizeReferrals, type ReferralFilter } from './detail'
 
 // Detalle de un referidor (spec 016, US3), con el diseño de «Asignados del día» (spec 012): resumen, quién los
@@ -29,11 +30,16 @@ export function ReferrerDetailDialog({
   subtitle,
   list,
   onClose,
+  referrerId,
+  branchId,
 }: {
   name: string
   subtitle: string
   list: RangeContact[]
   onClose: () => void
+  /** Spec 017: con el id se muestra el historial de pedidos y el botón «Pedir referidos». */
+  referrerId?: number
+  branchId?: number
 }) {
   const toast = useToast()
   const [f, setF] = useState<ReferralFilter>({ contact: 'all', outcome: null })
@@ -237,6 +243,7 @@ export function ReferrerDetailDialog({
           </ul>
         </div>
       )}
+      {referrerId !== undefined && <ReferrerAsks referrerId={referrerId} branchId={branchId} />}
       <div className="mt-4 flex gap-2 border-t border-ink/10 pt-4">
         {shown.length > 0 && (
           <Button variant="secondary" disabled={exporting} onClick={() => void onExport()}>

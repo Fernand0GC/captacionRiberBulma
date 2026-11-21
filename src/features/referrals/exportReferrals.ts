@@ -1,5 +1,6 @@
 import type { Workbook, Worksheet } from 'exceljs'
 import type { RangeContact, RangeReport, RangeRow } from './api'
+import { actorRows, ASK_METHOD_LABEL, ASK_RESULT_LABEL, branchRows, keptPct, perAsk, referrerRows, VERDICT_LABEL, type FollowupData } from './asks'
 import { contactStage, conversion, dayColumns, fulfillment, KIND_LABEL, rangeLabel, sortRegistrars, sumDays, totals, type ReferrerKind } from './logic'
 
 // Excel de Referidos (spec 005 FR-012 + spec 014 FR-010): respeta período, sucursal y filtros de la pantalla.
@@ -160,4 +161,86 @@ export async function exportContacts(list: RangeContact[], opts: { title: string
   wb.creator = 'Riber Captación'
   contactsSheet(wb, opts.title, list)
   await download(wb, `${slug(opts.title)}.xlsx`)
+}
+
+/** Seguimiento a referidores (spec 017): por referidor, por sucursal, por quién pide y el detalle de los pedidos. */
+export async function exportFollowup(d: FollowupData, opts: { scopeName: string; roleLabel: (role: string) => string }): Promise<void> {
+  const { default: ExcelJS } = await import('exceljs')
+  const wb = new ExcelJS.Workbook()
+  wb.creator = 'Riber Captación'
+  const title = `Seguimiento a referidores · ${opts.scopeName} · ${rangeLabel(d.from, d.to)}`
+  const branch = new Map(d.branches.map((b) => [b.id, b.name]))
+  const names = new Map(d.referrers.map((r) => [r.id, r]))
+
+  const ws = addSheet(wb, title, 'POR REFERIDOR', [
+    { header: 'Referidor', width: 28 },
+    { header: 'Tipo', width: 13 },
+    { header: 'Sucursal', width: 16 },
+    { header: 'Celular', width: 12 },
+    { header: 'Pedidos', width: 9 },
+    { header: 'Respondió', width: 10 },
+    { header: 'Promesas cumplidas', width: 12 },
+    { header: 'Promesas vencidas', width: 12 },
+    { header: 'Llegados', width: 9 },
+    { header: 'Llegados por pedido', width: 11, numFmt: '0.0' },
+    { header: 'Volver a pedir', width: 12, numFmt: 'dd/mm/yyyy' },
+    { header: 'Estado', width: 18 },
+  ])
+  referrerRows(d).forEach(({ r, s, verdict, next }) =>
+    ws.addRow([r.name, KIND_LABEL[r.kind], branch.get(r.branch_id) ?? '', r.phone ?? '', s.asks, s.answered, s.kept, s.expired, s.arrived, perAsk(s), next ? new Date(`${next}T12:00:00Z`) : null, VERDICT_LABEL[verdict]]),
+  )
+
+  const wb2 = addSheet(wb, title, 'POR SUCURSAL', [
+    { header: 'Sucursal', width: 18 },
+    { header: 'Referidores activos', width: 11 },
+    { header: 'Se les pidió', width: 10 },
+    { header: 'Cobertura', width: 10, numFmt: '0%' },
+    { header: 'Pedidos', width: 9 },
+    { header: 'Respondió', width: 10 },
+    { header: 'Promesas cumplidas', width: 12, numFmt: '0%' },
+    { header: 'Llegados', width: 9 },
+    { header: 'Llegados por pedido', width: 11, numFmt: '0.0' },
+  ])
+  branchRows(d).forEach((b) => {
+    const kp = keptPct(b)
+    wb2.addRow([b.name, b.active, b.covered, b.active ? b.covered / b.active : null, b.asks, b.answered, kp === null ? null : kp / 100, b.arrived, perAsk(b)])
+  })
+
+  const wa = addSheet(wb, title, 'POR QUIEN PIDE', [
+    { header: 'Persona', width: 28 },
+    { header: 'Cargo', width: 16 },
+    { header: 'Pedidos', width: 9 },
+    { header: 'A cuántos referidores', width: 12 },
+    { header: 'Respondieron', width: 12 },
+    { header: 'Referidores nuevos', width: 12 },
+  ])
+  actorRows(d).forEach((a) => wa.addRow([a.name, opts.roleLabel(a.role), a.asks, a.referrers, a.answered, a.added]))
+
+  const det = addSheet(wb, title, 'PEDIDOS', [
+    { header: 'Fecha', width: 17, numFmt: 'dd/mm/yyyy hh:mm' },
+    { header: 'Referidor', width: 28 },
+    { header: 'Sucursal', width: 16 },
+    { header: 'Medio', width: 18 },
+    { header: 'Resultado', width: 20 },
+    { header: 'Volver a pedir', width: 12, numFmt: 'dd/mm/yyyy' },
+    { header: 'Observación', width: 40 },
+    { header: 'Quién', width: 24 },
+  ])
+  d.asks
+    .filter((a) => a.day >= d.from && a.day <= d.to)
+    .forEach((a) => {
+      const r = names.get(a.referrer_id)
+      det.addRow([
+        wall(a.at),
+        r?.name ?? '',
+        r ? (branch.get(r.branch_id) ?? '') : '',
+        a.auto ? 'Al cargar referidos' : a.method ? ASK_METHOD_LABEL[a.method] : '',
+        ASK_RESULT_LABEL[a.result],
+        a.next_on ? new Date(`${a.next_on}T12:00:00Z`) : null,
+        a.note ?? '',
+        a.actor_name ?? '',
+      ])
+    })
+
+  await download(wb, `seguimiento-referidores-${slug(opts.scopeName)}-${d.from}-a-${d.to}.xlsx`)
 }

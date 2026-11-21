@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { toAppError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 import type { ContactMethod, ContactResult } from '@/features/followup/api'
+import type { AskMethod, AskResult, FollowupData } from './asks'
 import type { Assignee, BatchItem, PhoneHit } from './load'
 import type { Counts, ReferrerKind } from './logic'
 
@@ -97,16 +98,27 @@ const INVALID_DETAIL: Record<string, string> = {
   merged: 'Este referidor está unido a otro: ya no se edita.',
   into_id: 'Elige otro referidor de la misma sucursal (que no esté unido).',
   from_id: 'Este referidor ya está unido a otro.',
+  phone: 'El celular debe ser un número boliviano de 8 dígitos (6… o 7…).',
 }
 
 /** Error de la RPC → mensaje en español (con el campo de invalid_input cuando lo hay). */
-function rpcError(error: { message: string; details?: string | null }): Error {
+function rpcError(error: { message: string; details?: string | null; hint?: string | null }): Error {
   const detail = error.details ?? ''
+  if (error.message === 'invalid_input' && detail === 'phone_taken') return new Error(`Ese celular ya es de «${error.hint ?? 'otro referidor'}».`)
   if (error.message === 'invalid_input' && detail in INVALID_DETAIL) return new Error(INVALID_DETAIL[detail])
   return toAppError(error)
 }
 
-export type ReferrerInput = { id?: number; branch_id: number; name: string; kind: ReferrerKind; sort: number; active: boolean }
+export type ReferrerInput = {
+  id?: number
+  branch_id: number
+  name: string
+  kind: ReferrerKind
+  sort: number
+  active: boolean
+  /** Spec 017: ausente = no cambia; '' = se borra. */
+  phone?: string
+}
 
 export async function saveReferrer(input: ReferrerInput): Promise<number> {
   const { data, error } = await supabase.rpc('referrer_save', { p: input })
@@ -297,6 +309,68 @@ export function useSaveReferralBatch() {
         qc.invalidateQueries({ queryKey: ['prospects'] }),
         qc.invalidateQueries({ queryKey: ['monitoring'] }),
       ])
+    },
+  })
+}
+
+// Spec 017: seguimiento a referidores ----------------------------------------------------------------------
+
+export type FollowupFilters = { branch_id?: number; from: string; to: string }
+
+/** Datos de la pestaña Seguimiento (también da el celular de cada referidor al padrón). */
+export function useReferrerFollowup(filters: FollowupFilters, enabled = true) {
+  return useQuery({
+    queryKey: ['referrals', 'followup', filters],
+    enabled,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('referrer_followup', { p: filters })
+      if (error) throw toAppError(error)
+      return data as FollowupData
+    },
+  })
+}
+
+export type AskInput = { referrer_ids: number[]; method: AskMethod; result: AskResult; note?: string; next_on: string | null }
+
+const ASK_DETAIL: Record<string, string> = {
+  referrer_ids: 'Elige entre 1 y 50 referidores.',
+  method: 'Elige cómo le pediste.',
+  result: 'Elige qué respondió.',
+  note: 'La observación puede tener hasta 500 caracteres.',
+  next_on: 'La fecha para volver a pedir debe ser de hoy a 90 días.',
+}
+
+export async function saveReferrerAsks(input: AskInput): Promise<number> {
+  const { data, error } = await supabase.rpc('referrer_ask_save', { p: input })
+  if (error) {
+    const detail = error.details ?? ''
+    if (error.message === 'invalid_input' && detail in ASK_DETAIL) throw new Error(ASK_DETAIL[detail])
+    throw toAppError(error)
+  }
+  return data as number
+}
+
+export type HistoryItem = {
+  at: string
+  method: AskMethod | null
+  result: AskResult
+  next_on: string | null
+  note: string | null
+  auto: boolean
+  kept: boolean | null
+  actor_name: string | null
+}
+
+/** Pedidos de un referidor (últimos 100), para su ventana de detalle. */
+export function useReferrerHistory(referrerId: number | undefined) {
+  return useQuery({
+    queryKey: ['referrals', 'history', referrerId],
+    enabled: referrerId !== undefined,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('referrer_history', { p_referrer: referrerId })
+      if (error) throw toAppError(error)
+      return data as HistoryItem[]
     },
   })
 }

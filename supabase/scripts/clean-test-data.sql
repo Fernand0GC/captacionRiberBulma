@@ -19,6 +19,9 @@ update public.prospects set duplicate_of = null where duplicate_of is not null;
 delete from public.prospects;
 -- Referidores que crean las pruebas E2E (spec 005); los reales de cada sucursal se conservan.
 delete from public.referrer_goals where referrer_id in (select id from public.referrers where name like 'E2E %');
+-- Spec 017: pedidos y celulares de esos referidores.
+delete from public.referrer_asks where referrer_id in (select id from public.referrers where name like 'E2E %');
+delete from public.referrer_phones where referrer_id in (select id from public.referrers where name like 'E2E %');
 delete from public.referrers where name like 'E2E %';
 delete from public.rate_limits;
 delete from public.profiles where username like 'vol.e2e%';
