@@ -3,7 +3,7 @@
 -- contacto, intentos, responsable…); eso ya tiene su propia línea en el historial y salía repetido con nombres
 -- técnicos. No se toca audit_log: se filtra al leer, así se limpian también los registros anteriores.
 
-create function pg_temp.patch_function(p_sig text, p_old text, p_new text) returns void language plpgsql as $$
+create or replace function pg_temp.patch_function(p_sig text, p_old text, p_new text) returns void language plpgsql as $$
 declare
   d text := pg_get_functiondef(p_sig::regprocedure);
 begin
