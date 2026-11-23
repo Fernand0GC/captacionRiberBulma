@@ -1,3 +1,4 @@
+import { matchesNameOrPhone } from '@/lib/search'
 import type { AgentAssignedRow, ProspectStage } from './api'
 
 // Cálculos puros de la pestaña «Asignados» del detalle de Actividad (spec 012; probados en tests/unit/assigned.test.ts).
@@ -65,12 +66,44 @@ export function summarizeAssigned(rows: AgentAssignedRow[]): AssignedSummary {
   }
 }
 
-export type AssignedFilter = { contact: 'all' | 'done' | 'none'; origin: ProspectStage | null; outcome: OutcomeGroup | null }
+export type AssignedFilter = {
+  contact: 'all' | 'done' | 'none'
+  origin: ProspectStage | null
+  outcome: OutcomeGroup | null
+  /** Spec 020: lupa por nombre o celular (solo en pantalla, nunca en la URL). */
+  q?: string
+  /** Spec 021: «Ver ocultos». Apagado, la lista, la lupa, los filtros y la selección ignoran los ocultos. */
+  showHidden?: boolean
+}
 
 export const filterAssigned = (rows: AgentAssignedRow[], f: AssignedFilter): AgentAssignedRow[] =>
   rows.filter(
     (r) =>
+      (f.showHidden || !r.hidden) &&
       (f.contact === 'all' || (f.contact === 'done' ? r.contacts > 0 : r.contacts === 0)) &&
       (f.origin === null || r.stage_at === f.origin) &&
-      (f.outcome === null || outcomeOf(r) === f.outcome),
+      (f.outcome === null || outcomeOf(r) === f.outcome) &&
+      matchesNameOrPhone(r, f.q ?? ''),
   )
+
+/** Spec 020: los que se pueden reasignar desde el modal: sin contactar, todavía a cargo de la persona y (021) no ocultos. */
+export const reassignable = (rows: AgentAssignedRow[]): AgentAssignedRow[] =>
+  rows.filter((r) => r.contacts === 0 && !r.reassigned && !r.hidden)
+
+/** Spec 020: la sucursal de todas las filas, o `undefined` si son de varias (o no hay): se asigna por sucursal. */
+export function singleBranch(rows: AgentAssignedRow[]): number | undefined {
+  const ids = new Set(rows.map((r) => r.branch_id))
+  return ids.size === 1 ? [...ids][0] : undefined
+}
+
+// --- Spec 021: aviso «¿ocultar los ya contactados?» -----------------------------------------------------------------
+
+/** Día de hoy en La Paz (AAAA-MM-DD), para recordar «Mantener» solo por hoy. */
+export const laPazDay = (d: Date = new Date()): string => dayOf(d.toISOString())
+
+/** Clave de `localStorage` de «Mantener»: por quien mira y por persona del modal (solo ids de personal). */
+export const keepKey = (viewerId: string, agentId: string): string => `rb.assigned-keep.${viewerId}.${agentId}`
+
+/** Se pregunta si hay contactados sin ocultar y hoy no eligió «Mantener» para esa persona. */
+export const shouldAskHide = (contactedVisible: number, keptDay: string | null, today: string): boolean =>
+  contactedVisible > 0 && keptDay !== today
