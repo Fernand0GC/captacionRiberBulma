@@ -14,8 +14,16 @@ export const DUE_ORDER: Record<DueKind, number> = { late: 0, now: 1, soon: 2, no
 
 export const needsAttention = (s: DueStatus) => s.kind === 'late' || s.kind === 'now' || s.kind === 'soon'
 
+/**
+ * Lo único que la regla mira de un cliente. Spec 023: la agenda de recontacto de las jefas usa esta misma regla con filas
+ * que pueden estar cerradas hoy (venta o sin interés), por eso `stage` es texto y no solo las etapas abiertas.
+ */
+export type DueInput = Pick<FollowupRow, 'next_contact_at' | 'visit_at' | 'last_contacted_at' | 'last_result' | 'assigned_at'> & {
+  stage: string
+}
+
 /** Visita agendada cuya hora ya pasó y nadie registró nada desde entonces: toca preguntar "¿vino?". */
-export function visitPassed(r: FollowupRow, now: Date): boolean {
+export function visitPassed(r: Pick<DueInput, 'visit_at' | 'next_contact_at'>, now: Date): boolean {
   if (!r.visit_at || !r.next_contact_at) return false
   const at = new Date(r.visit_at).getTime()
   return at === new Date(r.next_contact_at).getTime() && at <= now.getTime()
@@ -39,7 +47,7 @@ const shortDate = (iso: string) => fmtDate(iso).slice(0, 5)
 
 const days = (n: number) => (n === 1 ? '1 día' : `${n} días`)
 
-export function dueStatus(r: FollowupRow, now: Date): DueStatus {
+export function dueStatus(r: DueInput, now: Date): DueStatus {
   const today = laPazDate(now)
   // Contactado hoy = resuelto, salvo que se haya quedado en volver a hablar más tarde el mismo día.
   const laterToday =
@@ -63,7 +71,7 @@ export function dueStatus(r: FollowupRow, now: Date): DueStatus {
 }
 
 /** Estado según la fecha agendada (visita o próximo contacto), sin mirar si ya se contactó hoy. */
-function scheduled(r: FollowupRow, now: Date): DueStatus {
+function scheduled(r: DueInput, now: Date): DueStatus {
   const today = laPazDate(now)
   if (!r.next_contact_at) {
     if (r.last_contacted_at) return { kind: 'normal', label: 'Por contactar' }

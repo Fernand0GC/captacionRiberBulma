@@ -1,6 +1,8 @@
 // Excel del reporte del día (spec 009, US2): resumen, registros nuevos y clientes con seguimiento. Se carga lazy.
 import { METHOD_LABEL, RESULT_LABEL } from '@/features/followup/api'
 import { STAGE_LABEL } from '@/features/prospects/format'
+import { ROLE_LABEL } from '@/features/auth/types'
+import type { AgendaPersonView } from './agenda'
 import type { DailyFollowedRow, DailyNewRow, DailyReport } from './api'
 import { fmtAvg, perDay, perPerson } from './daily'
 import { addSheet, dmy, fileSafe, laPazWallClock, newWorkbook, saveWorkbook } from './xlsx'
@@ -8,7 +10,13 @@ import { addSheet, dmy, fileSafe, laPazWallClock, newWorkbook, saveWorkbook } fr
 const origin = (r: { referrer: string | null; channel: string | null }) =>
   r.referrer ? `Referido · ${r.referrer}` : (r.channel ?? '')
 
-export async function exportDaily(report: DailyReport, scopeName: string, originName: string): Promise<void> {
+/** `agenda`: solo cuando el día es hoy (spec 023); agrega la hoja «Agenda» con una fila por persona. */
+export async function exportDaily(
+  report: DailyReport,
+  scopeName: string,
+  originName: string,
+  agenda?: AgendaPersonView[],
+): Promise<void> {
   const t = report.totals
   const when = dmy(report.from)
   const wb = await newWorkbook()
@@ -66,6 +74,22 @@ export async function exportDaily(report: DailyReport, scopeName: string, origin
     ],
     rows: report.followed_rows,
   })
+
+  if (agenda) {
+    addSheet<AgendaPersonView>(wb, {
+      sheet: 'Agenda',
+      title: `Agenda de recontacto ${when} · ${scopeName} · todos los orígenes`,
+      columns: [
+        { header: 'Persona', width: 28, value: (p) => p.full_name },
+        { header: 'Rol', width: 14, value: (p) => ROLE_LABEL[p.role] },
+        { header: 'Le tocaba hoy', width: 12, value: (p) => p.due },
+        { header: 'Contactó', width: 11, value: (p) => p.done.length },
+        { header: 'Pendientes', width: 11, value: (p) => p.pending.length },
+        { header: 'Atrasados', width: 11, value: (p) => p.late.length },
+      ],
+      rows: agenda,
+    })
+  }
 
   await saveWorkbook(wb, `del-dia_${fileSafe(scopeName)}_${report.from}.xlsx`)
 }

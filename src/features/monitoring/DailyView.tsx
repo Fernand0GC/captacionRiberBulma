@@ -6,7 +6,9 @@ import { fmtTime, STAGE_LABEL } from '@/features/prospects/format'
 import { useReferrers } from '@/features/referrals/api'
 import { laPazDate } from '@/lib/dates'
 import { PageTitle } from '@/ui/PageTitle'
-import { useDailyReport, type DailyFilters, type DailyFollowedRow, type DailyNewRow } from './api'
+import { agendaByPerson } from './agenda'
+import { AgendaSection } from './AgendaSection'
+import { useDailyReport, useRecontactAgenda, type DailyFilters, type DailyFollowedRow, type DailyNewRow } from './api'
 import { effectiveText, fmtAvg, longDay, perDay, perPerson, shiftDay } from './daily'
 import { ExportButton } from './ExportButton'
 
@@ -51,6 +53,8 @@ export function DailyView({ scope }: { scope: ManageScope }) {
     referrer_id: referred && branchId !== undefined ? search.referidor : undefined,
   }
   const q = useDailyReport(filters)
+  // Misma consulta (y caché) que la sección «Agenda de recontacto»: el Excel suma su hoja solo con hoy.
+  const agenda = useRecontactAgenda(filters.branch_id, day === today)
   const r = q.data
   const t = r?.totals
   const tab = search.lista === 'seguimiento' ? 'followed' : 'new'
@@ -73,7 +77,8 @@ export function DailyView({ scope }: { scope: ManageScope }) {
               disabled={!r || (t?.new ?? 0) + (t?.followed ?? 0) === 0}
               run={async () => {
                 const { exportDaily } = await import('./exportDaily')
-                await exportDaily(r!, scopeName, originName)
+                const people = day === today && agenda.data ? agendaByPerson(agenda.data, new Date(agenda.dataUpdatedAt)) : undefined
+                await exportDaily(r!, scopeName, originName, people)
                 return '✓ Excel descargado'
               }}
             />
@@ -237,6 +242,14 @@ export function DailyView({ scope }: { scope: ManageScope }) {
               Los números de hoy pueden subir si alguien registró sin conexión y sincroniza más tarde.
             </p>
           )}
+
+          {/* Agenda de recontacto (spec 023): lo que a cada persona le tocaba hoy y lo que hizo. */}
+          <AgendaSection
+            branchId={filters.branch_id}
+            isToday={day === today}
+            referred={referred}
+            onGoToday={() => goDay(today)}
+          />
 
           {/* Listas (FR-002) */}
           <div className="flex gap-1 border-b border-ink/10" role="tablist" aria-label="Listas del día">

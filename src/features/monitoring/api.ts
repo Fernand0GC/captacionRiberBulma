@@ -2,6 +2,7 @@ import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClie
 import { toAppError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 import type { AppRole } from '@/features/auth/types'
+import type { DateBasis } from '@/features/prospects/search'
 import type { ContactMethod, ContactResult } from '@/features/followup/api'
 import type { DailyTotals } from './daily'
 import type { ContactMetric, FollowupTab } from './labels'
@@ -30,6 +31,8 @@ export type FollowupStatusFilters = {
   referrer?: 'any' | number
   /** Spec 015: solo clientes con ese producto. */
   product_id?: number
+  /** Spec 023: a qué fecha se aplica el período; sin el campo, registro. */
+  date_basis?: DateBasis
 }
 
 export type FollowupStatusRow = {
@@ -127,6 +130,9 @@ export type AgentActivityRow = {
   /** De esos, a cuántos contactó desde que se le asignaron. */
   assigned_contacted: number
   total: number
+  /** Spec 023: contactos a clientes que nadie había contactado antes, y los demás (rellamadas). Suman el total. */
+  first_contacts: number
+  recontacts: number
 }
 
 /** Resumen por sucursal (sucursal del cliente). Solo llega cuando la consulta abarca todas las sucursales. */
@@ -338,5 +344,45 @@ export function useDailyReport(f: DailyFilters, enabled = true) {
     enabled,
     placeholderData: keepPreviousData,
     queryFn: () => dailyReport(f),
+  })
+}
+
+// --- Agenda de recontacto (spec 023) -------------------------------------------------------------------------------
+
+/** Un cliente que puede estar en la agenda de hoy de su responsable (contracts/rpc.md de la 023). */
+export type AgendaRow = {
+  id: string
+  full_name: string
+  phone_raw: string
+  stage: string
+  contact_attempts: number
+  next_contact_at: string | null
+  visit_at: string | null
+  client_created_at: string
+  assigned_to: string
+  branch_id: number
+  /** Última asignación al responsable actual (o la captación). La usa la regla de atrasados. */
+  assigned_at: string
+  reassigned_from_name: string | null
+  last_contacted_at: string | null
+  last_result: ContactResult | null
+  last_method: ContactMethod | null
+  last_note: string | null
+}
+
+export type AgendaPerson = { id: string; full_name: string; role: AppRole; branch_id: number | null }
+
+export type AgendaReport = { today: string; people: AgendaPerson[]; rows: AgendaRow[]; truncated: boolean }
+
+/** Siempre es la agenda de hoy: solo se pide cuando «Del día» muestra hoy. */
+export function useRecontactAgenda(branchId: number | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['monitoring', 'recontact-agenda', branchId ?? null],
+    enabled,
+    queryFn: async (): Promise<AgendaReport> => {
+      const { data, error } = await supabase.rpc('recontact_agenda', { f: branchId === undefined ? {} : { branch_id: branchId } })
+      if (error) throw toAppError(error)
+      return data as AgendaReport
+    },
   })
 }

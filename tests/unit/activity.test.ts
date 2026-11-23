@@ -18,6 +18,8 @@ const row = (full_name: string, n: Partial<AgentActivityRow> = {}): AgentActivit
   assigned: 0,
   assigned_contacted: 0,
   total: 0,
+  first_contacts: 0,
+  recontacts: 0,
   ...n,
 })
 
@@ -78,6 +80,8 @@ const branch = (name: string, n: Partial<BranchActivityRow> = {}): BranchActivit
   assigned: 0,
   assigned_contacted: 0,
   total: 0,
+  first_contacts: 0,
+  recontacts: 0,
   ...n,
 })
 
@@ -102,5 +106,18 @@ describe('resumen por sucursal', () => {
     expect(sortBranches(branches, { key: 'total', desc: true }).map((b) => b.name)).toEqual(['TRINIDAD', 'COBIJA', 'REYES'])
     expect(sortBranches(branches, { key: 'full_name', desc: false }).map((b) => b.name)).toEqual(['COBIJA', 'REYES', 'TRINIDAD'])
     expect(branches[0]?.name).toBe('TRINIDAD') // no muta
+  })
+})
+
+// Spec 023: primer contacto y recontacto, con fila Total y orden como las demás columnas.
+describe('primer contacto / recontacto', () => {
+  const r = [row('Maico', { total: 5, first_contacts: 1, recontacts: 4 }), row('Ana', { total: 2, first_contacts: 2 })]
+  it('la fila Total suma las dos columnas', () => {
+    const t = activityTotals(r)
+    expect([t.first_contacts, t.recontacts, t.total]).toEqual([3, 4, 7])
+  })
+  it('se puede ordenar por recontactos', () => {
+    expect(sortActivity(r, parseActivitySort('recontacts')).map((x) => x.full_name)).toEqual(['Maico', 'Ana'])
+    expect(sortParam(parseActivitySort('-recontacts'))).toBe('-recontacts')
   })
 })

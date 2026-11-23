@@ -15,9 +15,16 @@ import {
   ViewSwitch,
   type ManageScope,
 } from '@/features/prospects/ManageFilterBar'
-import { referrerFilter, type AttemptsParam, type InterestParam, type StaleDays } from '@/features/prospects/search'
+import {
+  dateBasisOf,
+  referrerFilter,
+  type AttemptsParam,
+  type DateBasisParam,
+  type InterestParam,
+  type StaleDays,
+} from '@/features/prospects/search'
 import { fetchAllFollowupStatus, MONITORING_PAGE, useFollowupStatus, useLostReasons, type FollowupStatusFilters, type FollowupStatusRow } from './api'
-import { FOLLOWUP_TABS, TAB_EMPTY } from './labels'
+import { DATE_BASIS_TEXT, FOLLOWUP_TABS, TAB_EMPTY } from './labels'
 import { ExportButton } from './ExportButton'
 
 const INTEREST_PARAM: Record<InterestParam, NonNullable<FollowupStatusFilters['interest']>> = {
@@ -57,7 +64,9 @@ export function FollowupStatusView({ scope }: { scope: ManageScope }) {
     lost_reason_id: search.estado === 'sin_interes' ? search.motivo : undefined,
     referrer: referrerFilter(search),
     product_id: search.producto,
+    date_basis: dateBasisOf(search.contar),
   }
+  const basis = DATE_BASIS_TEXT[filters.date_basis ?? 'registered']
   const status = useFollowupStatus(filters, page)
   const lostReasons = useLostReasons()
   const total = status.data?.total ?? 0
@@ -104,6 +113,18 @@ export function FollowupStatusView({ scope }: { scope: ManageScope }) {
         setQ={setQ}
         show={{ search: true, author: true, assignee: true, channel: true, product: true, referrer: true }}
       >
+        {/* Spec 023: a qué fecha se aplica el período (registro, asignación, último o próximo contacto). */}
+        <select
+          aria-label="Contar por"
+          className={selectCls}
+          value={search.contar ?? ''}
+          onChange={(e) => setSearch({ contar: (e.target.value || undefined) as DateBasisParam | undefined })}
+        >
+          <option value="">Contar por: {DATE_BASIS_TEXT.registered.option}</option>
+          <option value="asignacion">Contar por: {DATE_BASIS_TEXT.assigned.option}</option>
+          <option value="ultimo">Contar por: {DATE_BASIS_TEXT.last_contact.option}</option>
+          <option value="proximo">Contar por: {DATE_BASIS_TEXT.next_contact.option}</option>
+        </select>
         <select
           aria-label="Interés"
           className={selectCls}
@@ -198,8 +219,8 @@ export function FollowupStatusView({ scope }: { scope: ManageScope }) {
           <span className="font-display text-3xl font-bold text-ink" data-testid="total">
             {total}
           </span>{' '}
-          {total === 1 ? 'cliente' : 'clientes'} · registrados {from === to ? `el ${fmtDay(from)}` : `del ${fmtDay(from)} al ${fmtDay(to)}`}
-          <span className="block text-xs text-ink/45">El período cuenta la fecha en que se registró el cliente.</span>
+          {total === 1 ? 'cliente' : 'clientes'} · {basis.verb} {from === to ? `el ${fmtDay(from)}` : `del ${fmtDay(from)} al ${fmtDay(to)}`}
+          <span className="block text-xs text-ink/45">{basis.help}</span>
         </p>
         {status.isFetching && <span className="text-sm text-ink/40">Actualizando…</span>}
       </div>
