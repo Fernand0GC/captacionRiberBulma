@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { login, logoutFromManage } from './helpers'
 
-// Organización comercial (spec 003). Trinidad para no chocar con las pruebas de Verdolago; día siguiente para que
-// el encargado pueda editar (desde el día de la asignación solo el gerente cambia la meta, FR-029).
+// Organización comercial (spec 003). Trinidad para no chocar con las pruebas de Verdolago; día siguiente para no
+// mezclarse con las filas de hoy (desde la spec 018 el encargado también edita las de hoy: planning-same-day.spec.ts).
 
 test('organización: el encargado carga con horario sugerido, registra resultado, filtra, exporta y quita', async ({ page }) => {
   const place = `Barrio e2e ${Date.now() % 100000}`
@@ -497,4 +497,33 @@ test('organización (008): subcanal único marcado solo; subcanal y horas obliga
   await dlg.getByRole('button', { name: 'Guardar' }).click()
   await expect(page.getByText('✓ Asignación agregada')).toBeVisible()
   await expect(page.getByTestId('assignment-card').filter({ hasText: 'Freelancers' })).toContainText('16:00–16:20')
+})
+
+test('organización (019): «Acomodo de tienda» es un canal de Tienda, sin subcanal', async ({ page }) => {
+  const d = new Date()
+  d.setUTCDate(d.getUTCDate() + 100 + Math.floor(Math.random() * 3000))
+  const day = d.toISOString().slice(0, 10)
+  await login(page, 'enc.trinidad')
+  await expect(page).toHaveURL(/\/panel/)
+  await page.goto('/planificacion')
+  await page.getByLabel('Desde').fill(day)
+  await page.getByLabel('Hasta').fill(day)
+
+  await page.getByRole('button', { name: '＋ Mañana' }).click()
+  const dlg = page.getByRole('dialog', { name: 'Nueva asignación' })
+  await dlg.getByRole('combobox', { name: /^Persona/ }).selectOption({ label: 'Volantera Trinidad' })
+  await dlg.getByRole('combobox', { name: /^Estrategia/ }).selectOption({ label: 'Tienda' })
+  // Es canal (segundo nivel) y no pide subcanal: la migración no le deja subcanales (FR-005, FR-013).
+  // El grupo sigue visible solo por «+ Agregar otro…», marcado como opcional y sin casillas.
+  await dlg.getByRole('combobox', { name: /^Canal/ }).selectOption({ label: 'Acomodo de tienda' })
+  const subs = dlg.getByRole('group', { name: 'Subcanales' })
+  await expect(subs).toContainText('(uno o varios, opcional)')
+  await expect(subs.getByRole('checkbox')).toHaveCount(0)
+
+  await dlg.getByLabel('Hora inicio').fill('09:00')
+  await dlg.getByLabel('Hora fin').fill('10:00')
+  await dlg.getByRole('textbox', { name: /^Meta de captación/ }).fill('4')
+  await dlg.getByRole('button', { name: 'Guardar' }).click()
+  await expect(page.getByText('✓ Asignación agregada')).toBeVisible()
+  await expect(page.getByTestId('assignment-card').filter({ hasText: 'Acomodo de tienda' })).toContainText('09:00–10:00')
 })

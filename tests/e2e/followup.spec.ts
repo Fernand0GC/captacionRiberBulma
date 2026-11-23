@@ -2,13 +2,13 @@ import { expect, test, type Browser } from '@playwright/test'
 import { fillCapture, login, logoutFromManage, randomPhone } from './helpers'
 
 // Capta el encargado (también registra): las pruebas corren en paralelo y cada una usa sus propios usuarios.
-async function capture(browser: Browser, name: string) {
+async function capture(browser: Browser, name: string, phone = randomPhone()) {
   const ctx = await browser.newContext()
   const page = await ctx.newPage()
   await login(page, 'enc.verdolago')
   await expect(page).toHaveURL(/\/panel/)
   await page.goto('/registrar')
-  await fillCapture(page, name, randomPhone())
+  await fillCapture(page, name, phone)
   await page.getByRole('button', { name: 'Guardar' }).click()
   await expect(page.getByText('Todo subido')).toBeVisible({ timeout: 15_000 })
   await ctx.close()
@@ -41,6 +41,8 @@ test('embudo: el encargado asigna; la auxiliar recaptura, hace seguimiento y cie
   await login(page, 'aux.verdolago')
   await expect(page).toHaveURL(/\/seguimiento$/)
   await expect(page.getByRole('tab', { name: /^Captados/ })).toHaveAttribute('aria-selected', 'true')
+  // La base local puede tener cientos de contactos y cada lista dibuja de a 50 (spec 022): solo los de este test.
+  await page.getByLabel('Buscar por nombre o celular').fill(`llamar ${tag}`)
   const cardA = page.getByTestId('contact-card').filter({ hasText: a })
   await expect(cardA).toBeVisible()
 
@@ -91,4 +93,46 @@ test('embudo: el encargado asigna; la auxiliar recaptura, hace seguimiento y cie
   await save.click()
   await expect(page.getByText('✓ Compró → Venta')).toBeVisible()
   await expect(page.getByTestId('contact-card').filter({ hasText: b })).toHaveCount(0)
+})
+
+// Spec 020: lupa en «Mis contactos» por nombre o celular. Solo mira sus propios clientes (tag).
+test('020 mis contactos: buscar por nombre o celular', async ({ browser, page }) => {
+  const tag = String(Date.now()).slice(-5)
+  const a = `Lupa Uno ${tag}`
+  const b = `Lupa Dos ${tag}`
+  const phoneA = randomPhone()
+  await capture(browser, a, phoneA)
+  await capture(browser, b)
+
+  await login(page, 'enc.verdolago')
+  await expect(page).toHaveURL(/\/panel/)
+  await page.goto('/gestion')
+  await page.getByLabel('Buscar por nombre o celular').fill(tag)
+  await expect(page.getByTestId('total')).toHaveText('2')
+  await page.getByRole('button', { name: 'Seleccionar', exact: true }).click()
+  await page.getByLabel(`Seleccionar ${a}`).filter({ visible: true }).check()
+  await page.getByLabel(`Seleccionar ${b}`).filter({ visible: true }).check()
+  await page.getByLabel('Asignar a').selectOption({ label: 'Auxiliar Verdolago (Auxiliar)' })
+  await page.getByRole('button', { name: 'Asignar', exact: true }).click()
+  await expect(page.getByText('✓ 2 asignadas')).toBeVisible()
+  await logoutFromManage(page)
+
+  await login(page, 'aux.verdolago')
+  await expect(page).toHaveURL(/\/seguimiento$/)
+  const cards = page.getByTestId('contact-card')
+  const search = page.getByLabel('Buscar por nombre o celular')
+  // Por nombre: los dos, y el contador de «Captados» cuenta solo las coincidencias
+  await search.fill(`lupa ${tag}`)
+  await expect(cards).toHaveCount(2)
+  await expect(page.getByRole('tab', { name: /^Captados/ })).toHaveText(/^Captados\s*2(?!\d)/)
+  // Por celular (con espacio en medio): solo A
+  await search.fill(`${phoneA.slice(0, 4)} ${phoneA.slice(4)}`)
+  await expect(cards).toHaveCount(1)
+  await expect(cards.first()).toContainText(a)
+  // Sin coincidencias: mensaje propio
+  await search.fill(`zzz ${tag}`)
+  await expect(page.getByText(/Ningún contacto coincide con/)).toBeVisible()
+  // Al borrar vuelven todos
+  await search.fill('')
+  await expect(cards.filter({ hasText: b })).toBeVisible()
 })

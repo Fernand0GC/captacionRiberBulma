@@ -13,10 +13,10 @@ async function newPage(browser: Browser, user: string): Promise<Page> {
   return page
 }
 
-async function capture(browser: Browser, name: string) {
+async function capture(browser: Browser, name: string, phone = randomPhone()) {
   const page = await newPage(browser, 'enc.verdolago')
   await page.goto('/registrar')
-  await fillCapture(page, name, randomPhone())
+  await fillCapture(page, name, phone)
   await page.getByRole('button', { name: 'Guardar' }).click()
   await expect(page.getByText('Todo subido')).toBeVisible({ timeout: 15_000 })
   await page.context().close()
@@ -183,4 +183,78 @@ test('monitoreo: el encargado no ve otra sucursal y la auxiliar no entra', async
   await aux.goto('/gestion?ver=actividad')
   await expect(aux.getByRole('table', { name: 'Actividad por persona' })).toHaveCount(0)
   await aux.context().close()
+})
+
+// Spec 020: lupa y reasignación de los sin contactar en «Clientes asignados». Filtra por sus propios nombres (tag):
+// la base local puede tener otros asignados de hoy en Verdolago.
+test('020 clientes asignados: buscar por nombre o celular y reasignar los sin contactar', async ({ browser }) => {
+  const tag = String(Date.now()).slice(-5)
+  const a = `Reasignar Uno ${tag}`
+  const b = `Reasignar Dos ${tag}`
+  const c = `Reasignar Tres ${tag}`
+  const phoneA = randomPhone()
+  await capture(browser, a, phoneA)
+  await capture(browser, b)
+  await capture(browser, c)
+
+  // El encargado asigna los tres a la auxiliar
+  const enc = await newPage(browser, 'enc.verdolago')
+  await enc.goto('/gestion')
+  await enc.getByLabel('Buscar por nombre o celular').fill(tag)
+  await expect(enc.getByTestId('total')).toHaveText('3')
+  await enc.getByRole('button', { name: 'Seleccionar', exact: true }).click()
+  for (const n of [a, b, c]) await enc.getByLabel(`Seleccionar ${n}`).filter({ visible: true }).check()
+  await enc.getByLabel('Asignar a').selectOption({ label: 'Auxiliar Verdolago (Auxiliar)' })
+  await enc.getByRole('button', { name: 'Asignar', exact: true }).click()
+  await expect(enc.getByText('✓ 3 asignadas')).toBeVisible()
+
+  // La auxiliar contacta a C (no contestó): C ya no se puede reasignar desde el modal
+  const aux = await newPage(browser, 'aux.verdolago')
+  await expect(aux).toHaveURL(/\/seguimiento$/)
+  await aux.getByTestId('contact-card').filter({ hasText: c }).getByRole('button', { name: 'Registrar contacto' }).click()
+  await aux.getByRole('radio', { name: /No contestó/ }).click()
+  await aux.getByRole('dialog').getByRole('button', { name: 'Guardar' }).click()
+  await expect(aux.getByText(/No contestó \(1\/3\)/)).toBeVisible()
+  await aux.context().close()
+
+  // Actividad → Auxiliar → «Clientes asignados»
+  await enc.goto('/gestion?ver=actividad')
+  const auxRow = enc.getByTestId('activity-row').filter({ hasText: 'Auxiliar Verdolago' })
+  await auxRow.getByRole('button', { name: /^Clientes asignados de Auxiliar Verdolago: \d+$/ }).click()
+  const det = enc.getByRole('dialog', { name: /Auxiliar Verdolago · Clientes asignados/ })
+  const rows = det.getByTestId('assigned-row')
+  const search = det.getByLabel('Buscar por nombre o celular')
+
+  // Lupa: por nombre (los tres) y por celular (solo A, con el celular visible en la fila).
+  // El tag solo son dígitos: sin la palabra se buscaría como celular.
+  await search.fill(`reasignar ${tag}`)
+  await expect(rows).toHaveCount(3)
+  await search.fill(phoneA)
+  await expect(rows).toHaveCount(1)
+  await expect(rows.first()).toContainText(a)
+  await expect(rows.first().getByTestId('assigned-phone')).toContainText(phoneA)
+  await search.fill(`zzz ${tag}`)
+  await expect(rows).toHaveCount(0)
+  await expect(det.getByText('Ningún cliente con este filtro.')).toBeVisible()
+  await search.fill(`reasignar ${tag}`)
+  await expect(rows).toHaveCount(3)
+
+  // Seleccionar: solo los sin contactar que siguen a su cargo tienen casilla
+  await det.getByRole('button', { name: 'Seleccionar', exact: true }).click()
+  await expect(det.getByLabel(`Seleccionar ${c}`)).toHaveCount(0)
+  await det.getByLabel(`Seleccionar ${a}`).check()
+  await det.getByLabel(`Seleccionar ${b}`).check()
+  // A y B son todos los reasignables de la búsqueda (C ya fue contactado): la barra dice «Los 2 del filtro».
+  await expect(det.getByTestId('selected-count')).toHaveText('Los 2 del filtro')
+  await det.getByLabel('Asignar a').selectOption({ label: 'Supervisor Verdolago (Supervisor)' })
+  await det.getByRole('button', { name: 'Reasignar', exact: true }).click()
+  await enc.getByRole('dialog', { name: '¿Reasignar?' }).getByRole('button', { name: 'Reasignar 2' }).click()
+  await expect(enc.getByText('✓ 2 reasignados')).toBeVisible()
+
+  // La lista se recarga: A y B «Reasignado a Supervisor», C sigue con la auxiliar
+  await expect(rows.filter({ hasText: a })).toContainText('Reasignado a Supervisor Verdolago')
+  await expect(rows.filter({ hasText: b })).toContainText('Reasignado a Supervisor Verdolago')
+  await expect(rows.filter({ hasText: c })).not.toContainText('Reasignado')
+  expect(await enc.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
+  await enc.context().close()
 })

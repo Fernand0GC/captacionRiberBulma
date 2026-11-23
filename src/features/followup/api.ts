@@ -38,6 +38,11 @@ export type FollowupRow = {
   /** Spec 016: quién lo recomendó y quién me lo asignó (si fue otra persona). Faltan si la base no tiene la 016. */
   referrer_name?: string | null
   assigned_by_name?: string | null
+  /** Spec 022: cuándo se le asignó a quien consulta (o la captación si no hay registro). Falta si la base no tiene la 022. */
+  assigned_at?: string
+  /** Spec 022: si se lo pasaron desde otra persona, quién lo tenía; y desde cuándo espera sin contacto (solo si nunca se lo contactó). */
+  reassigned_from_name?: string | null
+  waiting_since?: string | null
 }
 
 /** Cerrado que se puede volver a contactar (check "Ver cerrados anteriores" de Mis contactos). */

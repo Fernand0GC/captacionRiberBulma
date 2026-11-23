@@ -1,4 +1,4 @@
-import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toAppError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 import type { AppRole } from '@/features/auth/types'
@@ -202,6 +202,10 @@ export type ProspectStage = 'capture' | 'recapture' | 'followup' | 'interested' 
 export type AgentAssignedRow = {
   prospect_id: string
   full_name: string
+  /** Spec 020: celular del cliente (como se registró y solo dígitos, para la lupa) y su sucursal (para reasignar). */
+  phone_raw: string
+  phone_norm: string
+  branch_id: number
   assigned_at: string
   /** true = lo tomó la propia persona («Hacer seguimiento» o lo captó con interés alto). */
   self_assigned: boolean
@@ -218,6 +222,16 @@ export type AgentAssignedRow = {
   reassigned: boolean
   reassigned_to: string | null
   reassigned_at: string | null
+  /** Spec 021: oculto en la lista de esta persona (solo vista de gestión; no cambia nada más). */
+  hidden: boolean
+}
+
+/** Respuesta de list_agent_assigned. Spec 021: ocultos y contactados sin ocultar de todo el período. */
+export type AgentAssignedResult = {
+  total: number
+  hidden_total: number
+  contacted_visible: number
+  rows: AgentAssignedRow[]
 }
 
 export function useAgentAssigned(filters: AgentActivityFilters, actorId: string | undefined) {
@@ -227,8 +241,36 @@ export function useAgentAssigned(filters: AgentActivityFilters, actorId: string 
     queryFn: async () => {
       const { data, error } = await supabase.rpc('list_agent_assigned', { f: { ...filters, actor_id: actorId } })
       if (error) throw toAppError(error)
-      return data as { total: number; rows: AgentAssignedRow[] }
+      return data as AgentAssignedResult
     },
+  })
+}
+
+// --- Ocultar asignados (specs/021-asignados-depurar/contracts/rpc.md) ----------------------------------------------
+
+/** Ocultar (`hidden: true`) o mostrar clientes en la lista de una persona. Devuelve cuántas marcas cambiaron. */
+export function useSetAssignedHidden() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { agentId: string; ids: string[]; hidden: boolean }) => {
+      const { data, error } = await supabase.rpc('set_assigned_hidden', { p_agent: v.agentId, p_prospects: v.ids, p_hidden: v.hidden })
+      if (error) throw toAppError(error)
+      return data as number
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['monitoring', 'agent-assigned'] }),
+  })
+}
+
+/** «Ocultar» del aviso: todos los contactados sin ocultar del período (el servidor los calcula). */
+export function useHideAssignedContacted() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { filters: AgentActivityFilters; agentId: string }) => {
+      const { data, error } = await supabase.rpc('hide_assigned_contacted', { f: { ...v.filters, actor_id: v.agentId } })
+      if (error) throw toAppError(error)
+      return data as number
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['monitoring', 'agent-assigned'] }),
   })
 }
 

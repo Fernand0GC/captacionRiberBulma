@@ -38,7 +38,7 @@ comment on column public.prospects.channel_detail is 'Dónde o qué dentro del c
 
 -- 3) RPCs: se ajustan sobre su definición actual (sin recopiar cuerpos largos). Cada reemplazo debe aplicar;
 --    si un texto no se encuentra, la migración falla en vez de dejar la función a medias.
-create function pg_temp.patch_function(p_sig text, p_old text, p_new text) returns void language plpgsql as $$
+create or replace function pg_temp.patch_function(p_sig text, p_old text, p_new text) returns void language plpgsql as $$
 declare
   d text := pg_get_functiondef(p_sig::regprocedure);
 begin

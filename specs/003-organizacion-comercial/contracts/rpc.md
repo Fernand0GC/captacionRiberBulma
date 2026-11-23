@@ -66,7 +66,7 @@ Crea (sin `id`) o edita (con `id`) una asignación. Devuelve su id.
 Reglas:
 
 - Crear exige `manages_org(branch)`. Cualquier día, incluido hoy.
-- Editar exige `org_can_replan(branch, work_date)`; si no, `forbidden`.
+- Editar exige `org_can_replan(branch, work_date)`; si no, `forbidden`. Encargado y supervisor: fecha de hoy o posterior (spec 018); gerencia, Sistemas y jefe de ventas: cualquier fecha.
 - Obligatorios: `branch_id`, `work_date`, `shift`, `profile_id`, `strategy_id`, `channel_id`.
 - `profile_id` debe ser un usuario activo de esa sucursal (`invalid_input`, `profile`). Al editar sin cambiar la persona no se vuelve a exigir que siga activa.
 - Estrategia, canal y subcanal deben pertenecer uno al otro y estar activos (`invalid_input`, `catalog`).

@@ -65,8 +65,12 @@ export function dueStatus(r: FollowupRow, now: Date): DueStatus {
 /** Estado según la fecha agendada (visita o próximo contacto), sin mirar si ya se contactó hoy. */
 function scheduled(r: FollowupRow, now: Date): DueStatus {
   const today = laPazDate(now)
-  // Asignado y nunca contactado: es el trabajo del día, cuenta como "toca hoy".
-  if (!r.next_contact_at) return r.last_contacted_at ? { kind: 'normal', label: 'Por contactar' } : { kind: 'now', label: 'Nuevo · contactar hoy' }
+  if (!r.next_contact_at) {
+    if (r.last_contacted_at) return { kind: 'normal', label: 'Por contactar' }
+    // Spec 022: nunca contactado y asignado un día anterior (La Paz) → atrasado; asignado hoy → trabajo del día.
+    const ago = r.assigned_at ? dayDiff(laPazDate(new Date(r.assigned_at)), today) : 0
+    return ago > 0 ? { kind: 'late', label: `Atrasado · asignado hace ${days(ago)}` } : { kind: 'now', label: 'Nuevo · contactar hoy' }
+  }
 
   const at = new Date(r.next_contact_at)
   // La visita es lo pendiente solo si fue lo último que se agendó (la fecha de visita queda guardada aunque después pase otra cosa).

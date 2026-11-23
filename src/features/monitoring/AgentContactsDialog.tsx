@@ -105,7 +105,14 @@ export function AgentContactsDialog({
           ) : assigned.isPending ? (
             <p className="py-6 text-center text-ink/50">Cargando…</p>
           ) : (
-            <AssignedPanel rows={assigned.data.rows} total={assigned.data.total} />
+            <AssignedPanel
+              rows={assigned.data.rows}
+              total={assigned.data.total}
+              actor={{ id: actorId, name: actorName }}
+              filters={filters}
+              hiddenTotal={assigned.data.hidden_total ?? 0}
+              contactedVisible={assigned.data.contacted_visible ?? 0}
+            />
           )
         ) : contacts.isError ? (
           <p className="rounded-2xl bg-rb-red/10 p-3 text-rb-red">No se pudo cargar. {(contacts.error as Error).message}</p>
