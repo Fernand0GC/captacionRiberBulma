@@ -196,7 +196,7 @@ export function ActivityView({ scope }: { scope: ManageScope }) {
 
       {tab === 'persona' && rows.length > 0 && (
         <div className="overflow-x-auto rounded-3xl bg-white shadow-sm ring-1 ring-ink/5">
-          <table className="w-full min-w-[56rem] text-sm" aria-label="Actividad por persona">
+          <table className="w-full min-w-[66rem] text-sm" aria-label="Actividad por persona">
             <thead className="bg-ink text-gold-light">
               <tr>
                 <th scope="col" aria-sort={ariaSort('full_name')} className="sticky left-0 z-10 bg-ink px-3 py-3 text-left">

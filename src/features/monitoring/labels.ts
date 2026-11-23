@@ -1,5 +1,6 @@
 // Etiquetas de las vistas de monitoreo (Seguimientos y Actividad). Las de etapa, interés, forma y resultado
 // se reutilizan de prospects/format y followup/api.
+import type { DateBasis } from '@/features/prospects/search'
 
 export type FollowupTab = 'sin_contactar' | 'seguimiento' | 'potencial' | 'venta' | 'sin_interes'
 
@@ -33,6 +34,8 @@ export type ActivityMetric =
   | 'clients'
   | 'assigned'
   | 'total'
+  | 'first_contacts'
+  | 'recontacts'
 
 /** Columnas numéricas de Actividad, en orden. */
 export const ACTIVITY_METRICS: { key: ActivityMetric; label: string; short: string }[] = [
@@ -46,14 +49,45 @@ export const ACTIVITY_METRICS: { key: ActivityMetric; label: string; short: stri
   { key: 'clients', label: 'Clientes contactados', short: 'Clientes' },
   { key: 'assigned', label: 'Clientes asignados', short: 'Asignados' },
   { key: 'total', label: 'Total de contactos', short: 'Total' },
+  // Spec 023: el cliente ya tenía un contacto anterior (de cualquier persona) → recontacto.
+  { key: 'first_contacts', label: 'Primer contacto', short: '1.er contacto' },
+  { key: 'recontacts', label: 'Recontacto', short: 'Recontactos' },
 ]
 
 /** Métrica que filtra el detalle de contactos (clientes y total muestran todos). */
-export type ContactMetric = 'all' | 'calls' | 'messages' | 'store' | 'effective' | 'no_answer' | 'visits' | 'sales'
-export const CONTACT_METRICS: ContactMetric[] = ['all', 'calls', 'messages', 'store', 'effective', 'no_answer', 'visits', 'sales']
+export type ContactMetric = 'all' | 'calls' | 'messages' | 'store' | 'effective' | 'no_answer' | 'visits' | 'sales' | 'first' | 'recontact'
+export const CONTACT_METRICS: ContactMetric[] = ['all', 'calls', 'messages', 'store', 'effective', 'no_answer', 'visits', 'sales', 'first', 'recontact']
 
 export const contactMetricOf = (m: ActivityMetric): ContactMetric =>
-  m === 'clients' || m === 'total' || m === 'assigned' ? 'all' : m
+  m === 'clients' || m === 'total' || m === 'assigned'
+    ? 'all'
+    : m === 'first_contacts'
+      ? 'first'
+      : m === 'recontacts'
+        ? 'recontact'
+        : m
 
 export const metricLabel = (m: ContactMetric): string =>
-  m === 'all' ? 'Todos los contactos' : (ACTIVITY_METRICS.find((x) => x.key === m)?.label ?? m)
+  m === 'all'
+    ? 'Todos los contactos'
+    : m === 'first'
+      ? 'Primer contacto'
+      : m === 'recontact'
+        ? 'Recontacto'
+        : (ACTIVITY_METRICS.find((x) => x.key === m)?.label ?? m)
+
+/** Spec 023: «Contar por» de Seguimientos. `verb` va después de «N clientes ·»; `help`, debajo. */
+export const DATE_BASIS_TEXT: Record<DateBasis, { option: string; verb: string; help: string }> = {
+  registered: { option: 'Registro', verb: 'registrados', help: 'El período cuenta la fecha en que se registró el cliente.' },
+  assigned: { option: 'Asignación', verb: 'asignados', help: 'El período cuenta la fecha en que se le asignó al responsable actual.' },
+  last_contact: {
+    option: 'Último contacto',
+    verb: 'con último contacto',
+    help: 'El período cuenta la fecha del último contacto del cliente, de cualquier persona.',
+  },
+  next_contact: {
+    option: 'Próximo contacto',
+    verb: 'con contacto agendado',
+    help: 'El período cuenta la fecha agendada para el próximo contacto.',
+  },
+}

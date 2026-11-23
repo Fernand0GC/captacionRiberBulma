@@ -31,7 +31,7 @@ export function BranchActivityTable({
   return (
     <div className="flex flex-col gap-2">
       <div className="overflow-x-auto rounded-3xl bg-white shadow-sm ring-1 ring-ink/5">
-        <table className="w-full min-w-[60rem] text-sm" aria-label="Actividad por sucursal">
+        <table className="w-full min-w-[70rem] text-sm" aria-label="Actividad por sucursal">
           <thead className="bg-ink text-gold-light">
             <tr>
               <th scope="col" aria-sort={ariaSort('full_name')} className="sticky left-0 z-10 bg-ink px-3 py-3 text-left">

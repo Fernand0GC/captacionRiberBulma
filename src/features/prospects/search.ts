@@ -23,6 +23,8 @@ export type ManageSearch = {
   vencidos?: true
   sin_contacto?: StaleDays
   motivo?: number
+  /** Spec 023: qué fecha cuenta el período en Seguimientos (sin el parámetro = registro). */
+  contar?: DateBasisParam
   // Actividad
   orden?: string
   persona?: string
@@ -41,18 +43,26 @@ export type FollowupTabParam = 'sin_contactar' | 'seguimiento' | 'potencial' | '
 export type InterestParam = 'alto' | 'medio' | 'bajo' | 'sin'
 export type AttemptsParam = 'ninguno' | '1-2' | '3+'
 export type StaleDays = 3 | 7 | 15 | 30
+export type DateBasisParam = 'asignacion' | 'ultimo' | 'proximo'
+/** Lo que espera list_followup_status en `date_basis` (spec 023). */
+export type DateBasis = 'registered' | 'assigned' | 'last_contact' | 'next_contact'
 /** `assigned` abre la pestaña «Asignados» del detalle de Actividad (spec 012). */
-export type MetricParam = 'all' | 'calls' | 'messages' | 'store' | 'effective' | 'no_answer' | 'visits' | 'sales' | 'assigned'
+export type MetricParam = 'all' | 'calls' | 'messages' | 'store' | 'effective' | 'no_answer' | 'visits' | 'sales' | 'assigned' | 'first' | 'recontact'
 
 /** Parámetros propios de Seguimientos y Actividad: se limpian al cambiar de vista. */
-export const MONITORING_KEYS = ['estado', 'interes', 'intentos', 'vencidos', 'sin_contacto', 'motivo', 'orden', 'persona', 'metrica', 'agrupar', 'dia', 'origen', 'referidor', 'lista'] as const
+export const MONITORING_KEYS = ['estado', 'interes', 'intentos', 'vencidos', 'sin_contacto', 'motivo', 'contar', 'orden', 'persona', 'metrica', 'agrupar', 'dia', 'origen', 'referidor', 'lista'] as const
 
 const VIEWS: ManageView[] = ['visitas', 'seguimiento', 'actividad', 'dia']
 const TABS: FollowupTabParam[] = ['sin_contactar', 'seguimiento', 'potencial', 'venta', 'sin_interes']
 const INTERESTS: InterestParam[] = ['alto', 'medio', 'bajo', 'sin']
 const ATTEMPTS: AttemptsParam[] = ['ninguno', '1-2', '3+']
 const STALE: StaleDays[] = [3, 7, 15, 30]
-const METRICS: MetricParam[] = ['all', 'calls', 'messages', 'store', 'effective', 'no_answer', 'visits', 'sales', 'assigned']
+const DATE_BASES: DateBasisParam[] = ['asignacion', 'ultimo', 'proximo']
+const DATE_BASIS: Record<DateBasisParam, DateBasis> = { asignacion: 'assigned', ultimo: 'last_contact', proximo: 'next_contact' }
+
+/** Parámetro de la URL → date_basis de la base; sin parámetro no se manda (la base cuenta por registro). */
+export const dateBasisOf = (p: DateBasisParam | undefined): DateBasis | undefined => (p ? DATE_BASIS[p] : undefined)
+const METRICS: MetricParam[] = ['all', 'calls', 'messages', 'store', 'effective', 'no_answer', 'visits', 'sales', 'assigned', 'first', 'recontact']
 const isUuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f-]{36}$/.test(v)
 const oneOf = <T>(list: readonly T[], v: unknown): T | undefined => (list.includes(v as T) ? (v as T) : undefined)
 
@@ -82,6 +92,7 @@ export function validateManageSearch(raw: Record<string, unknown>): ManageSearch
     vencidos: raw.vencidos === true || raw.vencidos === 1 || raw.vencidos === '1' || raw.vencidos === 'true' ? true : undefined,
     sin_contacto: oneOf(STALE, toInt(raw.sin_contacto)),
     motivo: toInt(raw.motivo),
+    contar: oneOf(DATE_BASES, raw.contar),
     orden: typeof raw.orden === 'string' && /^-?[a-z_]+$/.test(raw.orden) ? raw.orden : undefined,
     persona: isUuid(raw.persona) ? raw.persona : undefined,
     metrica: oneOf(METRICS, raw.metrica),

@@ -5,7 +5,7 @@ import type { ActivityMetric } from './labels'
 
 export type ActivityTotals = Record<ActivityMetric, number>
 
-const KEYS: ActivityMetric[] = ['calls', 'messages', 'store', 'effective', 'no_answer', 'visits', 'sales', 'clients', 'assigned', 'total']
+const KEYS: ActivityMetric[] = ['calls', 'messages', 'store', 'effective', 'no_answer', 'visits', 'sales', 'clients', 'assigned', 'total', 'first_contacts', 'recontacts']
 
 /** Fila Total: suma de cada columna (Clientes contactados suma por persona; un cliente tocado por dos cuenta dos veces). */
 export function activityTotals(rows: Pick<AgentActivityRow, ActivityMetric>[]): ActivityTotals {

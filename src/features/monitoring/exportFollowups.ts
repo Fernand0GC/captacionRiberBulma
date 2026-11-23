@@ -1,7 +1,7 @@
 import { METHOD_LABEL, RESULT_LABEL } from '@/features/followup/api'
 import { INTEREST_LABEL, STAGE_LABEL } from '@/features/prospects/format'
 import { fetchAllFollowupStatus, type FollowupStatusFilters, type FollowupStatusRow } from './api'
-import { FOLLOWUP_TABS } from './labels'
+import { DATE_BASIS_TEXT, FOLLOWUP_TABS } from './labels'
 import { dmy, downloadSheet, fileSafe, laPazWallClock, type Column } from './xlsx'
 
 /** Hoja SEGUIMIENTOS (contracts/excel-export.md). Devuelve cuántas filas exportó. */
@@ -35,7 +35,7 @@ export async function exportFollowups(filters: FollowupStatusFilters, scopeName:
   ]
   await downloadSheet({
     sheet: 'SEGUIMIENTOS',
-    title: `Seguimientos · ${tab} · ${scopeName} · registrados del ${dmy(filters.from)} al ${dmy(filters.to)}`,
+    title: `Seguimientos · ${tab} · ${scopeName} · ${DATE_BASIS_TEXT[filters.date_basis ?? 'registered'].verb} del ${dmy(filters.from)} al ${dmy(filters.to)}`,
     columns,
     rows,
     fileName: `Seguimientos_${fileSafe(scopeName)}_${filters.from}_${filters.to}.xlsx`,

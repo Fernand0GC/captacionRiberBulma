@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultPeriod, periodRange, validateManageSearch } from '@/features/prospects/search'
+import { dateBasisOf, defaultPeriod, MONITORING_KEYS, periodRange, validateManageSearch } from '@/features/prospects/search'
 
 const UUID = '0190a1b2-0000-7000-8000-000000000001'
 
@@ -64,4 +64,25 @@ describe('período por defecto según la vista (spec 015)', () => {
     expect(periodRange({ ver: 'seguimiento', periodo: 'hoy' }, now)).toEqual({ from: '2026-11-21', to: '2026-11-21' })
     expect(periodRange({ ver: 'seguimiento', periodo: '7d' }, now)).toEqual({ from: '2026-11-15', to: '2026-11-21' })
   })
+})
+
+// Spec 023: «Contar por» de Seguimientos en la URL.
+describe('contar (Seguimientos · Contar por)', () => {
+  it('acepta asignacion, ultimo y proximo', () => {
+    expect(validateManageSearch({ contar: 'asignacion' }).contar).toBe('asignacion')
+    expect(validateManageSearch({ contar: 'ultimo' }).contar).toBe('ultimo')
+    expect(validateManageSearch({ contar: 'proximo' }).contar).toBe('proximo')
+  })
+  it('cualquier otra cosa (o nada) es Registro', () => {
+    expect(validateManageSearch({ contar: 'registro' }).contar).toBeUndefined()
+    expect(validateManageSearch({ contar: 'x' }).contar).toBeUndefined()
+    expect(validateManageSearch({}).contar).toBeUndefined()
+  })
+  it('se traduce al date_basis de la base', () => {
+    expect(dateBasisOf(undefined)).toBeUndefined()
+    expect(dateBasisOf('asignacion')).toBe('assigned')
+    expect(dateBasisOf('ultimo')).toBe('last_contact')
+    expect(dateBasisOf('proximo')).toBe('next_contact')
+  })
+  it('se limpia al cambiar de vista', () => expect(MONITORING_KEYS).toContain('contar'))
 })
