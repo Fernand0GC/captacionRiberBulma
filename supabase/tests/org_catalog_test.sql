@@ -4,7 +4,7 @@ select plan(13);
 -- Catálogo inicial de la planilla de ventas
 select is((select count(*)::int from public.org_strategies), 2, '2 estrategias');
 -- Desde la 006 (20261118002100): 3 canales nuevos de Tienda y 3 subcanales (2 de compartidas y Activaciones en plazas).
-select is((select count(*)::int from public.org_channels), 14, '14 canales (10 de la planilla + Tareas administrativas + 3 de la 006)');
+select is((select count(*)::int from public.org_channels), 15, '15 canales (10 de la planilla + Tareas administrativas + 3 de la 006 + Acomodo de tienda de la 019)');
 -- Solo el catálogo de Sistemas: los que agrega ventas desde el formulario (004, added_by) no cuentan.
 select is((select count(*)::int from public.org_subchannels where added_by is null), 37, '37 subcanales (34 + 3 de la 006)');
 select is(
