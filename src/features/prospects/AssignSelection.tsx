@@ -41,9 +41,22 @@ type Options<R extends Assignable> = {
   /** Trae todas las filas del filtro (para «Seleccionar las N del filtro»). */
   fetchAll: () => Promise<R[]>
   noun: Noun
+  /** `dialog` (spec 020): la barra va al pie del modal que la contiene en vez de fija sobre la página. */
+  layout?: 'page' | 'dialog'
+  /** Qué decir cuando no hay una sucursal para asignar (por defecto: elegirla en el filtro). */
+  noBranchText?: string
 }
 
-export function useAssignSelection<R extends Assignable>({ filters, rows, total, branchId, fetchAll, noun }: Options<R>) {
+export function useAssignSelection<R extends Assignable>({
+  filters,
+  rows,
+  total,
+  branchId,
+  fetchAll,
+  noun,
+  layout = 'page',
+  noBranchText = 'Elige una sucursal en el filtro para asignar.',
+}: Options<R>) {
   const f = noun === 'captaciones'
   const g = (fem: string, masc: string) => (f ? fem : masc)
   const toast = useToast()
@@ -151,7 +164,11 @@ export function useAssignSelection<R extends Assignable>({ filters, rows, total,
   const bar: ReactNode = selecting && (
     <>
       <div
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-ink px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 text-white shadow-2xl lg:left-64"
+        className={
+          layout === 'dialog'
+            ? 'sticky bottom-0 z-10 mt-3 rounded-2xl bg-ink px-4 py-3 text-white shadow-2xl'
+            : 'fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-ink px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 text-white shadow-2xl lg:left-64'
+        }
         role="region"
         aria-label="Asignar"
       >
@@ -177,7 +194,7 @@ export function useAssignSelection<R extends Assignable>({ filters, rows, total,
             </button>
           )}
           {branchId === undefined ? (
-            <span className="text-sm text-white/70">Elige una sucursal en el filtro para asignar.</span>
+            <span className="text-sm text-white/70">{noBranchText}</span>
           ) : (
             <>
               <select

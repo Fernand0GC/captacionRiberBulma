@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(24);
 
 -- Spec 012: clientes asignados del día en Actividad (20261121000200).
 -- Personas del seed: 02 gerente, 03 encargado Verdolago (5), 04 auxiliar Verdolago, 05 supervisor Verdolago,
@@ -91,6 +91,25 @@ select is((select (v ->> 'assigned_total')::int || '/' || (v ->> 'total') from r
   'de 3 contactos del día, 2 son a asignados del día (p1, p4) y 1 de cartera (p5)');
 select is((select x ->> 'assigned' from r, jsonb_array_elements(r.v -> 'rows') x
            where r.k = 'contacts' and x ->> 'full_name' = 'Asg Cliente 5'), 'false', 'p5 sale como cartera');
+
+-- Spec 020: celular y sucursal del cliente en cada fila ------------------------------------------------------------
+select is(pg_temp.asg('Asg Cliente 1') ->> 'phone_raw', '79130001', '020: la fila trae el celular como se registró');
+select is(pg_temp.asg('Asg Cliente 1') ->> 'phone_norm', '79130001', '020: y normalizado (para buscar por dígitos)');
+select is((pg_temp.asg('Asg Cliente 1') ->> 'branch_id')::int, 5, '020: y la sucursal del cliente');
+
+-- Spec 020: reasignar desde el modal usa assign_prospects y no cambia los números del período ---------------------
+select tests.login_as('00000000-0000-4000-8000-000000000003');
+select is(public.assign_prospects(array['01900000-0000-7000-8000-0000000012a6']::uuid[], '00000000-0000-4000-8000-000000000005'),
+  1, '020: el encargado reasigna p6 (sin contactar) al supervisor');
+select tests.login_as('00000000-0000-4000-8000-000000000002');
+delete from r where k in ('act', 'list');
+insert into r values ('act', public.agent_activity('{"from":"2025-05-20","to":"2025-05-20"}'));
+insert into r values ('list', public.list_agent_assigned('{"from":"2025-05-20","to":"2025-05-20","actor_id":"00000000-0000-4000-8000-000000000004"}'));
+select is((select x ->> 'assigned' from r, jsonb_array_elements(r.v -> 'rows') x
+           where r.k = 'act' and x ->> 'actor_id' = '00000000-0000-4000-8000-000000000004'), '5',
+  '020: la auxiliar sigue con 5 asignados en el período (se calcula del historial)');
+select is(pg_temp.asg('Asg Cliente 6') ->> 'reassigned_to', (select full_name from public.profiles where id = '00000000-0000-4000-8000-000000000005'),
+  '020: p6 sale «Reasignado a» el supervisor');
 
 -- Alcance y validación --------------------------------------------------------------------------------------------
 select tests.login_as('00000000-0000-4000-8000-000000000007');
