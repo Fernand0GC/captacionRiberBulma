@@ -92,3 +92,29 @@ describe('asignado y nunca contactado', () => {
       label: 'Nuevo · contactar hoy',
     }))
 })
+
+// Spec 022: lo nunca contactado que se asignó antes de hoy (día de La Paz) está atrasado.
+describe('asignado antes de hoy y nunca contactado', () => {
+  const fresh = (assigned_at?: string) => row({ next_contact_at: null, last_contacted_at: null, last_result: null, assigned_at })
+  it('hace 3 días', () =>
+    expect(dueStatus(fresh('2026-10-27T15:00:00-04:00'), now)).toEqual({ kind: 'late', label: 'Atrasado · asignado hace 3 días' }))
+  it('ayer: singular', () =>
+    expect(dueStatus(fresh('2026-10-29T09:00:00-04:00'), now)).toEqual({ kind: 'late', label: 'Atrasado · asignado hace 1 día' }))
+  it('ayer 23:50 visto hoy 00:10: cuenta por día calendario, no por 24 h', () =>
+    expect(dueStatus(fresh('2026-10-29T23:50:00-04:00'), new Date('2026-10-30T00:10:00-04:00')).label).toBe(
+      'Atrasado · asignado hace 1 día',
+    ))
+  it('hoy a las 00:05 sigue siendo nuevo', () =>
+    expect(dueStatus(fresh('2026-10-30T00:05:00-04:00'), now)).toEqual({ kind: 'now', label: 'Nuevo · contactar hoy' }))
+  it('sin fecha de asignación (servidor sin la 022): como antes', () =>
+    expect(dueStatus(fresh(undefined), now)).toEqual({ kind: 'now', label: 'Nuevo · contactar hoy' }))
+  it('contactado antes y sin nada agendado: sigue «Por contactar»', () =>
+    expect(dueStatus(row({ next_contact_at: null, assigned_at: '2026-10-20T09:00:00-04:00' }), now)).toEqual({
+      kind: 'normal',
+      label: 'Por contactar',
+    }))
+  it('con contacto agendado vencido: conserva su regla', () =>
+    expect(
+      dueStatus(row({ next_contact_at: '2026-10-28T09:00:00-04:00', assigned_at: '2026-10-20T09:00:00-04:00' }), now).label,
+    ).toBe('Atrasado 2 días · tocaba el 28/10'))
+})
