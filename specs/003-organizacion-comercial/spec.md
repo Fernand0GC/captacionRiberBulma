@@ -164,7 +164,7 @@ que la tabla y las 14 columnas de la planilla en su orden.
 - Una persona deja de estar activa: no se ofrece para asignaciones nuevas, pero sigue apareciendo en las pasadas.
 - Se copia la organización de un día a otro: se copian las asignaciones sin resultado ni observaciones.
 - Un subcanal no tiene horario en ningún turno (por ejemplo, Volantes fechas festivas): se puede elegir y las horas se escriben a mano.
-- Asignación de hoy o de una fecha pasada: el encargado registra resultado y observación, pero no cambia la meta ni el resto; eso lo hace el gerente a cargo (FR-029).
+- Asignación de una fecha pasada: el encargado registra resultado y observación, pero no cambia la meta ni el resto; eso lo hace el gerente a cargo (FR-029). Las de hoy sí las corrige (cambiado por spec 018).
 - El encargado necesita agregar una asignación el mismo día (por ejemplo, alguien cubre una ausencia): puede crearla, y a partir de ahí su meta queda sujeta a FR-029.
 
 ## Requirements *(mandatory)*
@@ -190,7 +190,7 @@ que la tabla y las 14 columnas de la planilla en su orden.
 - **FR-012**: La persona de una asignación MUST elegirse de la lista de usuarios activos de la app que pertenecen a esa sucursal; no se puede escribir un nombre a mano.
 - **FR-013**: El sistema MUST mostrar en cada asignación el gerente a cargo de la sucursal, tomado de la relación gerente–sucursal y no escrito a mano.
 - **FR-014**: La meta y el resultado MUST ser números enteros de 0 a 9999 que se escriben a mano. La meta la ingresan los gerentes y los encargados de sucursal (a quienes ventas llama también subgerentes); el resultado lo ingresan las mismas personas. El sistema no calcula ninguno de los dos.
-- **FR-029**: El encargado y el supervisor de campo MUST poder cambiar la meta, la persona, el horario y el catálogo de una asignación solo hasta el día anterior a su fecha. Desde la fecha de la asignación, esos cambios MUST quedar reservados al gerente a cargo, al gerente general y al administrador. El resultado y las observaciones no tienen esa restricción (FR-018).
+- **FR-029**: El encargado y el supervisor de campo MUST poder cambiar la meta, la persona, el horario y el catálogo de una asignación hasta el mismo día de su fecha (cambiado por spec 018; antes era hasta el día anterior). Para fechas pasadas, esos cambios MUST quedar reservados al gerente a cargo, al gerente general y al administrador. El resultado y las observaciones no tienen esa restricción (FR-018).
 - **FR-030**: Cada estrategia MUST indicar si pide ubicación (Calle sí, Tienda no) y cada canal si lleva meta (RRSS-Mensajería, Comentarios y Tareas administrativas no). El formulario MUST esconder los campos que no corresponden y la base MUST guardarlos vacíos aunque lleguen. El administrador MUST poder cambiar ambas marcas desde el catálogo.
 - **FR-031**: El catálogo MUST incluir en Tienda el canal «Tareas administrativas», sin meta, para planificar el tiempo administrativo del personal de tienda.
 - **FR-015**: El sistema MUST avisar cuando una persona tiene dos asignaciones con horarios que se cruzan el mismo día, sin impedir que se guarden.
