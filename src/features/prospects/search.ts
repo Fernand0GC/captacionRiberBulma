@@ -36,7 +36,26 @@ export type ManageSearch = {
   origen?: 'referidos'
   referidor?: number
   lista?: 'seguimiento'
+  /** Lupas de «Clientes con seguimiento» (solo achican la lista; los números no cambian). */
+  resultado?: ResultParam
+  tipo?: KindParam
+  buscar?: string
 }
+
+/** «efectivos», «no_efectivos» o un resultado exacto (ContactResult de followup/api). */
+export type ResultParam =
+  | 'efectivos'
+  | 'no_efectivos'
+  | 'no_answer'
+  | 'looking_product'
+  | 'visit_store'
+  | 'call_later'
+  | 'very_interested'
+  | 'sold'
+  | 'not_interested'
+  | 'wrong_number'
+/** Registrado el día elegido o antes. */
+export type KindParam = 'nuevos' | 'antes'
 
 export type ManageView = 'visitas' | 'seguimiento' | 'actividad' | 'dia'
 export type FollowupTabParam = 'sin_contactar' | 'seguimiento' | 'potencial' | 'venta' | 'sin_interes'
@@ -50,13 +69,15 @@ export type DateBasis = 'registered' | 'assigned' | 'last_contact' | 'next_conta
 export type MetricParam = 'all' | 'calls' | 'messages' | 'store' | 'effective' | 'no_answer' | 'visits' | 'sales' | 'assigned' | 'first' | 'recontact'
 
 /** Parámetros propios de Seguimientos y Actividad: se limpian al cambiar de vista. */
-export const MONITORING_KEYS = ['estado', 'interes', 'intentos', 'vencidos', 'sin_contacto', 'motivo', 'contar', 'orden', 'persona', 'metrica', 'agrupar', 'dia', 'origen', 'referidor', 'lista'] as const
+export const MONITORING_KEYS = ['estado', 'interes', 'intentos', 'vencidos', 'sin_contacto', 'motivo', 'contar', 'orden', 'persona', 'metrica', 'agrupar', 'dia', 'origen', 'referidor', 'lista', 'resultado', 'tipo', 'buscar'] as const
 
 const VIEWS: ManageView[] = ['visitas', 'seguimiento', 'actividad', 'dia']
 const TABS: FollowupTabParam[] = ['sin_contactar', 'seguimiento', 'potencial', 'venta', 'sin_interes']
 const INTERESTS: InterestParam[] = ['alto', 'medio', 'bajo', 'sin']
 const ATTEMPTS: AttemptsParam[] = ['ninguno', '1-2', '3+']
 const STALE: StaleDays[] = [3, 7, 15, 30]
+const RESULTS: ResultParam[] = ['efectivos', 'no_efectivos', 'no_answer', 'looking_product', 'visit_store', 'call_later', 'very_interested', 'sold', 'not_interested', 'wrong_number']
+const KINDS: KindParam[] = ['nuevos', 'antes']
 const DATE_BASES: DateBasisParam[] = ['asignacion', 'ultimo', 'proximo']
 const DATE_BASIS: Record<DateBasisParam, DateBasis> = { asignacion: 'assigned', ultimo: 'last_contact', proximo: 'next_contact' }
 
@@ -101,6 +122,9 @@ export function validateManageSearch(raw: Record<string, unknown>): ManageSearch
     origen: raw.origen === 'referidos' ? 'referidos' : undefined,
     referidor: toInt(raw.referidor),
     lista: raw.lista === 'seguimiento' ? 'seguimiento' : undefined,
+    resultado: oneOf(RESULTS, raw.resultado),
+    tipo: oneOf(KINDS, raw.tipo),
+    buscar: typeof raw.buscar === 'string' && raw.buscar.trim() ? raw.buscar.slice(0, 60) : undefined,
   }
 }
 

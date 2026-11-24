@@ -1,4 +1,8 @@
-// Lógica pura del reporte del día (spec 009): promedios y textos. Sin React ni red, para probarla con Vitest.
+// Lógica pura del reporte del día (spec 009): promedios, textos y lupas de la lista. Sin React ni red, para probarla con Vitest.
+import type { ContactResult } from '@/features/followup/api'
+import type { KindParam, ResultParam } from '@/features/prospects/search'
+import { laPazDate } from '@/lib/dates'
+import { matchesNameOrPhone } from '@/lib/search'
 
 export type DailyTotals = {
   /** Registros nuevos del día. */
@@ -53,4 +57,32 @@ export function longDay(iso: string): string {
     month: 'long',
     timeZone: 'UTC',
   }).format(new Date(`${iso}T12:00:00Z`))
+}
+
+/** Lupas de «Clientes con seguimiento»: solo achican la tabla (las tarjetas siguen con los números del servidor). */
+export type FollowedLens = { resultado?: ResultParam; tipo?: KindParam; etapa?: string; buscar?: string }
+
+type LensRow = {
+  full_name: string
+  phone_norm: string | null
+  effective: boolean
+  last_result: ContactResult
+  registered_at: string
+  stage: string
+}
+
+export const hasLens = (l: FollowedLens): boolean => !!(l.resultado || l.tipo || l.etapa || l.buscar?.trim())
+
+const matchesResult = (r: LensRow, res: ResultParam): boolean =>
+  res === 'efectivos' ? r.effective : res === 'no_efectivos' ? !r.effective : r.last_result === res
+
+/** Filas que pasan todas las lupas, en el mismo orden. «Tipo» compara el día de registro en hora de Bolivia. */
+export function filterFollowed<T extends LensRow>(rows: readonly T[], l: FollowedLens, day: string): T[] {
+  if (!hasLens(l)) return [...rows]
+  return rows.filter((r) => {
+    if (l.resultado && !matchesResult(r, l.resultado)) return false
+    if (l.tipo && (laPazDate(new Date(r.registered_at)) === day) !== (l.tipo === 'nuevos')) return false
+    if (l.etapa && r.stage !== l.etapa) return false
+    return matchesNameOrPhone(r, l.buscar ?? '')
+  })
 }

@@ -288,15 +288,21 @@ export type DailyFilters = {
   branch_id?: number
   origin?: 'all' | 'referred'
   referrer_id?: number
+  /** Persona: registros que ella hizo y clientes con algún contacto suyo (cada fila, solo con sus contactos). */
+  person_id?: string
   /** false: solo números (Panel). */
   lists?: boolean
 }
+
+/** Quien registró o contactó en el período (opciones del filtro Persona; no depende de person_id). */
+export type DailyPerson = { id: string; name: string }
 
 export type DailyNewRow = {
   id: string
   registered_at: string
   full_name: string
   phone: string
+  phone_norm: string | null
   channel: string | null
   channel_detail: string | null
   referrer: string | null
@@ -310,6 +316,7 @@ export type DailyFollowedRow = {
   id: string
   full_name: string
   phone: string
+  phone_norm: string | null
   contacts: number
   effective: boolean
   last_at: string
@@ -327,6 +334,8 @@ export type DailyReport = {
   from: string
   to: string
   totals: DailyTotals
+  /** Opcional: si el front sale antes que la migración 20261124000300, el selector queda vacío sin romper. */
+  people?: DailyPerson[]
   new_rows: DailyNewRow[]
   followed_rows: DailyFollowedRow[]
   truncated: boolean

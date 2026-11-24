@@ -1,15 +1,26 @@
 import { Link } from '@tanstack/react-router'
 import { StatTile } from '@/features/dashboard/charts'
-import { METHOD_LABEL, RESULT_LABEL } from '@/features/followup/api'
+import { METHOD_LABEL, RESULT_LABEL, type ContactResult } from '@/features/followup/api'
 import { selectCls, ViewSwitch, type ManageScope } from '@/features/prospects/ManageFilterBar'
 import { fmtTime, STAGE_LABEL } from '@/features/prospects/format'
+import type { KindParam, ManageSearch, ResultParam } from '@/features/prospects/search'
 import { useReferrers } from '@/features/referrals/api'
 import { laPazDate } from '@/lib/dates'
 import { PageTitle } from '@/ui/PageTitle'
 import { agendaByPerson } from './agenda'
 import { AgendaSection } from './AgendaSection'
 import { useDailyReport, useRecontactAgenda, type DailyFilters, type DailyFollowedRow, type DailyNewRow } from './api'
-import { effectiveText, fmtAvg, longDay, perDay, perPerson, shiftDay } from './daily'
+import {
+  effectiveText,
+  filterFollowed,
+  fmtAvg,
+  hasLens,
+  longDay,
+  perDay,
+  perPerson,
+  shiftDay,
+  type FollowedLens,
+} from './daily'
 import { ExportButton } from './ExportButton'
 
 const dm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
@@ -51,6 +62,7 @@ export function DailyView({ scope }: { scope: ManageScope }) {
     branch_id: isGlobal ? sucursal : undefined,
     origin: referred ? 'referred' : 'all',
     referrer_id: referred && branchId !== undefined ? search.referidor : undefined,
+    person_id: search.persona,
   }
   const q = useDailyReport(filters)
   // Misma consulta (y caché) que la sección «Agenda de recontacto»: el Excel suma su hoja solo con hoy.
@@ -64,21 +76,33 @@ export function DailyView({ scope }: { scope: ManageScope }) {
       ? `Referidos de ${referrerName}`
       : 'Solo referidos'
     : 'Todos los orígenes'
-  const goDay = (d: string) => setSearch({ dia: d === today ? undefined : d })
+  const people = r?.people ?? []
+  const personName = search.persona
+    ? (people.find((p) => p.id === search.persona)?.name ?? 'Persona elegida')
+    : undefined
+  // Va al subtítulo y al título del Excel.
+  const filterName = personName ? `${originName} · ${personName}` : originName
+  // La persona puede no tener actividad en otro día, sucursal u origen: al cambiarlos, el filtro Persona se limpia.
+  const goDay = (d: string) => setSearch({ dia: d === today ? undefined : d, persona: undefined })
+  // Lupas de la lista de seguimiento: solo achican la tabla; las tarjetas siguen con los números del servidor.
+  const lens: FollowedLens = { resultado: search.resultado, tipo: search.tipo, etapa: search.etapa, buscar: search.buscar }
+  const clearLens = () => setSearch({ resultado: undefined, tipo: undefined, etapa: undefined, buscar: undefined })
+  const followed = r ? filterFollowed(r.followed_rows, lens, day) : []
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6">
       <PageTitle
         title="Del día"
-        subtitle={`${scopeName}${referred ? ` · ${originName.toLowerCase()}` : ''}`}
+        subtitle={`${scopeName}${referred ? ` · ${originName.toLowerCase()}` : ''}${personName ? ` · ${personName}` : ''}`}
         actions={
           <div className="flex max-w-full flex-wrap items-center gap-2">
             <ExportButton
               disabled={!r || (t?.new ?? 0) + (t?.followed ?? 0) === 0}
               run={async () => {
                 const { exportDaily } = await import('./exportDaily')
-                const people = day === today && agenda.data ? agendaByPerson(agenda.data, new Date(agenda.dataUpdatedAt)) : undefined
-                await exportDaily(r!, scopeName, originName, people)
+                const agendaPeople =
+                  day === today && agenda.data ? agendaByPerson(agenda.data, new Date(agenda.dataUpdatedAt)) : undefined
+                await exportDaily(r!, scopeName, filterName, agendaPeople)
                 return '✓ Excel descargado'
               }}
             />
@@ -141,6 +165,7 @@ export function DailyView({ scope }: { scope: ManageScope }) {
                 setSearch({
                   sucursal: e.target.value ? Number(e.target.value) : undefined,
                   referidor: undefined,
+                  persona: undefined,
                 })
               }
             >
@@ -163,6 +188,7 @@ export function DailyView({ scope }: { scope: ManageScope }) {
               setSearch({
                 origen: e.target.value === 'referidos' ? 'referidos' : undefined,
                 referidor: undefined,
+                persona: undefined,
               })
             }
           >
@@ -177,7 +203,9 @@ export function DailyView({ scope }: { scope: ManageScope }) {
               aria-label="Referidor"
               className={selectCls}
               value={search.referidor ?? ''}
-              onChange={(e) => setSearch({ referidor: e.target.value ? Number(e.target.value) : undefined })}
+              onChange={(e) =>
+                setSearch({ referidor: e.target.value ? Number(e.target.value) : undefined, persona: undefined })
+              }
             >
               <option value="">Todos los referidores</option>
               {(referrers.data ?? []).map((x) => (
@@ -189,6 +217,26 @@ export function DailyView({ scope }: { scope: ManageScope }) {
             </select>
           </label>
         )}
+        {/* Persona: solo quienes registraron o contactaron con estos filtros (vienen del mismo daily_report). */}
+        <label className="flex min-w-48 flex-col text-xs font-semibold text-ink/60">
+          Persona
+          <select
+            aria-label="Persona"
+            className={selectCls}
+            value={search.persona ?? ''}
+            onChange={(e) => setSearch({ persona: e.target.value || undefined })}
+          >
+            <option value="">Todas las personas</option>
+            {search.persona && !people.some((p) => p.id === search.persona) && (
+              <option value={search.persona}>{personName}</option>
+            )}
+            {people.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
         {q.isFetching && <span className="ml-auto text-sm text-ink/40">Actualizando…</span>}
       </section>
 
@@ -281,11 +329,22 @@ export function DailyView({ scope }: { scope: ManageScope }) {
             (tab === 'new' ? (
               <NewTable rows={r.new_rows} showBranch={isGlobal && sucursal === undefined} />
             ) : (
-              <FollowedTable
-                rows={r.followed_rows}
-                day={day}
-                showBranch={isGlobal && sucursal === undefined}
-              />
+              <>
+                <LensBar lens={lens} onChange={setSearch} onClear={clearLens} />
+                {hasLens(lens) && r.followed_rows.length > 0 && (
+                  <p className="-my-2 px-1 text-sm text-ink/55" aria-live="polite">
+                    <span className="font-semibold tabular-nums text-ink">{followed.length}</span> de{' '}
+                    <span className="tabular-nums">{r.followed_rows.length}</span> clientes
+                  </p>
+                )}
+                <FollowedTable
+                  rows={followed}
+                  total={r.followed_rows.length}
+                  onClear={clearLens}
+                  day={day}
+                  showBranch={isGlobal && sucursal === undefined}
+                />
+              </>
             ))}
 
           {/* Cómo se calcula (FR-008) */}
@@ -374,16 +433,115 @@ function NewTable({ rows, showBranch }: { rows: DailyNewRow[]; showBranch: boole
   )
 }
 
+const RESULT_OPTIONS: [ResultParam, string][] = [
+  ['efectivos', 'Efectivos'],
+  ['no_efectivos', 'No efectivos'],
+  ...(Object.entries(RESULT_LABEL) as [ContactResult, string][]),
+]
+const KIND_OPTIONS: [KindParam, string][] = [
+  ['nuevos', 'Registrado ese día'],
+  ['antes', 'Registrado antes'],
+]
+const lensSelectCls =
+  'min-h-11 rounded-xl border border-ink/15 bg-white px-3 text-sm outline-none focus:border-gold focus:ring-4 focus:ring-gold/20'
+
+/** Lupas de «Clientes con seguimiento»: viven en la URL y solo achican la tabla (las tarjetas no cambian). */
+function LensBar({
+  lens,
+  onChange,
+  onClear,
+}: {
+  lens: FollowedLens
+  onChange: (patch: Pick<ManageSearch, 'resultado' | 'tipo' | 'etapa' | 'buscar'>) => void
+  onClear: () => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2" role="search" aria-label="Lupas de la lista">
+      <input
+        type="search"
+        inputMode="search"
+        aria-label="Buscar por nombre o celular"
+        placeholder="Buscar nombre o celular…"
+        value={lens.buscar ?? ''}
+        onChange={(e) => onChange({ buscar: e.target.value || undefined })}
+        className="min-h-11 min-w-0 flex-1 rounded-xl border border-ink/15 bg-white px-3 text-base outline-none placeholder:text-ink/35 focus:border-gold focus:ring-4 focus:ring-gold/20 sm:max-w-xs"
+      />
+      <select
+        aria-label="Resultado"
+        className={lensSelectCls}
+        value={lens.resultado ?? ''}
+        onChange={(e) => onChange({ resultado: (e.target.value || undefined) as ResultParam | undefined })}
+      >
+        <option value="">Resultado: todos</option>
+        {RESULT_OPTIONS.map(([v, label]) => (
+          <option key={v} value={v}>
+            {label}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="Registrado"
+        className={lensSelectCls}
+        value={lens.tipo ?? ''}
+        onChange={(e) => onChange({ tipo: (e.target.value || undefined) as KindParam | undefined })}
+      >
+        <option value="">Registrado: cualquier día</option>
+        {KIND_OPTIONS.map(([v, label]) => (
+          <option key={v} value={v}>
+            {label}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="Etapa"
+        className={lensSelectCls}
+        value={lens.etapa ?? ''}
+        onChange={(e) => onChange({ etapa: e.target.value || undefined })}
+      >
+        <option value="">Etapa: todas</option>
+        {Object.entries(STAGE_LABEL).map(([v, label]) => (
+          <option key={v} value={v}>
+            {label}
+          </option>
+        ))}
+      </select>
+      {hasLens(lens) && (
+        <button type="button" onClick={onClear} className="min-h-11 rounded-full px-3 text-sm font-semibold text-ink/70">
+          Limpiar
+        </button>
+      )}
+    </div>
+  )
+}
+
 function FollowedTable({
   rows,
+  total,
+  onClear,
   day,
   showBranch,
 }: {
   rows: DailyFollowedRow[]
+  /** Filas antes de las lupas: si hay pero ninguna pasa, se ofrece «Limpiar». */
+  total: number
+  onClear: () => void
   day: string
   showBranch: boolean
 }) {
-  if (rows.length === 0) return <Empty text="Nadie tuvo seguimiento ese día con estos filtros." />
+  if (total === 0) return <Empty text="Nadie tuvo seguimiento ese día con estos filtros." />
+  if (rows.length === 0)
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-3xl bg-white p-8 text-center text-ink/50 ring-1 ring-ink/5">
+        <p>Ningún cliente con estas lupas.</p>
+        <button
+          type="button"
+          onClick={onClear}
+          className="min-h-11 rounded-full px-4 font-semibold text-ink ring-1 ring-ink/15"
+        >
+          Limpiar
+        </button>
+      </div>
+    )
   return (
     <div className="overflow-x-auto rounded-3xl bg-white shadow-sm ring-1 ring-ink/5">
       <table
