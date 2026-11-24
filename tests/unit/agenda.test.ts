@@ -60,8 +60,17 @@ const visitTomorrow = row('visita', {
   visit_at: '2026-11-24T10:00:00-04:00',
 })
 const nextWeek = row('semana', { next_contact_at: '2026-11-30T09:00:00-04:00' })
+// Se lo pasaron hoy a las 10:21 con la fecha que dejó vencida la persona anterior (caso Rene, 24/11).
+const inheritedToday = row('heredado', {
+  reassigned_from_name: 'Nayara',
+  assigned_at: '2026-11-23T10:21:00-04:00',
+  next_contact_at: '2026-11-15T09:00:00-04:00',
+})
 
 describe('bucketOf: misma regla que «Mis contactos»', () => {
+  it('recibido hoy con fecha vencida de otra persona → pendiente, no atrasado (caso Rene)', () =>
+    expect(bucketOf(inheritedToday, now)).toBe('pending'))
+
   it('agendado hoy (aunque sea más tarde) → pendiente', () => {
     expect(bucketOf(dueToday, now)).toBe('pending')
     expect(bucketOf(dueLater, now)).toBe('pending')
@@ -113,7 +122,7 @@ describe('agendaByPerson', () => {
 
 describe('paridad con las tarjetas de «Mis contactos»', () => {
   it('para clientes abiertos, Pendientes / Contactó / Atrasados = Para hoy / Contactados hoy / Atrasados', () => {
-    const open = [dueToday, dueLater, lateOne, doneToday, newToday, neverContactedOld, visitTomorrow, nextWeek]
+    const open = [dueToday, dueLater, lateOne, doneToday, newToday, neverContactedOld, visitTomorrow, nextWeek, inheritedToday]
     const asInbox: FollowupRow[] = open.map((r) => ({
       ...r,
       stage: r.stage as FollowupRow['stage'],

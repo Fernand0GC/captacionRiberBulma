@@ -89,6 +89,14 @@ function scheduled(r: DueInput, now: Date): DueStatus {
   const verb = r.stage === 'recapture' ? 'Volver a llamar' : 'Contactar'
 
   if (d < 0) {
+    // Se lo pasaron hoy con la fecha que dejó vencida la persona anterior: es trabajo de hoy de quien lo recibe y el
+    // atraso queda como dato. Si ya lo contactó hoy cayó antes en «resuelto». Desde mañana, la regla normal.
+    if (r.assigned_at && laPazDate(new Date(r.assigned_at)) === today) {
+      const was = shortDate(r.next_contact_at)
+      return isVisit
+        ? { kind: 'now', label: `Recibido hoy · visita era el ${was} · ¿vino?` }
+        : { kind: 'now', label: `Recibido hoy · venció el ${was}` }
+    }
     return isVisit
       ? { kind: 'late', label: `Visita era ${d === -1 ? 'ayer' : `hace ${days(-d)}`} · ¿vino?` }
       : { kind: 'late', label: `Atrasado ${days(-d)} · tocaba el ${shortDate(r.next_contact_at)}` }

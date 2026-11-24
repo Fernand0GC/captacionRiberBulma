@@ -118,3 +118,35 @@ describe('asignado antes de hoy y nunca contactado', () => {
       dueStatus(row({ next_contact_at: '2026-10-28T09:00:00-04:00', assigned_at: '2026-10-20T09:00:00-04:00' }), now).label,
     ).toBe('Atrasado 2 días · tocaba el 28/10'))
 })
+
+// Fecha vencida heredada: se lo pasaron hoy desde otra persona con la fecha que ella dejó vencida (caso Rene, 24/11).
+// Es trabajo de hoy de quien lo recibe; el atraso queda como dato. Desde mañana vuelve la regla normal.
+describe('recibido hoy con fecha vencida heredada', () => {
+  const inherited = (o: Partial<FollowupRow> = {}) =>
+    row({
+      stage: 'recapture',
+      next_contact_at: '2026-10-15T09:00:00-04:00',
+      last_contacted_at: '2026-10-14T10:07:00-04:00',
+      assigned_at: '2026-10-30T10:21:00-04:00',
+      ...o,
+    })
+  it('cuenta como trabajo de hoy, con la fecha vencida como dato', () =>
+    expect(dueStatus(inherited(), now)).toEqual({ kind: 'now', label: 'Recibido hoy · venció el 15/10' }))
+  it('visita vencida: pregunta ¿vino?', () =>
+    expect(dueStatus(inherited({ visit_at: '2026-10-15T09:00:00-04:00' }), now)).toEqual({
+      kind: 'now',
+      label: 'Recibido hoy · visita era el 15/10 · ¿vino?',
+    }))
+  it('si lo contacta hoy, queda resuelto', () =>
+    expect(
+      dueStatus(inherited({ last_contacted_at: '2026-10-30T11:00:00-04:00', next_contact_at: '2026-11-02T09:00:00-04:00' }), now)
+        .kind,
+    ).toBe('done'))
+  it('al día siguiente sin contactarlo: atrasado y ya es suyo', () =>
+    expect(dueStatus(inherited(), new Date('2026-10-31T09:00:00-04:00'))).toEqual({
+      kind: 'late',
+      label: 'Atrasado 16 días · tocaba el 15/10',
+    }))
+  it('sin fecha de asignación (base vieja): como antes', () =>
+    expect(dueStatus(inherited({ assigned_at: undefined }), now).label).toBe('Atrasado 15 días · tocaba el 15/10'))
+})
