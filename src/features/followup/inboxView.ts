@@ -74,6 +74,9 @@ export const waitedBefore = (r: FollowupRow): r is FollowupRow & { waiting_since
   !!r.reassigned_from_name && !!r.waiting_since
 const waitRank = (r: FollowupRow) => (waitedBefore(r) ? Date.parse(r.waiting_since) : Number.MAX_SAFE_INTEGER)
 
+/** Spec 026: lo que la jefa marcó como prioridad de hoy va primero dentro de su estado. */
+const prioRank = (r: FollowupRow) => (r.priority_today ? 0 : 1)
+
 const WEEKDAY =['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
 /** «Hoy», «Ayer» o «Sáb 21» para un día YYYY-MM-DD. */
@@ -106,6 +109,7 @@ export function groupByAssignedDay(rows: FollowupRow[], now: Date): DayGroup[] {
       rows: list.sort(
         (a, b) =>
           DUE_ORDER[dueStatus(a, now).kind] - DUE_ORDER[dueStatus(b, now).kind] ||
+          prioRank(a) - prioRank(b) ||
           waitRank(a) - waitRank(b) ||
           interestRank(a) - interestRank(b) ||
           Date.parse(assignedAt(b)) - Date.parse(assignedAt(a)),
@@ -120,6 +124,7 @@ export function sortRecaptured(rows: FollowupRow[], now: Date): FollowupRow[] {
     .sort(
       (a, b) =>
         DUE_ORDER[dueStatus(a, now).kind] - DUE_ORDER[dueStatus(b, now).kind] ||
+        prioRank(a) - prioRank(b) ||
         interestRank(a) - interestRank(b) ||
         (a.next_contact_at ?? assignedAt(a)).localeCompare(b.next_contact_at ?? assignedAt(b)),
     )

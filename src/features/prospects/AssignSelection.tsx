@@ -54,6 +54,8 @@ type Options<R extends Assignable> = {
   layout?: 'page' | 'dialog'
   /** Qué decir cuando no hay una sucursal para asignar (por defecto: elegirla en el filtro). */
   noBranchText?: string
+  /** Spec 026: otras acciones sobre la selección en la barra (p. ej. «Poner para hoy»); `stop` cierra el modo Seleccionar. */
+  actions?: (ids: string[], stop: () => void) => ReactNode
 }
 
 export function useAssignSelection<R extends Assignable>({
@@ -65,6 +67,7 @@ export function useAssignSelection<R extends Assignable>({
   noun,
   layout = 'page',
   noBranchText = 'Para asignar, elige una sucursal en el filtro.',
+  actions,
 }: Options<R>) {
   const f = noun === 'captaciones'
   const g = (fem: string, masc: string) => (f ? fem : masc)
@@ -235,6 +238,7 @@ export function useAssignSelection<R extends Assignable>({
               </button>
             </>
           )}
+          {actions?.([...selected.keys()], stop)}
           <button type="button" onClick={stop} className="ml-auto min-h-11 px-2 text-sm text-white/70 underline">
             Cancelar
           </button>

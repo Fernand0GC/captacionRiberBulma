@@ -236,6 +236,8 @@ export type AgentAssignedRow = {
   reassigned_at: string | null
   /** Spec 021: oculto en la lista de esta persona (solo vista de gestión; no cambia nada más). */
   hidden: boolean
+  /** Spec 026: la jefa lo marcó como prioridad de hoy para esta persona. Falta si la base no tiene la 026. */
+  priority_today?: boolean
 }
 
 /** «A qué proceso pasaron»: la etapa en que lo dejó, «Sin cambio» (lo contactó y sigue igual) o «Sin contactar». */
@@ -286,6 +288,27 @@ export function useSetAssignedHidden() {
       return data as number
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ['monitoring', 'agent-assigned'] }),
+  })
+}
+
+/** Spec 026: cuántos se marcaron (o quitaron) y cuántos se saltaron porque ya no eran de esa persona. */
+export type PriorityResult = { changed: number; skipped: number }
+
+/** Spec 026: marcar o quitar la prioridad de hoy (sin reasignar). Refresca el modal y la agenda. */
+export function useSetContactPriority() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { agentId: string; ids: string[]; on: boolean }): Promise<PriorityResult> => {
+      const { data, error } = await supabase.rpc('set_contact_priority', { p_agent: v.agentId, p_prospects: v.ids, p_on: v.on })
+      if (error) throw toAppError(error)
+      return data as PriorityResult
+    },
+    onSettled: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['monitoring', 'agent-assigned'] }),
+        qc.invalidateQueries({ queryKey: ['monitoring', 'recontact-agenda'] }),
+      ])
+    },
   })
 }
 
@@ -399,6 +422,8 @@ export type AgendaRow = {
   last_result: ContactResult | null
   last_method: ContactMethod | null
   last_note: string | null
+  /** Spec 026: prioridad de hoy para su responsable. Falta si la base no tiene la 026. */
+  priority_today?: boolean
 }
 
 export type AgendaPerson = { id: string; full_name: string; role: AppRole; branch_id: number | null }

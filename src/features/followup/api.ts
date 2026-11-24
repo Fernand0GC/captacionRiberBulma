@@ -43,6 +43,8 @@ export type FollowupRow = {
   /** Spec 022: si se lo pasaron desde otra persona, quién lo tenía; y desde cuándo espera sin contacto (solo si nunca se lo contactó). */
   reassigned_from_name?: string | null
   waiting_since?: string | null
+  /** Spec 026: la jefa lo marcó como prioridad de hoy. Falta si la base no tiene la 026. */
+  priority_today?: boolean
 }
 
 /** Cerrado que se puede volver a contactar (check "Ver cerrados anteriores" de Mis contactos). */

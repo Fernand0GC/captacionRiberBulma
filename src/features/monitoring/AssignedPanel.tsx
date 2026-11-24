@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { METHOD_LABEL, RESULT_LABEL } from '@/features/followup/api'
 import { SelectToggle, useAssignSelection, type AssignSelectionState, type Assignable } from '@/features/prospects/AssignSelection'
+import { PriorityBadge, PriorityButton } from './PriorityAction'
 import { fmtDate, fmtTime, STAGE_LABEL } from '@/features/prospects/format'
 import { useToast } from '@/ui/Toast'
 import {
@@ -129,6 +130,8 @@ export function AssignedPanel({
     noun: 'clientes',
     layout: 'dialog',
     noBranchText: 'Clientes de varias sucursales: elige una sucursal en Actividad para reasignar.',
+    // Spec 026: los mismos sin contactar se pueden dejar con ella como prioridad de hoy, sin reasignar.
+    actions: (ids, stop) => <PriorityButton agent={actor} ids={ids} onDone={stop} />,
   })
 
   if (rows.length === 0)
@@ -208,6 +211,7 @@ export function AssignedPanel({
             // En modo «Seleccionar» no se ofrece ocultar (una acción a la vez).
             onHidden={sel.selecting ? null : (hidden) => setRowHidden(r, hidden)}
             busy={setHidden.isPending}
+            agent={actor}
           />
         ))}
       </ul>
@@ -447,11 +451,14 @@ function AssignedRowItem({
   sel,
   onHidden,
   busy,
+  agent,
 }: {
   r: AgentAssignedRow
   sel: AssignSelectionState | null
   onHidden: ((hidden: boolean) => void) | null
   busy: boolean
+  /** Spec 026: a nombre de quién se quita la prioridad de hoy. */
+  agent: { id: string; name: string }
 }) {
   const out = r.outcome
   return (
@@ -481,6 +488,8 @@ function AssignedRowItem({
           <span className="block text-xs tabular-nums text-ink/50" data-testid="assigned-phone">
             {r.phone_raw}
           </span>
+          {/* Spec 026: solo si sigue siendo suyo (si se reasignó, la prioridad no lo sigue). «Quitar» fuera del modo Seleccionar. */}
+          {r.priority_today && !r.reassigned && <PriorityBadge id={r.prospect_id} agent={sel ? undefined : agent} />}
           {r.reassigned && (
             <span className="mt-1 block w-fit rounded-full bg-rb-red/10 px-2 py-0.5 text-xs font-semibold text-rb-red">
               {r.reassigned_to ? `Reasignado a ${r.reassigned_to}` : 'Quedó sin responsable'}

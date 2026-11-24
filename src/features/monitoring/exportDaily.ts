@@ -86,6 +86,13 @@ export async function exportDaily(
         { header: 'Contactó', width: 11, value: (p) => p.done.length },
         { header: 'Pendientes', width: 11, value: (p) => p.pending.length },
         { header: 'Atrasados', width: 11, value: (p) => p.late.length },
+        // Spec 026: desglose de los atrasados y la prioridad que marcó la jefa.
+        { header: 'Atrasados 1 día', width: 11, value: (p) => p.lateBy.age.d1 },
+        { header: 'Atrasados 2 a 7 días', width: 11, value: (p) => p.lateBy.age.d2to7 },
+        { header: 'Atrasados más de 7 días', width: 11, value: (p) => p.lateBy.age.over7 },
+        { header: 'Nunca contactados', width: 11, value: (p) => p.lateBy.type.never },
+        { header: 'Fecha vencida', width: 11, value: (p) => p.lateBy.type.overdue },
+        { header: 'Prioridad hoy', width: 11, value: (p) => p.priority },
       ],
       rows: agenda,
     })

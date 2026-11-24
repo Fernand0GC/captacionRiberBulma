@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { FollowupRow } from '@/features/followup/api'
 import { summarize } from '@/features/followup/inboxView'
 import type { AgendaPerson, AgendaRow } from '@/features/monitoring/api'
-import { agendaByPerson, agendaTotals, bucketOf, lateAssignable, lateBranch } from '@/features/monitoring/agenda'
+import { agendaByPerson, agendaTotals, ageOf, bucketOf, filterLate, lateAssignable, lateBranch, priorityMessage } from '@/features/monitoring/agenda'
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 
@@ -168,5 +168,65 @@ describe('reasignar atrasados', () => {
   })
   it('sin atrasados usa la sucursal de la persona', () => {
     expect(lateBranch(view.find((p) => p.id === ANA)!)).toBe(5)
+  })
+})
+
+// Spec 026: desglose de Atrasados y prioridad de hoy.
+describe('spec 026 · desglose de atrasados', () => {
+  // now = 23/11. lateOne: tocaba el 22/11 (1 día) · neverContactedOld: asignado el 20/11 (3 días, nunca contactado).
+  const old = row('viejo', { next_contact_at: '2026-11-10T09:00:00-04:00', assigned_at: '2026-11-01T10:00:00-04:00' })
+  // Recibido el 21/11 con fecha heredada del 05/11: 2 días, no 18.
+  const inherited = row('heredado-viejo', { next_contact_at: '2026-11-05T09:00:00-04:00', assigned_at: '2026-11-21T10:00:00-04:00' })
+  const view = agendaByPerson({ people, rows: [lateOne, neverContactedOld, old, inherited, dueToday] }, now)
+  const maico = view.find((p) => p.id === MAICO)!
+
+  it('ageOf: 1 día / 2 a 7 / más de 7', () => {
+    expect([1, 2, 7, 8, 30].map(ageOf)).toEqual(['d1', 'd2to7', 'd2to7', 'over7', 'over7'])
+  })
+  it('A7 · cuenta por antigüedad y por tipo; cada grupo suma el total de atrasados', () => {
+    expect(maico.lateBy).toEqual({ age: { d1: 1, d2to7: 2, over7: 1 }, type: { never: 1, overdue: 3 } })
+    const { age, type } = maico.lateBy
+    expect(age.d1 + age.d2to7 + age.over7).toBe(maico.late.length)
+    expect(type.never + type.overdue).toBe(maico.late.length)
+  })
+  it('filtra por antigüedad y por tipo (combinables)', () => {
+    expect(filterLate(maico.late, { age: 'd2to7', type: null }, now).map((r) => r.id).sort()).toEqual(['heredado-viejo', 'sin-llamar'])
+    expect(filterLate(maico.late, { age: 'd2to7', type: 'overdue' }, now).map((r) => r.id)).toEqual(['heredado-viejo'])
+    expect(filterLate(maico.late, { age: null, type: null }, now)).toHaveLength(4)
+  })
+  it('A6 · el atraso justo no cambia en qué columna cae nadie', () => {
+    expect({ pending: maico.pending.length, late: maico.late.length }).toEqual({ pending: 1, late: 4 })
+  })
+  it('la reasignación de la 025 puede usar solo los atrasados filtrados', () => {
+    expect(lateAssignable(maico, filterLate(maico.late, { age: 'over7', type: null }, now)).map((a) => a.id)).toEqual(['viejo'])
+  })
+})
+
+describe('spec 026 · prioridad de hoy en la agenda', () => {
+  const view = agendaByPerson({ people, rows: [{ ...lateOne, priority_today: true }, neverContactedOld, dueToday] }, now)
+  const maico = view.find((p) => p.id === MAICO)!
+
+  it('B2 · el atrasado con prioridad pasa a Pendientes (no se pierde: cambia de columna)', () => {
+    expect(maico.pending.map((r) => r.id).sort()).toEqual(['ayer', 'hoy'])
+    expect(maico.late.map((r) => r.id)).toEqual(['sin-llamar'])
+    expect(maico.priority).toBe(1)
+  })
+  it('agendado más adelante con prioridad también entra hoy', () => {
+    const v = agendaByPerson({ people, rows: [{ ...nextWeek, priority_today: true }] }, now)
+    expect(v.find((p) => p.id === MAICO)!.pending.map((r) => r.id)).toEqual(['semana'])
+  })
+})
+
+describe('spec 026 · mensajes de «Poner para hoy»', () => {
+  it('B1 · todos marcados', () => {
+    expect(priorityMessage({ changed: 5, skipped: 0 }, 'Rene', true)).toBe('✓ 5 clientes quedan como prioridad de hoy para Rene')
+    expect(priorityMessage({ changed: 1, skipped: 0 }, 'Rene', true)).toBe('✓ 1 cliente queda como prioridad de hoy para Rene')
+  })
+  it('P3 · algunos ya no eran suyos', () => {
+    expect(priorityMessage({ changed: 3, skipped: 2 }, 'Rene', true)).toBe('✓ 3 de 5 marcados · 2 ya no estaban a cargo de Rene')
+    expect(priorityMessage({ changed: 0, skipped: 1 }, 'Rene', true)).toBe('Ninguno marcado · 1 ya no estaba a cargo de Rene')
+  })
+  it('B8 · quitar', () => {
+    expect(priorityMessage({ changed: 1, skipped: 0 }, 'Rene', false)).toBe('✓ Prioridad quitada')
   })
 })

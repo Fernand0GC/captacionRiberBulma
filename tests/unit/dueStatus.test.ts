@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { FollowupRow } from '@/features/followup/api'
-import { dueStatus, visitPassed } from '@/features/followup/dueStatus'
+import { dueStatus, lateInfo, visitPassed } from '@/features/followup/dueStatus'
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 
@@ -142,11 +142,77 @@ describe('recibido hoy con fecha vencida heredada', () => {
       dueStatus(inherited({ last_contacted_at: '2026-10-30T11:00:00-04:00', next_contact_at: '2026-11-02T09:00:00-04:00' }), now)
         .kind,
     ).toBe('done'))
-  it('al día siguiente sin contactarlo: atrasado y ya es suyo', () =>
+  // Spec 026: antes decía «Atrasado 16 días · tocaba el 15/10» (los días de la persona anterior); ahora cuenta desde que lo recibió.
+  it('al día siguiente sin contactarlo: atrasado 1 día desde que lo recibió', () =>
     expect(dueStatus(inherited(), new Date('2026-10-31T09:00:00-04:00'))).toEqual({
       kind: 'late',
-      label: 'Atrasado 16 días · tocaba el 15/10',
+      label: 'Atrasado 1 día · recibido el 30/10 (tocaba el 15/10)',
     }))
   it('sin fecha de asignación (base vieja): como antes', () =>
     expect(dueStatus(inherited({ assigned_at: undefined }), now).label).toBe('Atrasado 15 días · tocaba el 15/10'))
+})
+
+// Spec 026: el atraso se cuenta desde la fecha más reciente entre lo agendado y el día en que lo recibió el responsable
+// actual; y la prioridad del día (la marca la jefa) lo vuelve trabajo de hoy sin esconder el atraso.
+describe('spec 026 · atraso justo', () => {
+  const never = row({ last_contacted_at: null, last_result: null, last_method: null })
+
+  it('A1 · recibido ayer con fecha heredada vieja: 1 día, no 10', () => {
+    const r = row({ next_contact_at: '2026-10-20T09:00:00-04:00', assigned_at: '2026-10-29T10:00:00-04:00', reassigned_from_name: 'Nayara' })
+    expect(dueStatus(r, now)).toEqual({ kind: 'late', label: 'Atrasado 1 día · recibido el 29/10 (tocaba el 20/10)' })
+    expect(lateInfo(r, now)).toEqual({ days: 1, type: 'overdue' })
+  })
+  it('A2 · agendado por la misma persona: cuenta desde la fecha agendada (igual que antes)', () => {
+    const r = row({ next_contact_at: '2026-10-26T09:00:00-04:00', assigned_at: '2026-10-01T10:00:00-04:00' })
+    expect(dueStatus(r, now)).toEqual({ kind: 'late', label: 'Atrasado 4 días · tocaba el 26/10' })
+    expect(lateInfo(r, now)).toEqual({ days: 4, type: 'overdue' })
+  })
+  it('A3 · nunca contactado, asignado hace 10 días', () => {
+    const r = { ...never, assigned_at: '2026-10-20T08:00:00-04:00' }
+    expect(dueStatus(r, now)).toEqual({ kind: 'late', label: 'Atrasado · asignado hace 10 días' })
+    expect(lateInfo(r, now)).toEqual({ days: 10, type: 'never' })
+  })
+  it('A4 · visita vencida cuenta como fecha vencida', () => {
+    const at = '2026-10-29T10:00:00-04:00'
+    expect(lateInfo(row({ next_contact_at: at, visit_at: at }), now)).toEqual({ days: 1, type: 'overdue' })
+  })
+  it('A4 · visita vencida recibida después: cuenta desde que la recibió', () => {
+    const at = '2026-10-20T10:00:00-04:00'
+    const r = row({ next_contact_at: at, visit_at: at, assigned_at: '2026-10-28T10:00:00-04:00' })
+    expect(dueStatus(r, now)).toEqual({ kind: 'late', label: 'Recibido el 28/10 · visita era el 20/10 · ¿vino?' })
+    expect(lateInfo(r, now)).toEqual({ days: 2, type: 'overdue' })
+  })
+  it('A5 · recibido hoy con fecha vencida sigue siendo trabajo de hoy', () => {
+    const r = row({ next_contact_at: '2026-10-20T09:00:00-04:00', assigned_at: '2026-10-30T08:00:00-04:00' })
+    expect(dueStatus(r, now).kind).toBe('now')
+    expect(lateInfo(r, now)).toBeNull()
+  })
+  it('lo que no está atrasado no tiene atraso', () => {
+    expect(lateInfo(row({ next_contact_at: '2026-10-31T09:00:00-04:00' }), now)).toBeNull()
+    expect(lateInfo(row({ last_contacted_at: '2026-10-30T08:00:00-04:00', next_contact_at: '2026-10-28T09:00:00-04:00' }), now)).toBeNull()
+  })
+})
+
+describe('spec 026 · prioridad de hoy', () => {
+  const late = row({ next_contact_at: '2026-10-28T09:00:00-04:00', priority_today: true })
+
+  it('B2 · atrasado con prioridad: trabajo de hoy y el atraso queda a la vista', () =>
+    expect(dueStatus(late, now)).toEqual({ kind: 'now', label: 'Prioridad de hoy · atrasado 2 días' }))
+  it('B2 · nunca contactado con prioridad', () =>
+    expect(
+      dueStatus(row({ last_contacted_at: null, assigned_at: '2026-10-20T08:00:00-04:00', priority_today: true }), now),
+    ).toEqual({ kind: 'now', label: 'Prioridad de hoy · atrasado 10 días' }))
+  it('agendado más adelante con prioridad: entra hoy', () =>
+    expect(dueStatus(row({ next_contact_at: '2026-11-03T09:00:00-04:00', priority_today: true }), now)).toEqual({
+      kind: 'now',
+      label: 'Prioridad de hoy',
+    }))
+  it('agendado para hoy con prioridad: conserva la hora', () =>
+    expect(dueStatus(row({ next_contact_at: '2026-10-30T14:30:00-04:00', priority_today: true }), now).label).toBe(
+      'Prioridad de hoy · Contactar en 2 h 30 min (14:30)',
+    ))
+  it('B4 · contactado hoy: resuelto, aunque tenga prioridad', () =>
+    expect(dueStatus({ ...late, last_contacted_at: '2026-10-30T09:00:00-04:00' }, now).kind).toBe('done'))
+  it('B5 · sin prioridad (otro día) vuelve a atrasado con sus días reales', () =>
+    expect(dueStatus({ ...late, priority_today: false }, now)).toEqual({ kind: 'late', label: 'Atrasado 2 días · tocaba el 28/10' }))
 })

@@ -20,7 +20,13 @@ export const needsAttention = (s: DueStatus) => s.kind === 'late' || s.kind === 
  */
 export type DueInput = Pick<FollowupRow, 'next_contact_at' | 'visit_at' | 'last_contacted_at' | 'last_result' | 'assigned_at'> & {
   stage: string
+  /** Spec 026: la jefa lo marcó como prioridad de hoy para su responsable actual. Falta si la base no tiene la 026. */
+  priority_today?: boolean
 }
+
+/** Spec 026: tipo de atraso. Las visitas vencidas («¿vino?») cuentan como fecha vencida. */
+export type LateType = 'never' | 'overdue'
+export type LateInfo = { days: number; type: LateType }
 
 /** Visita agendada cuya hora ya pasó y nadie registró nada desde entonces: toca preguntar "¿vino?". */
 export function visitPassed(r: Pick<DueInput, 'visit_at' | 'next_contact_at'>, now: Date): boolean {
@@ -67,7 +73,51 @@ export function dueStatus(r: DueInput, now: Date): DueStatus {
         next.kind === 'soon' ? { kind: 'normal', label: next.label.replace(' · confirmar hoy', '') } : next,
     }
   }
-  return scheduled(r, now)
+  const s = scheduled(r, now)
+  if (!r.priority_today) return s
+  // Spec 026: la prioridad lo vuelve trabajo de hoy; el atraso queda como dato (no se borra la fecha).
+  const late = lateOf(r, today)
+  if (late) return { kind: 'now', label: `Prioridad de hoy · atrasado ${days(late.days)}` }
+  return { kind: 'now', label: s.kind === 'now' || s.kind === 'soon' ? `Prioridad de hoy · ${s.label}` : 'Prioridad de hoy' }
+}
+
+/**
+ * Spec 026: días de atraso y tipo, solo si hoy cae en «Atrasados» (sin prioridad ni contacto de hoy); si no, null.
+ * Es lo que usa el desglose por antigüedad y tipo de la Agenda.
+ */
+export function lateInfo(r: DueInput, now: Date): LateInfo | null {
+  if (dueStatus({ ...r, priority_today: false }, now).kind !== 'late') return null
+  const late = lateOf(r, laPazDate(now))
+  return late && { days: late.days, type: late.type }
+}
+
+/**
+ * Atraso desde la fecha más reciente entre lo agendado y el día en que lo recibió el responsable actual: una fecha
+ * vencida heredada de otra persona no le suma días a quien la recibió después. Recibido hoy no es atraso.
+ */
+function lateOf(r: DueInput, today: string): (LateInfo & { label: string }) | null {
+  const got = r.assigned_at ? laPazDate(new Date(r.assigned_at)) : null
+  if (!r.next_contact_at) {
+    // Spec 022: nunca contactado y asignado un día anterior (sin fecha de asignación, no hay cómo saberlo: es de hoy).
+    if (r.last_contacted_at || !got || got >= today) return null
+    const n = dayDiff(got, today)
+    return { days: n, type: 'never', label: `Atrasado · asignado hace ${days(n)}` }
+  }
+  const due = laPazDate(new Date(r.next_contact_at))
+  if (due >= today || got === today) return null
+  const received = got !== null && got > due
+  const n = dayDiff(received ? got : due, today)
+  const was = shortDate(r.next_contact_at)
+  const isVisit = r.visit_at !== null && new Date(r.visit_at).getTime() === new Date(r.next_contact_at).getTime()
+  const gotLabel = received && r.assigned_at ? shortDate(r.assigned_at) : ''
+  const label = isVisit
+    ? received
+      ? `Recibido el ${gotLabel} · visita era el ${was} · ¿vino?`
+      : `Visita era ${n === 1 ? 'ayer' : `hace ${days(n)}`} · ¿vino?`
+    : received
+      ? `Atrasado ${days(n)} · recibido el ${gotLabel} (tocaba el ${was})`
+      : `Atrasado ${days(n)} · tocaba el ${was}`
+  return { days: n, type: 'overdue', label }
 }
 
 /** Estado según la fecha agendada (visita o próximo contacto), sin mirar si ya se contactó hoy. */
@@ -76,8 +126,8 @@ function scheduled(r: DueInput, now: Date): DueStatus {
   if (!r.next_contact_at) {
     if (r.last_contacted_at) return { kind: 'normal', label: 'Por contactar' }
     // Spec 022: nunca contactado y asignado un día anterior (La Paz) → atrasado; asignado hoy → trabajo del día.
-    const ago = r.assigned_at ? dayDiff(laPazDate(new Date(r.assigned_at)), today) : 0
-    return ago > 0 ? { kind: 'late', label: `Atrasado · asignado hace ${days(ago)}` } : { kind: 'now', label: 'Nuevo · contactar hoy' }
+    const late = lateOf(r, today)
+    return late ? { kind: 'late', label: late.label } : { kind: 'now', label: 'Nuevo · contactar hoy' }
   }
 
   const at = new Date(r.next_contact_at)
@@ -91,15 +141,13 @@ function scheduled(r: DueInput, now: Date): DueStatus {
   if (d < 0) {
     // Se lo pasaron hoy con la fecha que dejó vencida la persona anterior: es trabajo de hoy de quien lo recibe y el
     // atraso queda como dato. Si ya lo contactó hoy cayó antes en «resuelto». Desde mañana, la regla normal.
-    if (r.assigned_at && laPazDate(new Date(r.assigned_at)) === today) {
-      const was = shortDate(r.next_contact_at)
-      return isVisit
-        ? { kind: 'now', label: `Recibido hoy · visita era el ${was} · ¿vino?` }
-        : { kind: 'now', label: `Recibido hoy · venció el ${was}` }
-    }
+    // Spec 026: lo atrasado cuenta desde que lo recibió si la fecha vencida era heredada (lateOf).
+    const late = lateOf(r, today)
+    if (late) return { kind: 'late', label: late.label }
+    const was = shortDate(r.next_contact_at)
     return isVisit
-      ? { kind: 'late', label: `Visita era ${d === -1 ? 'ayer' : `hace ${days(-d)}`} · ¿vino?` }
-      : { kind: 'late', label: `Atrasado ${days(-d)} · tocaba el ${shortDate(r.next_contact_at)}` }
+      ? { kind: 'now', label: `Recibido hoy · visita era el ${was} · ¿vino?` }
+      : { kind: 'now', label: `Recibido hoy · venció el ${was}` }
   }
   if (d === 0) {
     if (mins > 0) {

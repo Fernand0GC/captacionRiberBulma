@@ -10,6 +10,7 @@ import {
   pageWindow,
   parsePageSize,
   summarize,
+  sortRecaptured,
   tabCount,
 } from '@/features/followup/inboxView'
 
@@ -144,4 +145,22 @@ describe('keepPlace: cambiar el tamaño no pierde el lugar', () => {
 describe('parsePageSize: lo guardado en el navegador', () => {
   it('valores válidos', () => expect(['10', '25', '50', '100'].map(parsePageSize)).toEqual([10, 25, 50, 100]))
   it('nada guardado o algo raro: 25', () => expect([null, '', '7', 'abc', '1000'].map(parsePageSize)).toEqual([25, 25, 25, 25, 25]))
+})
+
+// Spec 026: lo que la jefa marcó como prioridad de hoy va primero dentro de «Para hoy».
+describe('spec 026 · prioridad primero', () => {
+  const today = row('hoy', { stage: 'recapture', last_contacted_at: '2026-11-20T10:00:00-04:00', next_contact_at: '2026-11-23T09:00:00-04:00' })
+  const prio = row('prio', {
+    stage: 'recapture',
+    last_contacted_at: '2026-11-20T10:00:00-04:00',
+    next_contact_at: '2026-11-30T09:00:00-04:00',
+    priority_today: true,
+  })
+  it('B3 · recaptados: la prioridad antes que lo agendado para hoy', () =>
+    expect(sortRecaptured([today, prio], now).map((r) => r.id)).toEqual(['prio', 'hoy']))
+  it('B3 · captados del mismo día: la prioridad antes que lo nuevo', () => {
+    const fresh = row('nuevo', { assigned_at: '2026-11-23T08:00:00-04:00' })
+    const p2 = row('prio2', { assigned_at: '2026-11-23T07:00:00-04:00', priority_today: true })
+    expect(groupByAssignedDay([fresh, p2], now)[0]!.rows.map((r) => r.id)).toEqual(['prio2', 'nuevo'])
+  })
 })
