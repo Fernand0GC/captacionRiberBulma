@@ -55,7 +55,7 @@ select is((select (x ->> 'n')::int from jsonb_array_elements((select v -> 'by_ch
 
 -- Gerente ve comparación por sucursal; volantero no ve métricas
 select tests.login_as('00000000-0000-4000-8000-000000000002');
-select ok(jsonb_array_length(public.dashboard_metrics(jsonb_build_object('from', (select today from d))) -> 'by_branch') = 10, 'gerente: las 10 sucursales');
+select ok(jsonb_array_length(public.dashboard_metrics(jsonb_build_object('from', (select today from d))) -> 'by_branch') = (select count(*)::int from public.branches where active), 'gerente: todas las sucursales activas');
 select tests.login_as('00000000-0000-4000-8000-000000000006');
 select throws_ok($$ select public.dashboard_metrics('{}') $$, 'P0001', 'forbidden', 'volantero no ve métricas');
 
