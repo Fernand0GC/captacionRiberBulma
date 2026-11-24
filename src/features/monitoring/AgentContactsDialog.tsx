@@ -112,6 +112,8 @@ export function AgentContactsDialog({
               filters={filters}
               hiddenTotal={assigned.data.hidden_total ?? 0}
               contactedVisible={assigned.data.contacted_visible ?? 0}
+              summary={assigned.data.summary}
+              reassignedUncontacted={assigned.data.reassigned_uncontacted}
             />
           )
         ) : contacts.isError ? (

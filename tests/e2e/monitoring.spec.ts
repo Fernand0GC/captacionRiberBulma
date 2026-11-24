@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from '@playwright/test'
+import { expect, test, type Browser, type Locator, type Page } from '@playwright/test'
 import { fillCapture, login, randomPhone } from './helpers'
 
 // Monitoreo (specs/002-monitoreo-seguimiento): Seguimientos, Actividad, detalle, ficha y Excel.
@@ -239,6 +239,14 @@ test('020 clientes asignados: buscar por nombre o celular y reasignar los sin co
   await search.fill(`reasignar ${tag}`)
   await expect(rows).toHaveCount(3)
 
+  // 024: números antes de reasignar (la base local puede tener otros asignados de hoy: se comparan diferencias)
+  const kpi = (id: string) => det.getByTestId(id)
+  const num = async (l: Locator) => Number((await l.innerText()).match(/\d+/)?.[0] ?? 0)
+  const note = det.getByTestId('reassigned-note')
+  const assignedBefore = await num(kpi('kpi-assigned'))
+  const pendingBefore = await num(kpi('kpi-pending'))
+  const noteBefore = (await note.count()) ? await num(note) : 0
+
   // Seleccionar: solo los sin contactar que siguen a su cargo tienen casilla
   await det.getByRole('button', { name: 'Seleccionar', exact: true }).click()
   await expect(det.getByLabel(`Seleccionar ${c}`)).toHaveCount(0)
@@ -251,10 +259,24 @@ test('020 clientes asignados: buscar por nombre o celular y reasignar los sin co
   await enc.getByRole('dialog', { name: '¿Reasignar?' }).getByRole('button', { name: 'Reasignar 2' }).click()
   await expect(enc.getByText('✓ 2 reasignados')).toBeVisible()
 
-  // La lista se recarga: A y B «Reasignado a Supervisor», C sigue con la auxiliar
+  // 024: A y B nunca fueron contactados por la auxiliar → dejan de contarle y salen de la lista; C sigue
+  await expect(rows).toHaveCount(1)
+  await expect(rows.first()).toContainText(c)
+  await expect(kpi('kpi-assigned')).toHaveText(String(assignedBefore - 2))
+  await expect(kpi('kpi-pending')).toHaveText(String(pendingBefore - 2))
+  await expect(note).toContainText(`${noteBefore + 2} reasignados sin contactar`)
+
+  // La nota gris muestra a A y B «Reasignado a Supervisor» (no suman a las tarjetas)
+  await note.click()
   await expect(rows.filter({ hasText: a })).toContainText('Reasignado a Supervisor Verdolago')
   await expect(rows.filter({ hasText: b })).toContainText('Reasignado a Supervisor Verdolago')
-  await expect(rows.filter({ hasText: c })).not.toContainText('Reasignado')
+  await expect(rows.filter({ hasText: c })).toHaveCount(0)
+  await expect(kpi('kpi-assigned')).toHaveText(String(assignedBefore - 2))
   expect(await enc.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
+
+  // La tabla Actividad dice lo mismo que el modal
+  await enc.keyboard.press('Escape')
+  await enc.reload()
+  await expect(auxRow.getByRole('button', { name: `Clientes asignados de Auxiliar Verdolago: ${assignedBefore - 2}` })).toBeVisible()
   await enc.context().close()
 })

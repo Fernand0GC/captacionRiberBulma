@@ -45,7 +45,7 @@ auxiliar de la misma sucursal; ambos quedan a cargo de la nueva y el modal los m
 2. **Given** dos clientes marcados, **When** elige a otra persona de la sucursal y confirma «Reasignar», **Then** ambos pasan a esa persona, se ve el aviso «✓ 2 reasignados» y cada fila muestra «Reasignado a <persona>».
 3. **Given** la barra abierta, **When** abre «Asignar a…», **Then** solo aparecen personas activas de la sucursal de esos clientes (las mismas opciones que en Captaciones, con «Repartir entre las N auxiliares» cuando la sucursal tiene más de una).
 4. **Given** un cliente ya contactado o que ya no está a cargo de la persona, **When** está en modo selección, **Then** no tiene casilla y no se puede reasignar desde el modal.
-5. **Given** una reasignación hecha, **When** se mira la fila de Actividad de la persona original, **Then** sus números de «Asignados» del período no cambian (el historial de asignación se respeta).
+5. **Given** una reasignación hecha, **When** se mira la fila de Actividad de la persona original, **Then** sus números de «Asignados» del período no cambian (el historial de asignación se respeta). **Reemplazado por la spec 024 (2026-11-24)**: el reasignado que la persona original nunca contactó deja de contar en sus «Asignados»; el que sí contactó sigue contando. Pedido de ventas para no inflar los números.
 
 ---
 
@@ -115,7 +115,7 @@ independiente del modal.
 - **FR-008**: La reasignación MUST pasar por la misma operación del servidor que Captaciones, que verifica rol, sucursal y destino válido; no se crea una operación nueva ni paralela.
 - **FR-009**: Las opciones de «Asignar a…» MUST ser las de la sucursal de los clientes. Si los clientes que se pueden reasignar en el modal son de más de una sucursal, la barra MUST avisarlo y pedir elegir una sucursal en el filtro de Actividad antes de asignar.
 - **FR-010**: Después de reasignar, el modal MUST recargar la lista y cada cliente reasignado MUST mostrar «Reasignado a <persona>» (o «Quedó sin responsable»), y la tabla de Actividad MUST actualizarse.
-- **FR-011**: Reasignar MUST NOT cambiar los números «Asignados» / «Contactados» del período de la persona original (se calculan del historial de asignaciones).
+- **FR-011**: Reasignar MUST NOT cambiar los números «Asignados» / «Contactados» del período de la persona original (se calculan del historial de asignaciones). **Reemplazado por la spec 024 (2026-11-24)**: el reasignado que la persona original nunca contactó deja de contar en sus «Asignados»; el que sí contactó sigue contando. Pedido de ventas para no inflar los números.
 - **FR-012**: La lista de clientes asignados de una persona MUST incluir, por cliente, su celular y su sucursal, solo para quien ya puede ver esa lista (mismos permisos de hoy).
 - **FR-013**: «Mis contactos» MUST tener la misma lupa (mismo criterio de FR-002 y FR-003) que filtra la pestaña visible y la lista «Ver cerrados anteriores».
 - **FR-014**: Con una búsqueda activa, los contadores de las pestañas de «Mis contactos» (Captados, Recaptados, Seguimiento, No contestó) MUST mostrar cuántos coinciden; sin búsqueda, los de siempre.
@@ -136,7 +136,7 @@ independiente del modal.
 - **SC-001**: Gerencia reasigna los clientes sin contactar de una persona a otra en menos de 30 segundos y sin salir del modal (antes requería ir a otra vista y buscarlos uno por uno).
 - **SC-002**: Escribir un fragmento de nombre o celular reduce la lista al instante (sin esperar al servidor), en el modal y en «Mis contactos».
 - **SC-003**: El 100 % de las reasignaciones hechas desde el modal quedan en el historial de la ficha con quién y cuándo, igual que desde Captaciones.
-- **SC-004**: Los números de Actividad del período no cambian después de reasignar (0 diferencias antes/después en «Asignados» de la persona original).
+- **SC-004**: Los números de Actividad del período no cambian después de reasignar (0 diferencias antes/después en «Asignados» de la persona original). **Reemplazado por la spec 024 (2026-11-24)**: el reasignado que la persona original nunca contactó deja de contar en sus «Asignados»; el que sí contactó sigue contando. Pedido de ventas para no inflar los números.
 - **SC-005**: Ningún usuario sin permiso de asignar puede reasignar desde el modal, aunque manipule la pantalla (lo impide el servidor).
 
 ## Assumptions

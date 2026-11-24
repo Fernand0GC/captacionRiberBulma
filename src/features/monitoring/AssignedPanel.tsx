@@ -5,18 +5,24 @@ import { METHOD_LABEL, RESULT_LABEL } from '@/features/followup/api'
 import { SelectToggle, useAssignSelection, type AssignSelectionState, type Assignable } from '@/features/prospects/AssignSelection'
 import { fmtDate, fmtTime, STAGE_LABEL } from '@/features/prospects/format'
 import { useToast } from '@/ui/Toast'
-import { useHideAssignedContacted, useSetAssignedHidden, type AgentActivityFilters, type AgentAssignedRow, type ProspectStage } from './api'
+import {
+  useHideAssignedContacted,
+  useSetAssignedHidden,
+  type AgentActivityFilters,
+  type AgentAssignedRow,
+  type AgentAssignedSummary,
+  type ProspectStage,
+} from './api'
 import {
   filterAssigned,
   keepKey,
   laPazDay,
   ORIGIN_STAGES,
   OUTCOME_GROUPS,
-  outcomeOf,
   reassignable,
   shouldAskHide,
   singleBranch,
-  summarizeAssigned,
+  toSummary,
   type AssignedFilter,
   type AssignedSummary,
   type OutcomeGroup,
@@ -50,7 +56,7 @@ export function StagePill({ stage, outline }: { stage: ProspectStage; outline?: 
 /** La persona del modal: los clientes reasignables siguen a su cargo (spec 020). */
 export type AssignedActor = { id: string; name: string }
 
-const NO_FILTER: AssignedFilter = { contact: 'all', origin: null, outcome: null, q: '', showHidden: false }
+const NO_FILTER: AssignedFilter = { contact: 'all', origin: null, outcome: null, q: '', showHidden: false, reassignedOnly: false }
 
 /** «Mantener» se recuerda en este navegador; si el almacenamiento falla, se vuelve a preguntar (spec 021). */
 const readKeep = (k: string): string | null => {
@@ -84,14 +90,21 @@ export function AssignedPanel({
   filters,
   hiddenTotal,
   contactedVisible,
+  summary,
+  reassignedUncontacted,
 }: {
   rows: AgentAssignedRow[]
+  /** Spec 024: los que cuentan en «Asignados» (sin los reasignados que no contactó). */
   total: number
   actor: AssignedActor
   /** Los de Actividad (período y sucursal): el «Ocultar» del aviso actúa sobre ese período. */
   filters: AgentActivityFilters
   hiddenTotal: number
   contactedVisible: number
+  /** Spec 024: el resumen de todo el período, calculado en el servidor. */
+  summary: AgentAssignedSummary
+  /** Spec 024: los que pasaron a otra persona sin que ella los contactara (la nota gris). */
+  reassignedUncontacted: number
 }) {
   const [f, setF] = useState<AssignedFilter>(NO_FILTER)
   const list = filterAssigned(rows, f)
@@ -127,9 +140,12 @@ export function AssignedPanel({
       </p>
     )
 
-  const s = summarizeAssigned(rows)
-  // «X de N»: N son los de la lista sin ocultos (o todos con «Ver ocultos»).
-  const base = f.showHidden ? rows.length : rows.filter((r) => !r.hidden).length
+  const s = toSummary({ total, summary })
+  // «X de N»: N son los de la lista sin ocultos (o todos con «Ver ocultos»); con la nota gris, los reasignados.
+  const base = filterAssigned(rows, { ...NO_FILTER, showHidden: f.showHidden, reassignedOnly: f.reassignedOnly }).length
+  // La nota cambia de lista: se limpian los filtros de contacto, origen y resultado (la lupa se mantiene).
+  const toggleReassigned = () =>
+    setF((x) => ({ ...x, contact: 'all', origin: null, outcome: null, reassignedOnly: !x.reassignedOnly }))
 
   async function hideAllContacted() {
     try {
@@ -160,6 +176,7 @@ export function AssignedPanel({
     <div className="flex flex-col gap-4">
       {askHide && <HideNotice n={contactedVisible} busy={hideContacted.isPending} onHide={hideAllContacted} onKeep={keep} />}
       <AssignedKpis s={s} />
+      {reassignedUncontacted > 0 && <ReassignedNote n={reassignedUncontacted} on={!!f.reassignedOnly} onToggle={toggleReassigned} />}
       <OriginSection s={s} active={f.origin} onToggle={(st) => toggle('origin', st)} />
       <OutcomeSection s={s} active={f.outcome} onToggle={(g) => toggle('outcome', g)} />
       <AssignedToolbar
@@ -170,7 +187,7 @@ export function AssignedPanel({
         s={s}
         hiddenTotal={hiddenTotal}
         loaded={rows.length}
-        total={total}
+        total={total + reassignedUncontacted}
         sel={sel}
         canSelect={reassignable(rows).length > 0}
       />
@@ -225,7 +242,9 @@ function AssignedKpis({ s }: { s: AssignedSummary }) {
     <div className="grid grid-cols-3 gap-2" data-testid="assigned-kpis">
       <div className="rounded-2xl bg-white p-3 ring-1 ring-ink/10">
         <p className="text-[10px] font-semibold uppercase text-ink/50 sm:text-xs sm:tracking-wide">Asignados</p>
-        <p className="font-display text-3xl font-bold tabular-nums">{s.total}</p>
+        <p className="font-display text-3xl font-bold tabular-nums" data-testid="kpi-assigned">
+          {s.total}
+        </p>
       </div>
       <div className="rounded-2xl bg-white p-3 ring-1 ring-ink/10">
         <p className="text-[10px] font-semibold uppercase text-ink/50 sm:text-xs sm:tracking-wide">Contactados</p>
@@ -238,9 +257,33 @@ function AssignedKpis({ s }: { s: AssignedSummary }) {
       </div>
       <div className="rounded-2xl bg-white p-3 ring-1 ring-ink/10">
         <p className="text-[10px] font-semibold uppercase text-ink/50 sm:text-xs sm:tracking-wide">Sin contactar</p>
-        <p className={`font-display text-3xl font-bold tabular-nums ${pending ? 'text-rb-red' : ''}`}>{pending}</p>
+        <p className={`font-display text-3xl font-bold tabular-nums ${pending ? 'text-rb-red' : ''}`} data-testid="kpi-pending">
+          {pending}
+        </p>
       </div>
     </div>
+  )
+}
+
+/**
+ * Spec 024: nota gris con los clientes que pasaron a otra persona sin que ella los contactara. No suman en las
+ * tarjetas; tocarla muestra solo esos clientes (y otra vez, vuelve a la lista normal).
+ */
+function ReassignedNote({ n, on, onToggle }: { n: number; on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onToggle}
+      data-testid="reassigned-note"
+      className={`flex w-full flex-wrap items-baseline gap-x-2 rounded-xl px-3 py-2 text-left text-sm ring-1 ${on ? 'bg-ink/10 ring-ink/25' : 'bg-sand/60 ring-ink/10 hover:bg-sand'}`}
+    >
+      <span className="text-ink/70">
+        <b className="tabular-nums">{n}</b> {n === 1 ? 'reasignado sin contactar' : 'reasignados sin contactar'}
+      </span>
+      <span className="text-xs text-ink/50">pasaron a otra persona antes de que los contactara · no suman en Asignados</span>
+      <span className="ml-auto text-xs font-semibold text-ink/70 underline">{on ? 'Volver a sus asignados' : 'Ver'}</span>
+    </button>
   )
 }
 
@@ -410,7 +453,7 @@ function AssignedRowItem({
   onHidden: ((hidden: boolean) => void) | null
   busy: boolean
 }) {
-  const out = outcomeOf(r)
+  const out = r.outcome
   return (
     <li
       data-testid="assigned-row"
@@ -460,14 +503,16 @@ function AssignedRowItem({
               {r.first_at && ` · 1.º ${when(r.first_at)}`}
             </span>
           </>
-        ) : (
+        ) : r.counted ? (
           <span className="font-semibold text-rb-red">⚠ Sin contactar</span>
+        ) : (
+          <span className="text-ink/50">No lo contactó · no suma</span>
         )}
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         {out === 'none' || out === 'same' ? (
           <>
-            <StagePill stage={r.stage_now} />
+            <StagePill stage={r.stage_left} />
             <span className="text-xs text-ink/50">{out === 'none' ? 'sigue igual' : 'sin cambio'}</span>
           </>
         ) : (
@@ -476,8 +521,14 @@ function AssignedRowItem({
             <span className="text-ink/45" aria-label="pasó a">
               →
             </span>
-            <StagePill stage={r.stage_now} />
+            <StagePill stage={r.stage_left} />
           </>
+        )}
+        {/* 024: la etapa es la que tenía al salir de sus manos; si después otra persona la avanzó, se dice cuál es hoy. */}
+        {r.stage_now !== r.stage_left && (
+          <span className="w-full text-xs text-ink/50" data-testid="stage-today">
+            hoy: {STAGE_LABEL[r.stage_now]}
+          </span>
         )}
         {onHidden && (
           <button

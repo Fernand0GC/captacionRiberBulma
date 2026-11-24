@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-23
 
-**Status**: Implemented (falta tu prueba manual, commit y aplicar `migraciones-023-produccion.sql` en producción con autorización)
+**Status**: En producción. Migración `migraciones-023-produccion.sql` aplicada y app en `main` (`74f149c`, 2026-11-23). Tutorial en video terminado (2026-11-23): `tutoriales/videos/captacion/recontacto-encargada/` (1:36, encargada, escritorio), con ficha para Drive y subtítulos.
 
 **Input**: User description: "La jefa de ventas no ve el seguimiento de los clientes ya asignados. Ejemplo: Maico tiene 175 clientes asignados en el mes; a varios los llamó una vez y tiene que volver a llamarlos (recaptación). Esa segunda llamada no la ven las jefas: en «Del día» no les aparece nada de los ya asignados, en «Actividad» solo aparece lo nuevo y Seguimientos cuenta por fecha de registro. Armar la spec con tres puntos: 1) agenda de recontacto por persona en «Del día» (le tocaba hoy / llamó / pendientes / atrasados); 2) en Actividad separar «Primer contacto» de «Recontacto»; 3) en Seguimientos un selector «Contar por» (registro, asignación, último contacto, próximo contacto)."
 

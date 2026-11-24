@@ -1,13 +1,14 @@
 import { matchesNameOrPhone } from '@/lib/search'
-import type { AgentAssignedRow, ProspectStage } from './api'
+import type { AgentAssignedResult, AgentAssignedRow, OutcomeGroup, ProspectStage } from './api'
 
 // Cálculos puros de la pestaña «Asignados» del detalle de Actividad (spec 012; probados en tests/unit/assigned.test.ts).
+// Spec 024: si cada cliente cuenta, en qué etapa lo dejó la persona y el resumen los calcula el servidor
+// (list_agent_assigned); acá solo se completan y se filtran.
+
+export type { OutcomeGroup }
 
 /** Etapas de origen que se muestran («De dónde vienen»): las del filtro Etapa, sin «Sin interés». */
 export const ORIGIN_STAGES: ProspectStage[] = ['capture', 'recapture', 'followup', 'interested', 'sale']
-
-/** Grupo de «A qué proceso pasaron»: la etapa de hoy, «Sin cambio» (la contactó y sigue igual) o «Sin contactar». */
-export type OutcomeGroup = 'sale' | 'interested' | 'followup' | 'recapture' | 'lost' | 'same' | 'none'
 
 /** En orden de avance, como la barra de la pantalla. */
 export const OUTCOME_GROUPS: { key: OutcomeGroup; label: string }[] = [
@@ -20,13 +21,6 @@ export const OUTCOME_GROUPS: { key: OutcomeGroup; label: string }[] = [
   { key: 'none', label: 'Sin contactar' },
 ]
 
-export function outcomeOf(r: Pick<AgentAssignedRow, 'contacts' | 'stage_at' | 'stage_now'>): OutcomeGroup {
-  if (r.contacts === 0) return 'none'
-  // Venta de un cliente que ya venía en Venta, o Captación que sigue en Captación: no cambió.
-  if (r.stage_now === r.stage_at || r.stage_now === 'capture') return 'same'
-  return r.stage_now
-}
-
 export type AssignedSummary = {
   total: number
   contacted: number
@@ -38,31 +32,19 @@ export type AssignedSummary = {
   contactedLater: number
 }
 
+const ALL_STAGES: ProspectStage[] = ['capture', 'recapture', 'followup', 'interested', 'sale', 'lost']
 const dayOf = (iso: string) => new Date(new Date(iso).getTime() - 4 * 3600_000).toISOString().slice(0, 10) // La Paz
 
-export function summarizeAssigned(rows: AgentAssignedRow[]): AssignedSummary {
-  const stages: ProspectStage[] = ['capture', 'recapture', 'followup', 'interested', 'sale', 'lost']
-  const byOrigin = Object.fromEntries(stages.map((s) => [s, { n: 0, contacted: 0 }])) as AssignedSummary['byOrigin']
-  const byOutcome = Object.fromEntries(OUTCOME_GROUPS.map((g) => [g.key, 0])) as AssignedSummary['byOutcome']
-  let contacted = 0
-  let contactedLater = 0
-  for (const r of rows) {
-    const o = byOrigin[r.stage_at]
-    o.n++
-    if (r.contacts > 0) {
-      contacted++
-      o.contacted++
-      if (r.first_at && dayOf(r.first_at) > dayOf(r.assigned_at)) contactedLater++
-    }
-    byOutcome[outcomeOf(r)]++
-  }
+/** Spec 024: el resumen del servidor, con cero en las etapas y grupos que no vinieron. */
+export function toSummary(res: Pick<AgentAssignedResult, 'total' | 'summary'>): AssignedSummary {
+  const { total, summary: s } = res
   return {
-    total: rows.length,
-    contacted,
-    pct: rows.length ? Math.round((contacted * 100) / rows.length) : 0,
-    byOrigin,
-    byOutcome,
-    contactedLater,
+    total,
+    contacted: s.contacted,
+    pct: total ? Math.round((s.contacted * 100) / total) : 0,
+    byOrigin: Object.fromEntries(ALL_STAGES.map((st) => [st, s.by_origin[st] ?? { n: 0, contacted: 0 }])) as AssignedSummary['byOrigin'],
+    byOutcome: Object.fromEntries(OUTCOME_GROUPS.map((g) => [g.key, s.by_outcome[g.key] ?? 0])) as AssignedSummary['byOutcome'],
+    contactedLater: s.contacted_later,
   }
 }
 
@@ -74,15 +56,19 @@ export type AssignedFilter = {
   q?: string
   /** Spec 021: «Ver ocultos». Apagado, la lista, la lupa, los filtros y la selección ignoran los ocultos. */
   showHidden?: boolean
+  /** Spec 024: la nota gris. Encendida, la lista muestra SOLO los reasignados sin contactar (los que no cuentan). */
+  reassignedOnly?: boolean
 }
 
 export const filterAssigned = (rows: AgentAssignedRow[], f: AssignedFilter): AgentAssignedRow[] =>
   rows.filter(
     (r) =>
-      (f.showHidden || !r.hidden) &&
+      r.counted === !f.reassignedOnly &&
+      // 024: en la nota gris se ven todos (ocultar es para la lista de sus asignados).
+      (f.showHidden || f.reassignedOnly || !r.hidden) &&
       (f.contact === 'all' || (f.contact === 'done' ? r.contacts > 0 : r.contacts === 0)) &&
       (f.origin === null || r.stage_at === f.origin) &&
-      (f.outcome === null || outcomeOf(r) === f.outcome) &&
+      (f.outcome === null || r.outcome === f.outcome) &&
       matchesNameOrPhone(r, f.q ?? ''),
   )
 

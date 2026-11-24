@@ -60,16 +60,16 @@ insert into r values ('contacts', public.list_agent_contacts('{"from":"2025-05-2
 
 -- Resumen de Actividad --------------------------------------------------------------------------------------------
 select is((select x ->> 'assigned' from r, jsonb_array_elements(r.v -> 'rows') x
-           where r.k = 'act' and x ->> 'actor_id' = '00000000-0000-4000-8000-000000000004'), '5',
-  'asignados del día: 5 (p5 es de ayer; p6 dos veces cuenta una)');
+           where r.k = 'act' and x ->> 'actor_id' = '00000000-0000-4000-8000-000000000004'), '4',
+  'asignados del día: 4 (p5 es de ayer; p6 dos veces cuenta una; 024: p3 pasó al supervisor sin contactar)');
 select is((select x ->> 'assigned_contacted' from r, jsonb_array_elements(r.v -> 'rows') x
            where r.k = 'act' and x ->> 'actor_id' = '00000000-0000-4000-8000-000000000004'), '3',
   'contactados: 3 (p2 al día siguiente cuenta; p6 lo llamó otra persona)');
 select is((select x ->> 'assigned' from r, jsonb_array_elements(r.v -> 'by_branch') x
-           where r.k = 'act' and (x ->> 'branch_id')::int = 5), '5', 'por sucursal: los 5 de Verdolago');
+           where r.k = 'act' and (x ->> 'branch_id')::int = 5), '4', 'por sucursal: los 4 de Verdolago (024: p3 se le asignó al supervisor recién el 21)');
 
 -- Lista de asignados ----------------------------------------------------------------------------------------------
-select is((select (v ->> 'total')::int from r where k = 'list'), 5, 'la lista trae los 5');
+select is((select (v ->> 'total')::int from r where k = 'list'), 4, '024: cuentan 4 (p3 viene en la lista pero no cuenta)');
 select is(pg_temp.asg('Asg Cliente 1') ->> 'stage_at' || '→' || (pg_temp.asg('Asg Cliente 1') ->> 'stage_now'),
   'capture→recapture', 'p1: Captación → Recaptación');
 select is(pg_temp.asg('Asg Cliente 1') ->> 'assigned_by', (select full_name from public.profiles where id = '00000000-0000-4000-8000-000000000003'),
@@ -106,8 +106,8 @@ delete from r where k in ('act', 'list');
 insert into r values ('act', public.agent_activity('{"from":"2025-05-20","to":"2025-05-20"}'));
 insert into r values ('list', public.list_agent_assigned('{"from":"2025-05-20","to":"2025-05-20","actor_id":"00000000-0000-4000-8000-000000000004"}'));
 select is((select x ->> 'assigned' from r, jsonb_array_elements(r.v -> 'rows') x
-           where r.k = 'act' and x ->> 'actor_id' = '00000000-0000-4000-8000-000000000004'), '5',
-  '020: la auxiliar sigue con 5 asignados en el período (se calcula del historial)');
+           where r.k = 'act' and x ->> 'actor_id' = '00000000-0000-4000-8000-000000000004'), '3',
+  '024: reasignar p6 sin contactar le baja uno (antes 020 lo dejaba igual)');
 select is(pg_temp.asg('Asg Cliente 6') ->> 'reassigned_to', (select full_name from public.profiles where id = '00000000-0000-4000-8000-000000000005'),
   '020: p6 sale «Reasignado a» el supervisor');
 

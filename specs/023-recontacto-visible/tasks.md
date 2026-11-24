@@ -62,6 +62,7 @@ antes y se ven fallar.
 - [X] T025 Correr `pnpm db:test`, `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build` y el e2e; corregir lo que falle
 - [X] T026 [P] Copia para producción (sin aplicar) en ../migraciones-023-produccion.sql
 - [X] T027 [P] Agregar la 023 a la lista de features de CLAUDE.md y marcar Status en specs/023-recontacto-visible/spec.md
+- [X] T028 [P] Tutorial en video para encargada/jefa (Agenda de recontacto, Recontactos en Actividad, Contar por) en ../tutoriales/specs/captacion/recontacto/ → ../tutoriales/videos/captacion/recontacto-encargada/ (v1, 1:36)
 
 ## Dependencies
 

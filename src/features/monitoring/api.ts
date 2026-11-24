@@ -218,6 +218,12 @@ export type AgentAssignedRow = {
   assigned_by: string | null
   stage_at: ProspectStage
   stage_now: ProspectStage
+  /** Spec 024: etapa en que la persona lo dejó (si sigue a su cargo, la de hoy). */
+  stage_left: ProspectStage
+  /** Spec 024: grupo de «A qué proceso pasaron», calculado en el servidor con `stage_left`. */
+  outcome: OutcomeGroup
+  /** Spec 024: false = ya pasó a otra persona y ella nunca lo contactó; no suma en sus «Asignados». */
+  counted: boolean
   contacts: number
   first_at: string | null
   last_at: string | null
@@ -232,11 +238,27 @@ export type AgentAssignedRow = {
   hidden: boolean
 }
 
-/** Respuesta de list_agent_assigned. Spec 021: ocultos y contactados sin ocultar de todo el período. */
+/** «A qué proceso pasaron»: la etapa en que lo dejó, «Sin cambio» (lo contactó y sigue igual) o «Sin contactar». */
+export type OutcomeGroup = 'sale' | 'interested' | 'followup' | 'recapture' | 'lost' | 'same' | 'none'
+
+/** Spec 024: números del modal sobre todo el período (no solo las filas que llegan, máximo 500). */
+export type AgentAssignedSummary = {
+  contacted: number
+  contacted_later: number
+  by_origin: Partial<Record<ProspectStage, { n: number; contacted: number }>>
+  by_outcome: Partial<Record<OutcomeGroup, number>>
+}
+
+/**
+ * Respuesta de list_agent_assigned. Spec 021: ocultos y contactados sin ocultar de todo el período.
+ * Spec 024: `total` son los que cuentan; `reassigned_uncontacted`, los que pasaron a otra persona sin contactar.
+ */
 export type AgentAssignedResult = {
   total: number
+  reassigned_uncontacted: number
   hidden_total: number
   contacted_visible: number
+  summary: AgentAssignedSummary
   rows: AgentAssignedRow[]
 }
 

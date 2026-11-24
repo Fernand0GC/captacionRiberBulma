@@ -3,7 +3,7 @@ import { METHOD_LABEL, RESULT_LABEL } from '@/features/followup/api'
 import { STAGE_LABEL } from '@/features/prospects/format'
 import { activityTotals, branchTotals, perStaff } from './activity'
 import type { AgentActivityFilters, AgentActivityRow, AgentAssignedRow, BranchActivityRow } from './api'
-import { outcomeOf, OUTCOME_GROUPS } from './assigned'
+import { OUTCOME_GROUPS } from './assigned'
 import { ACTIVITY_METRICS } from './labels'
 import { dmy, downloadSheet, fileSafe, laPazWallClock, type Column } from './xlsx'
 
@@ -50,7 +50,7 @@ export async function exportBranchActivity(rows: BranchActivityRow[], filters: A
 
 /** Hoja ASIGNADOS (spec 012): los clientes asignados a una persona en el período, como la pestaña del detalle. */
 export async function exportAssigned(rows: AgentAssignedRow[], filters: AgentActivityFilters, actorName: string): Promise<void> {
-  const outcome = (r: AgentAssignedRow) => OUTCOME_GROUPS.find((g) => g.key === outcomeOf(r))?.label ?? ''
+  const outcome = (r: AgentAssignedRow) => OUTCOME_GROUPS.find((g) => g.key === r.outcome)?.label ?? ''
   const columns: Column<AgentAssignedRow>[] = [
     { header: 'Cliente', width: 28, value: (r) => r.full_name },
     { header: 'Asignado', width: 16, date: true, value: (r) => laPazWallClock(r.assigned_at) },
@@ -60,8 +60,11 @@ export async function exportAssigned(rows: AgentAssignedRow[], filters: AgentAct
     { header: 'Primer contacto', width: 16, date: true, value: (r) => laPazWallClock(r.first_at) },
     { header: 'Último contacto', width: 30, value: (r) => (r.last_method && r.last_result ? `${METHOD_LABEL[r.last_method]} · ${RESULT_LABEL[r.last_result]}` : 'Sin contactar') },
     { header: 'Observación', width: 30, value: (r) => r.last_note },
+    // 024: el resultado es la etapa en que lo dejó; «Etapa hoy» muestra si otra persona lo avanzó después.
+    { header: 'Etapa en que lo dejó', width: 18, value: (r) => STAGE_LABEL[r.stage_left] ?? r.stage_left },
     { header: 'Etapa hoy', width: 16, value: (r) => STAGE_LABEL[r.stage_now] ?? r.stage_now },
     { header: 'Resultado', width: 22, value: outcome },
+    { header: 'Cuenta en asignados', width: 18, value: (r) => (r.counted ? 'Sí' : 'No (reasignado sin contactar)') },
     { header: 'Reasignado a', width: 22, value: (r) => (r.reassigned ? (r.reassigned_to ?? 'Sin responsable') : null) },
   ]
   await downloadSheet({
