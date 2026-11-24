@@ -1,6 +1,7 @@
 # Spec 026 · Atraso justo y «Poner para hoy»
 
-**Estado**: implementada (2026-11-24). Migración `20261124000400_contact_priority.sql`.
+**Estado**: En producción. Migración `migraciones-026-produccion.sql` (`20261124000400_contact_priority.sql`) aplicada
+en el SQL Editor (2026-11-24, confirmado por el PO) y app en `main` (`041a57b`, 2026-11-24).
 
 ## Por qué
 Diagnóstico de Rene (24/11, `RB-union/diagnostico-sin-contactar-mes.sql`): de sus 66 «Sin contactar» del mes, 44 estaban

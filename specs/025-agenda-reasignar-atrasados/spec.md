@@ -2,7 +2,7 @@
 
 **Feature Branch**: `025-agenda-reasignar-atrasados`
 **Created**: 2026-11-24
-**Status**: Implementada en local, pendiente de commit y de QA del PO. Sin migración (solo front).
+**Status**: En producción. Sin migración (solo front). QA del PO aprobada y app en `main` (`9457ad3`, 2026-11-24).
 **Input**: «¿Es posible reasignar desde la agenda?». La jefa ve en «Del día» → «Agenda de recontacto» cuántos
 atrasados arrastra cada persona (spec 023), pero para repartirlos tenía que ir a dos pantallas: Actividad (solo los
 nunca contactados, spec 020) y Seguimientos (los agendados vencidos, specs 015/023).
