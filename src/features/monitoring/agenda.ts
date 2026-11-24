@@ -1,5 +1,6 @@
 import { dueStatus } from '@/features/followup/dueStatus'
 import { cardOf } from '@/features/followup/inboxView'
+import type { Assignable } from '@/features/prospects/AssignSelection'
 import type { AgendaPerson, AgendaReport, AgendaRow } from './api'
 
 // Agenda de recontacto (spec 023): lógica pura, sin React ni red (tests/unit/agenda.test.ts).
@@ -54,4 +55,21 @@ export function agendaTotals(people: AgendaPersonView[]): AgendaTotals {
     (t, p) => ({ due: t.due + p.due, done: t.done + p.done.length, pending: t.pending + p.pending.length, late: t.late + p.late.length }),
     { due: 0, done: 0, pending: 0, late: 0 },
   )
+}
+
+// --- Spec 025: reasignar los atrasados desde el detalle --------------------------------------------------------------
+
+/** Los atrasados de la persona, listos para useAssignSelection (el dueño actual es ella: se avisa a quién se le quitan). */
+export function lateAssignable(p: AgendaPersonView): Assignable[] {
+  return p.late.map((r) => ({ id: r.id, assigned_to: p.id, assigned_to_name: p.full_name }))
+}
+
+/**
+ * Sucursal para elegir a quién reasignar: la de sus atrasados si es una sola; si son de varias, ninguna (la barra pide
+ * elegir sucursal en «Del día»). Sin atrasados, la de la persona.
+ */
+export function lateBranch(p: AgendaPersonView): number | undefined {
+  if (p.late.length === 0) return p.branch_id ?? undefined
+  const ids = new Set(p.late.map((r) => r.branch_id))
+  return ids.size === 1 ? [...ids][0] : undefined
 }

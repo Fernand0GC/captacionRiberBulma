@@ -4,9 +4,10 @@ import { ROLE_LABEL } from '@/features/auth/types'
 import { METHOD_LABEL, RESULT_LABEL } from '@/features/followup/api'
 import { dueStatus } from '@/features/followup/dueStatus'
 import { pageOf } from '@/features/followup/inboxView'
+import { SelectToggle, useAssignSelection, type AssignSelectionState } from '@/features/prospects/AssignSelection'
 import { fmtDate, fmtTime, STAGE_LABEL } from '@/features/prospects/format'
 import { Dialog } from '@/ui/Dialog'
-import { agendaByPerson, agendaTotals, type AgendaBucket, type AgendaPersonView } from './agenda'
+import { agendaByPerson, agendaTotals, lateAssignable, lateBranch, type AgendaBucket, type AgendaPersonView } from './agenda'
 import { useRecontactAgenda, type AgendaRow } from './api'
 
 const PAGE = 25
@@ -134,6 +135,18 @@ function AgendaDialog({ person, at, onClose }: { person: AgendaPersonView; at: D
   const list = person[tab]
   const p = pageOf(list, page, PAGE)
   const empty = BUCKETS.find((b) => b.key === tab)!.empty
+  // Spec 025: solo los atrasados se reasignan desde acá (lo de hoy todavía le toca a esta persona).
+  const late = lateAssignable(person)
+  const sel = useAssignSelection({
+    filters: { person: person.id, tab },
+    rows: tab === 'late' ? pageOf(late, page, PAGE).rows : [],
+    total: late.length,
+    branchId: lateBranch(person),
+    fetchAll: () => Promise.resolve(late),
+    noun: 'clientes',
+    layout: 'dialog',
+    noBranchText: 'Atrasados de varias sucursales: elige una sucursal en «Del día» para reasignar.',
+  })
 
   const tabCls = (on: boolean) =>
     `-mb-px whitespace-nowrap border-b-[3px] px-2 py-2.5 text-sm font-semibold sm:px-3 sm:text-base ${on ? 'border-gold text-ink' : 'border-transparent text-ink/50 hover:text-ink'}`
@@ -156,6 +169,7 @@ function AgendaDialog({ person, at, onClose }: { person: AgendaPersonView; at: D
             onClick={() => {
               setTab(b.key)
               setPage(0)
+              sel.stop()
             }}
             className={tabCls(tab === b.key)}
           >
@@ -168,12 +182,17 @@ function AgendaDialog({ person, at, onClose }: { person: AgendaPersonView; at: D
       </div>
 
       <div className="max-h-[calc(100dvh-19rem)] overflow-y-auto pt-4">
+        {tab === 'late' && late.length > 0 && (
+          <div className="mb-3 flex justify-end">
+            <SelectToggle sel={sel} disabled={false} />
+          </div>
+        )}
         {list.length === 0 ? (
           <p className="py-6 text-center text-ink/50">{empty}</p>
         ) : (
           <ul className="flex flex-col gap-2" data-testid="agenda-clients">
             {p.rows.map((r) => (
-              <ClientItem key={r.id} r={r} at={at} />
+              <ClientItem key={r.id} r={r} at={at} sel={tab === 'late' && sel.selecting ? sel : null} />
             ))}
           </ul>
         )}
@@ -202,21 +221,34 @@ function AgendaDialog({ person, at, onClose }: { person: AgendaPersonView; at: D
             </button>
           </nav>
         )}
+        {sel.bar}
       </div>
     </Dialog>
   )
 }
 
-function ClientItem({ r, at }: { r: AgendaRow; at: Date }) {
+/** `sel` solo llega en Atrasados con el modo «Seleccionar» activo (spec 025). */
+function ClientItem({ r, at, sel }: { r: AgendaRow; at: Date; sel: AssignSelectionState | null }) {
   const s = dueStatus(r, at)
   return (
     <li className="grid gap-1 rounded-2xl bg-white p-3 ring-1 ring-ink/10 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.6fr)] sm:gap-3">
-      <div className="min-w-0">
-        <Link to="/cliente/$id" params={{ id: r.id }} className="font-semibold hover:text-gold-dark hover:underline">
-          {r.full_name}
-        </Link>
-        <span className="block text-sm text-ink/55">{r.phone_raw}</span>
-        {r.reassigned_from_name && <span className="block text-xs text-ink/45">Reasignado de {r.reassigned_from_name}</span>}
+      <div className="flex min-w-0 items-start gap-2">
+        {sel && (
+          <input
+            type="checkbox"
+            aria-label={`Seleccionar ${r.full_name}`}
+            checked={sel.selected.has(r.id)}
+            onChange={() => sel.toggle(r.id)}
+            className="mt-0.5 size-5 shrink-0 accent-ink"
+          />
+        )}
+        <div className="min-w-0">
+          <Link to="/cliente/$id" params={{ id: r.id }} className="font-semibold hover:text-gold-dark hover:underline">
+            {r.full_name}
+          </Link>
+          <span className="block text-sm text-ink/55">{r.phone_raw}</span>
+          {r.reassigned_from_name && <span className="block text-xs text-ink/45">Reasignado de {r.reassigned_from_name}</span>}
+        </div>
       </div>
       <div className="min-w-0 text-sm">
         <span className="font-semibold">{STAGE_LABEL[r.stage] ?? r.stage}</span>

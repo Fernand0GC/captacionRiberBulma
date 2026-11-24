@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { FollowupRow } from '@/features/followup/api'
 import { summarize } from '@/features/followup/inboxView'
 import type { AgendaPerson, AgendaRow } from '@/features/monitoring/api'
-import { agendaByPerson, agendaTotals, bucketOf } from '@/features/monitoring/agenda'
+import { agendaByPerson, agendaTotals, bucketOf, lateAssignable, lateBranch } from '@/features/monitoring/agenda'
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 
@@ -71,6 +71,12 @@ describe('bucketOf: misma regla que «Mis contactos»', () => {
   it('recibido hoy con fecha vencida de otra persona → pendiente, no atrasado (caso Rene)', () =>
     expect(bucketOf(inheritedToday, now)).toBe('pending'))
 
+  // Spec 025 (caracterización): lo que la jefa reasigna desde «Atrasados» le llega a quien lo recibe como trabajo de hoy.
+  it('nunca contactado recibido hoy de otra persona → pendiente, no atrasado', () => {
+    const got = row('recibido', { ...neverContactedOld, id: 'recibido', reassigned_from_name: 'Nayara', assigned_at: '2026-11-23T10:21:00-04:00' })
+    expect(bucketOf(got, now)).toBe('pending')
+  })
+
   it('agendado hoy (aunque sea más tarde) → pendiente', () => {
     expect(bucketOf(dueToday, now)).toBe('pending')
     expect(bucketOf(dueLater, now)).toBe('pending')
@@ -136,5 +142,31 @@ describe('paridad con las tarjetas de «Mis contactos»', () => {
     const cards = summarize(asInbox, now)
     const maico = agendaByPerson({ people, rows: open }, now).find((p) => p.id === MAICO)!
     expect({ today: maico.pending.length, done: maico.done.length, late: maico.late.length }).toEqual(cards)
+  })
+})
+
+// Spec 025: reasignar los atrasados desde el detalle de la agenda (reusa useAssignSelection + assign_prospects).
+describe('reasignar atrasados', () => {
+  const view = agendaByPerson({ people, rows: [dueToday, lateOne, neverContactedOld, doneToday] }, now)
+  const maico = view.find((p) => p.id === MAICO)!
+
+  it('solo ofrece los atrasados, a nombre de su responsable actual (para avisar a quién se le quitan)', () => {
+    expect(lateAssignable(maico)).toEqual([
+      { id: 'ayer', assigned_to: MAICO, assigned_to_name: 'Maico' },
+      { id: 'sin-llamar', assigned_to: MAICO, assigned_to_name: 'Maico' },
+    ])
+  })
+  it('sin atrasados no hay nada que reasignar', () => {
+    expect(lateAssignable(view.find((p) => p.id === ANA)!)).toEqual([])
+  })
+  it('la sucursal sale de los atrasados cuando es una sola', () => {
+    expect(lateBranch(maico)).toBe(5)
+  })
+  it('atrasados de varias sucursales → sin sucursal (no se puede elegir a quién)', () => {
+    const mixed = agendaByPerson({ people, rows: [lateOne, row('otra', { ...lateOne, id: 'otra', branch_id: 7 })] }, now)
+    expect(lateBranch(mixed.find((p) => p.id === MAICO)!)).toBeUndefined()
+  })
+  it('sin atrasados usa la sucursal de la persona', () => {
+    expect(lateBranch(view.find((p) => p.id === ANA)!)).toBe(5)
   })
 })
