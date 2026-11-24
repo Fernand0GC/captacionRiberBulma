@@ -15,17 +15,29 @@ test('reparto: vista previa con cupos y reparto de una vez (Trinidad, para no ch
   }
   await expect(page.getByText('Todo subido')).toBeVisible({ timeout: 15_000 })
 
-  // Repartir: hay al menos 2; por defecto todo va al único que puede recibir en Trinidad (el encargado)
+  // Repartir: hay al menos 2 y la vista previa los reparte entre quienes pueden recibir en Trinidad
   await page.goto('/repartir')
   // Esperar a que cargue la vista previa (antes de cargar muestra 0)
   await expect.poll(async () => Number(await page.getByTestId('pool-total').innerText())).toBeGreaterThanOrEqual(2)
   // Otras pruebas captan en Trinidad en paralelo: el total puede cambiar si la vista previa se recarga,
   // así que se toma la cifra que muestra cada paso en vez de fijarla al inicio.
-  const quota = page.getByLabel('Recibirá Encargado Trinidad')
-  await expect.poll(async () => Number(await quota.inputValue())).toBeGreaterThanOrEqual(2)
+  // Quién recibe depende del personal de Trinidad (si hay auxiliares, el encargado recibe 0; p. ej. con los datos de
+  // demo-planificacion-007.sql): se toma a la primera persona con cupo, sea quien sea.
+  let receiver = ''
+  await expect
+    .poll(async () => {
+      for (const q of await page.getByRole('textbox', { name: /^Recibirá / }).all()) {
+        if (Number(await q.inputValue()) >= 1) {
+          receiver = ((await q.getAttribute('aria-label')) ?? '').replace(/^Recibirá /, '')
+          return receiver
+        }
+      }
+      return ''
+    })
+    .not.toBe('')
 
   // Ajustar: uno menos → queda 1 sin repartir
-  await page.getByRole('button', { name: 'Menos a Encargado Trinidad' }).click()
+  await page.getByRole('button', { name: `Menos a ${receiver}` }).click()
   await expect(page.getByText('quedan 1 sin repartir')).toBeVisible()
   const button = page.getByRole('button', { name: /^Repartir \d+$/ })
   const count = Number((await button.innerText()).replace(/\D/g, ''))
