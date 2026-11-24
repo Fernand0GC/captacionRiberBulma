@@ -1,9 +1,11 @@
 import { AppError, toAppError } from './errors'
+import { IMPERSONATION_HEADER, impersonationHeader } from './impersonation'
 import { accessToken, SUPABASE_ANON_KEY, SUPABASE_URL } from './supabase'
 
 /** Llama a la Edge Function admin-users (solo Sistemas). La service role nunca llega al navegador. */
 export async function adminUsers<T = { id: string }>(body: Record<string, unknown>): Promise<T> {
   let res: Response
+  const acting = impersonationHeader()
   try {
     res = await fetch(`${SUPABASE_URL}/functions/v1/admin-users`, {
       method: 'POST',
@@ -11,6 +13,8 @@ export async function adminUsers<T = { id: string }>(body: Record<string, unknow
         'Content-Type': 'application/json',
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${await accessToken()}`,
+        // Actuando como otro (spec 027) la función rechaza: altas, bajas y claves siempre con la identidad real.
+        ...(acting ? { [IMPERSONATION_HEADER]: acting } : {}),
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15_000),
@@ -18,7 +22,10 @@ export async function adminUsers<T = { id: string }>(body: Record<string, unknow
   } catch (e) {
     throw toAppError(e)
   }
-  const data = (await res.json().catch(() => ({}))) as { code?: string; details?: { field?: string; reason?: string } }
+  const data = (await res.json().catch(() => ({}))) as {
+    code?: string
+    details?: { field?: string; reason?: string }
+  }
   if (!res.ok) {
     const err = new AppError((data.code as AppError['code']) ?? 'unknown')
     ;(err as AppError & { details?: unknown }).details = data.details

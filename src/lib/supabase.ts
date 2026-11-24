@@ -1,5 +1,12 @@
 import { AuthClient } from '@supabase/auth-js'
 import { PostgrestClient } from '@supabase/postgrest-js'
+import {
+  clearImpersonation,
+  IMPERSONATION_HEADER,
+  impersonationHeader,
+  isImpersonationInvalid,
+  reloadApp,
+} from './impersonation'
 
 // Solo auth + rest (sin realtime/storage/functions de supabase-js): ~20 KB menos en el bundle inicial
 // (constitución II). La API usada (`auth`, `from`, `rpc`) es la misma de supabase-js.
@@ -46,7 +53,15 @@ const rest = new PostgrestClient(`${url}/rest/v1`, {
   fetch: async (input, init) => {
     const headers = new Headers(init?.headers)
     headers.set('Authorization', `Bearer ${await accessToken()}`)
-    return fetchWithTimeout(input, { ...init, headers })
+    // «Actuar como» (spec 027): la base valida la cabecera; si la rechaza (vencida o cerrada), se vuelve a la propia cuenta.
+    const acting = impersonationHeader()
+    if (acting) headers.set(IMPERSONATION_HEADER, acting)
+    const res = await fetchWithTimeout(input, { ...init, headers })
+    if (acting && !res.ok && isImpersonationInvalid(await res.clone().text())) {
+      clearImpersonation()
+      reloadApp()
+    }
+    return res
   },
 })
 

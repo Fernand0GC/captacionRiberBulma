@@ -19,7 +19,15 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { LogoutButton } from '@/features/auth/LogoutButton'
 import { InstallCard } from '@/features/install/InstallCard'
 import { usePortalMode } from '@/features/portal/portalMode'
-import { CAPTURE_ROLES, FOLLOWUP_ROLES, GLOBAL_ROLES, MANAGER_ROLES, REFERRAL_ROLES, ROLE_LABEL, type AppRole } from '@/features/auth/types'
+import {
+  CAPTURE_ROLES,
+  FOLLOWUP_ROLES,
+  GLOBAL_ROLES,
+  MANAGER_ROLES,
+  REFERRAL_ROLES,
+  ROLE_LABEL,
+  type AppRole,
+} from '@/features/auth/types'
 import { SyncRunner } from '@/features/sync/SyncRunner'
 
 type NavItem = { to: string; label: string; icon: React.ReactNode; roles: AppRole[] }
@@ -34,7 +42,12 @@ const MANAGE_NAV: NavItem[] = [
   { to: '/metas', label: 'Metas', icon: <MdFlag />, roles: MANAGER_ROLES },
   { to: '/equipo', label: 'Mi equipo', icon: <MdGroups />, roles: MANAGER_ROLES },
   { to: '/referidos', label: 'Referidos', icon: <MdShare />, roles: REFERRAL_ROLES },
-  { to: '/verificar-compartidas', label: 'Verificar compartidas', icon: <MdFactCheck />, roles: GLOBAL_ROLES },
+  {
+    to: '/verificar-compartidas',
+    label: 'Verificar compartidas',
+    icon: <MdFactCheck />,
+    roles: GLOBAL_ROLES,
+  },
   { to: '/seguimiento', label: 'Mis contactos', icon: <MdPhone />, roles: FOLLOWUP_ROLES },
   { to: '/registrar', label: 'Registrar', icon: <MdPersonAdd />, roles: CAPTURE_ROLES },
   { to: '/admin/usuarios', label: 'Usuarios', icon: <MdManageAccounts />, roles: ['admin'] },
@@ -48,11 +61,23 @@ const FIELD_NAV: NavItem[] = [
   { to: '/planificacion', label: 'Planificación', icon: <MdEventNote />, roles: ['field_supervisor'] },
   { to: '/planificacion', label: 'Mi plan', icon: <MdEventNote />, roles: ['field_assistant'] },
   // Cobros (spec 006): solo esta pantalla.
-  { to: '/verificar-compartidas', label: 'Verificar compartidas', icon: <MdFactCheck />, roles: ['collections'] },
+  {
+    to: '/verificar-compartidas',
+    label: 'Verificar compartidas',
+    icon: <MdFactCheck />,
+    roles: ['collections'],
+  },
 ]
 
+// La banda de «Actuar como» (spec 027) solo se descarga cuando Sistemas actúa como otra persona.
+const LazyImpersonationBanner = lazy(() =>
+  import('@/features/impersonation/ImpersonationBanner').then((m) => ({ default: m.ImpersonationBanner })),
+)
+
 // El contador de Mis contactos trae React Query: se carga aparte para no pesar en Registrar.
-const LazyContactsBadge = lazy(() => import('@/features/followup/ContactsBadge').then((m) => ({ default: m.ContactsBadge })))
+const LazyContactsBadge = lazy(() =>
+  import('@/features/followup/ContactsBadge').then((m) => ({ default: m.ContactsBadge })),
+)
 function ContactsBadge({ className }: { className: string }) {
   return (
     <Suspense fallback={null}>
@@ -82,7 +107,9 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             aria-current={active ? 'page' : undefined}
             className={`flex min-h-11 items-center gap-3 rounded-xl px-3 font-semibold transition ${
-              active ? 'bg-gold-gradient text-ink shadow-gold' : 'text-white/75 hover:bg-white/5 active:bg-white/10'
+              active
+                ? 'bg-gold-gradient text-ink shadow-gold'
+                : 'text-white/75 hover:bg-white/5 active:bg-white/10'
             }`}
           >
             <span aria-hidden className="w-5 text-center text-xl">
@@ -113,7 +140,13 @@ function UserCard() {
 function Brand() {
   return (
     <div className="flex items-center gap-3">
-      <img src="/logo-rb-96.webp" alt="Riber Bulma" width={40} height={40} className="h-10 w-10 rounded-full" />
+      <img
+        src="/logo-rb-96.webp"
+        alt="Riber Bulma"
+        width={40}
+        height={40}
+        className="h-10 w-10 rounded-full"
+      />
       <div>
         <p className="font-display text-lg font-semibold leading-tight text-gold-light">Captación</p>
         <p className="text-xs text-white/45">Riber Bulma</p>
@@ -127,7 +160,7 @@ function Brand() {
  * Va en el bundle inicial (sin React Query) para que /registrar abra sin señal.
  */
 export function AppShell() {
-  const { profile } = useAuth()
+  const { profile, impersonation } = useAuth()
   // Dentro del portal su barra reemplaza la marca, la cuenta y Salir; las secciones de la app se quedan (puente.md).
   const portal = usePortalMode()
   const [open, setOpen] = useState(false)
@@ -136,7 +169,14 @@ export function AppShell() {
   const current = items.find((n) => path === n.to || path.startsWith(`${n.to}/`))
 
   return (
-    <div className="min-h-dvh lg:flex">
+    <div className={`min-h-dvh lg:flex ${impersonation ? 'pb-14' : ''}`}>
+      {impersonation && (
+        <div className="fixed inset-x-0 bottom-0 z-50 bg-gold pb-[env(safe-area-inset-bottom)]">
+          <Suspense fallback={null}>
+            <LazyImpersonationBanner />
+          </Suspense>
+        </div>
+      )}
       {/* El envío de captaciones pendientes sigue activo en cualquier sección (p. ej. la auxiliar en Mis contactos). */}
       {profile && CAPTURE_ROLES.includes(profile.role) && <SyncRunner />}
 
@@ -151,9 +191,17 @@ export function AppShell() {
       <header className="bg-ink-gradient sticky top-0 z-30 flex items-center justify-between gap-3 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
         <div className="flex min-w-0 items-center gap-3">
           {!portal && (
-            <img src="/logo-rb-96.webp" alt="Riber Bulma" width={36} height={36} className="h-9 w-9 shrink-0 rounded-full" />
+            <img
+              src="/logo-rb-96.webp"
+              alt="Riber Bulma"
+              width={36}
+              height={36}
+              className="h-9 w-9 shrink-0 rounded-full"
+            />
           )}
-          <p className="truncate font-display text-lg font-semibold text-gold-light">{current?.label ?? 'Captación'}</p>
+          <p className="truncate font-display text-lg font-semibold text-gold-light">
+            {current?.label ?? 'Captación'}
+          </p>
         </div>
         <button
           type="button"
@@ -163,18 +211,30 @@ export function AppShell() {
           className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-2xl text-gold-light ring-1 ring-gold/40 active:bg-white/10"
         >
           ☰
-          {profile && FOLLOWUP_ROLES.includes(profile.role) && <ContactsBadge className="absolute -right-1 -top-1" />}
+          {profile && FOLLOWUP_ROLES.includes(profile.role) && (
+            <ContactsBadge className="absolute -right-1 -top-1" />
+          )}
         </button>
       </header>
 
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Menú">
-          <button type="button" aria-label="Cerrar menú" className="absolute inset-0 bg-ink/60" onClick={() => setOpen(false)} />
+          <button
+            type="button"
+            aria-label="Cerrar menú"
+            className="absolute inset-0 bg-ink/60"
+            onClick={() => setOpen(false)}
+          />
           <div className="bg-ink-gradient absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col justify-between gap-4 overflow-y-auto p-4">
             <div className="flex flex-col gap-6">
               <div className="flex items-center justify-between">
                 {portal ? <span /> : <Brand />}
-                <button type="button" aria-label="Cerrar menú" onClick={() => setOpen(false)} className="h-10 w-10 text-xl text-white/70">
+                <button
+                  type="button"
+                  aria-label="Cerrar menú"
+                  onClick={() => setOpen(false)}
+                  className="h-10 w-10 text-xl text-white/70"
+                >
                   ✕
                 </button>
               </div>

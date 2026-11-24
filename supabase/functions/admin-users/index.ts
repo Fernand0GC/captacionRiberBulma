@@ -10,7 +10,7 @@ const NO_BRANCH = ['general_manager', 'admin', 'sales_lead']
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-actuar-como',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -182,6 +182,8 @@ async function team(admin: Admin, caller: Caller, body: Record<string, unknown>)
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json(405, { code: 'invalid_input' })
+  // «Actuar como» (spec 027): altas, bajas y claves nunca se hacen suplantando; esta función ve la identidad real.
+  if (req.headers.has('x-actuar-como')) return json(403, { code: 'forbidden', details: { reason: 'impersonating' } })
 
   const url = Deno.env.get('SUPABASE_URL')!
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!

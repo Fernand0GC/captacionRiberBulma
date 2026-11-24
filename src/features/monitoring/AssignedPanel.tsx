@@ -2,7 +2,12 @@ import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { METHOD_LABEL, RESULT_LABEL } from '@/features/followup/api'
-import { SelectToggle, useAssignSelection, type AssignSelectionState, type Assignable } from '@/features/prospects/AssignSelection'
+import {
+  SelectToggle,
+  useAssignSelection,
+  type AssignSelectionState,
+  type Assignable,
+} from '@/features/prospects/AssignSelection'
 import { PriorityBadge, PriorityButton } from './PriorityAction'
 import { fmtDate, fmtTime, STAGE_LABEL } from '@/features/prospects/format'
 import { useToast } from '@/ui/Toast'
@@ -38,7 +43,11 @@ export const STAGE_COLOR: Record<ProspectStage, string> = {
   sale: '#1f8a4c',
   lost: '#e31c25',
 }
-export const OUTCOME_COLOR: Record<OutcomeGroup, string> = { ...STAGE_COLOR, same: '#b9b4a6', none: '#e31c25' }
+export const OUTCOME_COLOR: Record<OutcomeGroup, string> = {
+  ...STAGE_COLOR,
+  same: '#b9b4a6',
+  none: '#e31c25',
+}
 
 const when = (iso: string) => `${fmtDate(iso).slice(0, 5)} ${fmtTime(iso)}`
 
@@ -57,7 +66,14 @@ export function StagePill({ stage, outline }: { stage: ProspectStage; outline?: 
 /** La persona del modal: los clientes reasignables siguen a su cargo (spec 020). */
 export type AssignedActor = { id: string; name: string }
 
-const NO_FILTER: AssignedFilter = { contact: 'all', origin: null, outcome: null, q: '', showHidden: false, reassignedOnly: false }
+const NO_FILTER: AssignedFilter = {
+  contact: 'all',
+  origin: null,
+  outcome: null,
+  q: '',
+  showHidden: false,
+  reassignedOnly: false,
+}
 
 /** «Mantener» se recuerda en este navegador; si el almacenamiento falla, se vuelve a preguntar (spec 021). */
 const readKeep = (k: string): string | null => {
@@ -110,7 +126,8 @@ export function AssignedPanel({
   const [f, setF] = useState<AssignedFilter>(NO_FILTER)
   const list = filterAssigned(rows, f)
   const toast = useToast()
-  const viewerId = useAuth().session?.user.id ?? ''
+  // El perfil (no la sesión): actuando como otro (spec 027) es el de esa persona.
+  const viewerId = useAuth().profile?.id ?? ''
   const today = laPazDay()
   const kKey = keepKey(viewerId, actor.id)
   const [noticeClosed, setNoticeClosed] = useState(false)
@@ -118,7 +135,11 @@ export function AssignedPanel({
   const hideContacted = useHideAssignedContacted()
   const setHidden = useSetAssignedHidden()
   // Se ofrecen los reasignables visibles (respetan la lupa y los filtros); la sucursal sale de todos los del modal.
-  const toAssignable = (r: AgentAssignedRow): Assignable => ({ id: r.prospect_id, assigned_to: actor.id, assigned_to_name: actor.name })
+  const toAssignable = (r: AgentAssignedRow): Assignable => ({
+    id: r.prospect_id,
+    assigned_to: actor.id,
+    assigned_to_name: actor.name,
+  })
   const movable = reassignable(list).map(toAssignable)
   const branchId = singleBranch(reassignable(rows))
   const sel = useAssignSelection({
@@ -145,7 +166,11 @@ export function AssignedPanel({
 
   const s = toSummary({ total, summary })
   // «X de N»: N son los de la lista sin ocultos (o todos con «Ver ocultos»); con la nota gris, los reasignados.
-  const base = filterAssigned(rows, { ...NO_FILTER, showHidden: f.showHidden, reassignedOnly: f.reassignedOnly }).length
+  const base = filterAssigned(rows, {
+    ...NO_FILTER,
+    showHidden: f.showHidden,
+    reassignedOnly: f.reassignedOnly,
+  }).length
   // La nota cambia de lista: se limpian los filtros de contacto, origen y resultado (la lupa se mantiene).
   const toggleReassigned = () =>
     setF((x) => ({ ...x, contact: 'all', origin: null, outcome: null, reassignedOnly: !x.reassignedOnly }))
@@ -172,14 +197,24 @@ export function AssignedPanel({
     }
   }
 
-  const toggle = <K extends ToggleKey>(k: K, v: AssignedFilter[K]) => setF((x) => ({ ...x, [k]: x[k] === v ? null : v }))
+  const toggle = <K extends ToggleKey>(k: K, v: AssignedFilter[K]) =>
+    setF((x) => ({ ...x, [k]: x[k] === v ? null : v }))
   const canMove = new Set(movable.map((m) => m.id))
 
   return (
     <div className="flex flex-col gap-4">
-      {askHide && <HideNotice n={contactedVisible} busy={hideContacted.isPending} onHide={hideAllContacted} onKeep={keep} />}
+      {askHide && (
+        <HideNotice
+          n={contactedVisible}
+          busy={hideContacted.isPending}
+          onHide={hideAllContacted}
+          onKeep={keep}
+        />
+      )}
       <AssignedKpis s={s} />
-      {reassignedUncontacted > 0 && <ReassignedNote n={reassignedUncontacted} on={!!f.reassignedOnly} onToggle={toggleReassigned} />}
+      {reassignedUncontacted > 0 && (
+        <ReassignedNote n={reassignedUncontacted} on={!!f.reassignedOnly} onToggle={toggleReassigned} />
+      )}
       <OriginSection s={s} active={f.origin} onToggle={(st) => toggle('origin', st)} />
       <OutcomeSection s={s} active={f.outcome} onToggle={(g) => toggle('outcome', g)} />
       <AssignedToolbar
@@ -196,13 +231,18 @@ export function AssignedPanel({
       />
 
       <ul className="flex flex-col" aria-label="Clientes asignados">
-        <li className="hidden grid-cols-[1.2fr_1fr_1.3fr_1.2fr] gap-3 px-2 pb-1 text-[11px] font-bold uppercase tracking-wide text-ink/45 sm:grid" aria-hidden>
+        <li
+          className="hidden grid-cols-[1.2fr_1fr_1.3fr_1.2fr] gap-3 px-2 pb-1 text-[11px] font-bold uppercase tracking-wide text-ink/45 sm:grid"
+          aria-hidden
+        >
           <span>Cliente</span>
           <span>Asignado</span>
           <span>Contacto</span>
           <span>Proceso</span>
         </li>
-        {list.length === 0 && <li className="py-6 text-center text-ink/50">Ningún cliente con este filtro.</li>}
+        {list.length === 0 && (
+          <li className="py-6 text-center text-ink/50">Ningún cliente con este filtro.</li>
+        )}
         {list.map((r) => (
           <AssignedRowItem
             key={r.prospect_id}
@@ -221,18 +261,46 @@ export function AssignedPanel({
 }
 
 /** Spec 021: aviso al abrir el modal si hay contactados sin ocultar. Banda en línea (no un diálogo sobre el diálogo). */
-function HideNotice({ n, busy, onHide, onKeep }: { n: number; busy: boolean; onHide: () => void; onKeep: () => void }) {
+function HideNotice({
+  n,
+  busy,
+  onHide,
+  onKeep,
+}: {
+  n: number
+  busy: boolean
+  onHide: () => void
+  onKeep: () => void
+}) {
   return (
-    <div role="alert" className="flex flex-wrap items-center gap-2 rounded-2xl bg-gold/15 p-3 ring-1 ring-gold/40">
+    <div
+      role="alert"
+      className="flex flex-wrap items-center gap-2 rounded-2xl bg-gold/15 p-3 ring-1 ring-gold/40"
+    >
       <p className="min-w-0 flex-1 text-sm">
-        <b className="tabular-nums">{n}</b> {n === 1 ? 'cliente ya fue contactado. ¿Ocultarlo de esta lista?' : 'clientes ya fueron contactados. ¿Ocultarlos de esta lista?'}
-        <span className="block text-xs text-ink/55">No se borra nada ni cambian los números; se ven con «Ver ocultos».</span>
+        <b className="tabular-nums">{n}</b>{' '}
+        {n === 1
+          ? 'cliente ya fue contactado. ¿Ocultarlo de esta lista?'
+          : 'clientes ya fueron contactados. ¿Ocultarlos de esta lista?'}
+        <span className="block text-xs text-ink/55">
+          No se borra nada ni cambian los números; se ven con «Ver ocultos».
+        </span>
       </p>
       <div className="flex gap-2">
-        <button type="button" onClick={onKeep} disabled={busy} className="min-h-11 rounded-xl bg-white px-4 text-sm font-semibold ring-1 ring-ink/15 disabled:opacity-50">
+        <button
+          type="button"
+          onClick={onKeep}
+          disabled={busy}
+          className="min-h-11 rounded-xl bg-white px-4 text-sm font-semibold ring-1 ring-ink/15 disabled:opacity-50"
+        >
           Mantener
         </button>
-        <button type="button" onClick={onHide} disabled={busy} className="min-h-11 rounded-xl bg-ink px-4 text-sm font-semibold text-gold-light disabled:opacity-50">
+        <button
+          type="button"
+          onClick={onHide}
+          disabled={busy}
+          className="min-h-11 rounded-xl bg-ink px-4 text-sm font-semibold text-gold-light disabled:opacity-50"
+        >
           Ocultar
         </button>
       </div>
@@ -245,13 +313,17 @@ function AssignedKpis({ s }: { s: AssignedSummary }) {
   return (
     <div className="grid grid-cols-3 gap-2" data-testid="assigned-kpis">
       <div className="rounded-2xl bg-white p-3 ring-1 ring-ink/10">
-        <p className="text-[10px] font-semibold uppercase text-ink/50 sm:text-xs sm:tracking-wide">Asignados</p>
+        <p className="text-[10px] font-semibold uppercase text-ink/50 sm:text-xs sm:tracking-wide">
+          Asignados
+        </p>
         <p className="font-display text-3xl font-bold tabular-nums" data-testid="kpi-assigned">
           {s.total}
         </p>
       </div>
       <div className="rounded-2xl bg-white p-3 ring-1 ring-ink/10">
-        <p className="text-[10px] font-semibold uppercase text-ink/50 sm:text-xs sm:tracking-wide">Contactados</p>
+        <p className="text-[10px] font-semibold uppercase text-ink/50 sm:text-xs sm:tracking-wide">
+          Contactados
+        </p>
         <p className="font-display text-3xl font-bold tabular-nums">
           {s.contacted} <span className="text-base text-ink/50">{s.pct}%</span>
         </p>
@@ -260,8 +332,13 @@ function AssignedKpis({ s }: { s: AssignedSummary }) {
         </div>
       </div>
       <div className="rounded-2xl bg-white p-3 ring-1 ring-ink/10">
-        <p className="text-[10px] font-semibold uppercase text-ink/50 sm:text-xs sm:tracking-wide">Sin contactar</p>
-        <p className={`font-display text-3xl font-bold tabular-nums ${pending ? 'text-rb-red' : ''}`} data-testid="kpi-pending">
+        <p className="text-[10px] font-semibold uppercase text-ink/50 sm:text-xs sm:tracking-wide">
+          Sin contactar
+        </p>
+        <p
+          className={`font-display text-3xl font-bold tabular-nums ${pending ? 'text-rb-red' : ''}`}
+          data-testid="kpi-pending"
+        >
           {pending}
         </p>
       </div>
@@ -283,15 +360,28 @@ function ReassignedNote({ n, on, onToggle }: { n: number; on: boolean; onToggle:
       className={`flex w-full flex-wrap items-baseline gap-x-2 rounded-xl px-3 py-2 text-left text-sm ring-1 ${on ? 'bg-ink/10 ring-ink/25' : 'bg-sand/60 ring-ink/10 hover:bg-sand'}`}
     >
       <span className="text-ink/70">
-        <b className="tabular-nums">{n}</b> {n === 1 ? 'reasignado sin contactar' : 'reasignados sin contactar'}
+        <b className="tabular-nums">{n}</b>{' '}
+        {n === 1 ? 'reasignado sin contactar' : 'reasignados sin contactar'}
       </span>
-      <span className="text-xs text-ink/50">pasaron a otra persona antes de que los contactara · no suman en Asignados</span>
-      <span className="ml-auto text-xs font-semibold text-ink/70 underline">{on ? 'Volver a sus asignados' : 'Ver'}</span>
+      <span className="text-xs text-ink/50">
+        pasaron a otra persona antes de que los contactara · no suman en Asignados
+      </span>
+      <span className="ml-auto text-xs font-semibold text-ink/70 underline">
+        {on ? 'Volver a sus asignados' : 'Ver'}
+      </span>
     </button>
   )
 }
 
-function OriginSection({ s, active, onToggle }: { s: AssignedSummary; active: ProspectStage | null; onToggle: (st: ProspectStage) => void }) {
+function OriginSection({
+  s,
+  active,
+  onToggle,
+}: {
+  s: AssignedSummary
+  active: ProspectStage | null
+  onToggle: (st: ProspectStage) => void
+}) {
   return (
     <section aria-label="De dónde vienen">
       <div className="mb-2 flex items-baseline justify-between gap-2">
@@ -316,7 +406,9 @@ function OriginSection({ s, active, onToggle }: { s: AssignedSummary; active: Pr
                 {STAGE_LABEL[st]}
               </span>
               <span className="font-display text-2xl font-bold tabular-nums">{o.n}</span>
-              <span className={`text-xs ${on ? 'text-white/70' : 'text-ink/50'}`}>{o.n ? `${o.contacted} contactados` : 'ninguno'}</span>
+              <span className={`text-xs ${on ? 'text-white/70' : 'text-ink/50'}`}>
+                {o.n ? `${o.contacted} contactados` : 'ninguno'}
+              </span>
             </button>
           )
         })}
@@ -325,13 +417,24 @@ function OriginSection({ s, active, onToggle }: { s: AssignedSummary; active: Pr
   )
 }
 
-function OutcomeSection({ s, active, onToggle }: { s: AssignedSummary; active: OutcomeGroup | null; onToggle: (g: OutcomeGroup) => void }) {
+function OutcomeSection({
+  s,
+  active,
+  onToggle,
+}: {
+  s: AssignedSummary
+  active: OutcomeGroup | null
+  onToggle: (g: OutcomeGroup) => void
+}) {
   return (
     <section aria-label="A qué proceso pasaron">
       <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink/50">A qué proceso pasaron</h3>
       <div className="flex h-3.5 overflow-hidden rounded-full bg-sand" aria-hidden>
         {OUTCOME_GROUPS.filter((g) => s.byOutcome[g.key]).map((g) => (
-          <i key={g.key} style={{ width: `${(s.byOutcome[g.key] * 100) / s.total}%`, background: OUTCOME_COLOR[g.key] }} />
+          <i
+            key={g.key}
+            style={{ width: `${(s.byOutcome[g.key] * 100) / s.total}%`, background: OUTCOME_COLOR[g.key] }}
+          />
         ))}
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -425,7 +528,10 @@ function AssignedToolbar({
             onClick={() => setF((x) => ({ ...x, showHidden: !x.showHidden }))}
             className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-150 ${f.showHidden ? 'bg-ink' : 'bg-ink/20'}`}
           >
-            <span aria-hidden className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-150 ${f.showHidden ? 'translate-x-5' : ''}`} />
+            <span
+              aria-hidden
+              className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-150 ${f.showHidden ? 'translate-x-5' : ''}`}
+            />
           </button>
           <span className="font-semibold">Ver ocultos</span>
           <span className="text-ink/50" data-testid="hidden-count">
@@ -477,11 +583,19 @@ function AssignedRowItem({
           />
         )}
         <div className="min-w-0">
-          <Link to="/cliente/$id" params={{ id: r.prospect_id }} className="font-semibold hover:underline" data-testid="assigned-name">
+          <Link
+            to="/cliente/$id"
+            params={{ id: r.prospect_id }}
+            className="font-semibold hover:underline"
+            data-testid="assigned-name"
+          >
             {r.full_name}
           </Link>
           {r.hidden && (
-            <span className="ml-1.5 rounded-full bg-ink/10 px-2 py-0.5 text-xs font-semibold text-ink/60" data-testid="hidden-badge">
+            <span
+              className="ml-1.5 rounded-full bg-ink/10 px-2 py-0.5 text-xs font-semibold text-ink/60"
+              data-testid="hidden-badge"
+            >
               Oculto
             </span>
           )}
@@ -489,7 +603,9 @@ function AssignedRowItem({
             {r.phone_raw}
           </span>
           {/* Spec 026: solo si sigue siendo suyo (si se reasignó, la prioridad no lo sigue). «Quitar» fuera del modo Seleccionar. */}
-          {r.priority_today && !r.reassigned && <PriorityBadge id={r.prospect_id} agent={sel ? undefined : agent} />}
+          {r.priority_today && !r.reassigned && (
+            <PriorityBadge id={r.prospect_id} agent={sel ? undefined : agent} />
+          )}
           {r.reassigned && (
             <span className="mt-1 block w-fit rounded-full bg-rb-red/10 px-2 py-0.5 text-xs font-semibold text-rb-red">
               {r.reassigned_to ? `Reasignado a ${r.reassigned_to}` : 'Quedó sin responsable'}
@@ -500,7 +616,9 @@ function AssignedRowItem({
       </div>
       <div className="min-w-0 text-sm">
         <span className="tabular-nums">{when(r.assigned_at)}</span>
-        <span className="block text-ink/50">{r.self_assigned ? 'Lo tomó por su cuenta' : `Asignó ${r.assigned_by ?? '—'}`}</span>
+        <span className="block text-ink/50">
+          {r.self_assigned ? 'Lo tomó por su cuenta' : `Asignó ${r.assigned_by ?? '—'}`}
+        </span>
       </div>
       <div className="min-w-0 text-sm">
         {r.contacts > 0 && r.last_method && r.last_result ? (
