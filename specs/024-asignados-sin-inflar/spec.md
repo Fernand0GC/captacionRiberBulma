@@ -2,7 +2,7 @@
 
 **Feature Branch**: `024-asignados-sin-inflar`
 **Created**: 2026-11-24
-**Status**: Implementada (local), pendiente de producción
+**Status**: En producción. Migración `migraciones-024-produccion.sql` aplicada (verificado el 2026-11-24 en el SQL Editor: `list_agent_assigned` y `agent_activity` tienen la regla 024) y app en `main` (`8b46df2`, 2026-11-24).
 **Input**: Observación de ventas sobre el modal «Clientes asignados» de Actividad: «si se asigna a otro, se debería
 quitar; no quieren que se le infle». Reemplaza FR-011 y SC-004 de la spec 020.
 
