@@ -1,9 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import { ROLE_LABEL } from '@/features/auth/types'
 import { Button } from '@/ui/Button'
 import { Dialog } from '@/ui/Dialog'
 import { useToast } from '@/ui/Toast'
-import { useAssign, useAssignees } from './api'
+import { useAssign, useAssignees, useBranches } from './api'
 
 // Seleccionar y asignar responsable (FR-035, reparto FR-039b). Lo comparten Captaciones y Seguimientos (spec 015)
 // para que las reglas (reparto, confirmar al reasignar, «las N del filtro») sean siempre las mismas.
@@ -26,6 +26,15 @@ export function ownersSummary(sel: ReadonlyMap<string, Owner>): string {
   const text = parts.slice(0, 3).map(([k, n]) => (k === '' ? `${n} sin responsable` : `${n} de ${k}`))
   const rest = parts.slice(3).reduce((t, [, n]) => t + n, 0)
   return [...text, ...(rest ? [`${rest} de otros`] : [])].join(' · ')
+}
+
+/**
+ * Aviso bajo «Asignar a…»: la lista trae solo el personal activo de la sucursal (assignee_options), así se entiende por
+ * qué no sale alguien de otra. Sin nombre (sucursales cargando) o sin saber cuántos hay, no inventa.
+ */
+export function assigneeNote(branchName: string | undefined, count: number | undefined): string {
+  const where = branchName ?? 'esta sucursal'
+  return count === 0 ? `No hay personal activo en ${where}` : `Solo aparece el personal activo de ${where}`
 }
 
 /** Cómo se nombran las filas: «captaciones» (femenino) o «clientes» (masculino). */
@@ -55,13 +64,14 @@ export function useAssignSelection<R extends Assignable>({
   fetchAll,
   noun,
   layout = 'page',
-  noBranchText = 'Elige una sucursal en el filtro para asignar.',
+  noBranchText = 'Para asignar, elige una sucursal en el filtro.',
 }: Options<R>) {
   const f = noun === 'captaciones'
   const g = (fem: string, masc: string) => (f ? fem : masc)
   const toast = useToast()
   const assign = useAssign()
   const assignees = useAssignees(branchId)
+  const branchName = useBranches().data?.find((b) => b.id === branchId)?.name
   const [assignTo, setAssignTo] = useState('')
   // Modo "Seleccionar": recién ahí salen las casillas y la barra para asignar.
   const [selecting, setSelecting] = useState(false)
@@ -212,6 +222,9 @@ export function useAssignSelection<R extends Assignable>({
                 ))}
                 <option value="none">— Quitar responsable</option>
               </select>
+              <span className="w-full text-xs text-white/70 sm:order-last" data-testid="assignee-note">
+                {assigneeNote(branchName, assignees.data?.length)}
+              </span>
               <button
                 type="button"
                 disabled={!assignTo || selected.size === 0 || assign.isPending}
@@ -247,24 +260,49 @@ export function useAssignSelection<R extends Assignable>({
     </>
   )
 
-  return { selecting, start: () => setSelecting(true), stop, selected, toggle, allOnPage, toggleAll, bar }
+  return {
+    selecting,
+    start: () => setSelecting(true),
+    stop,
+    selected,
+    toggle,
+    allOnPage,
+    toggleAll,
+    bar,
+    /** Sin sucursal no se puede asignar: el texto que lo explica (lo muestra SelectToggle antes de seleccionar). */
+    noBranch: branchId === undefined ? noBranchText : null,
+  }
 }
 
 export type AssignSelectionState = ReturnType<typeof useAssignSelection>
 
-/** Botón «Seleccionar» / «Cancelar selección» del encabezado. */
+/**
+ * Botón «Seleccionar» / «Cancelar selección» del encabezado. Sin sucursal queda desactivado y lo dice al lado
+ * (la selección solo sirve para asignar); «Cancelar selección» siempre se puede tocar.
+ */
 export function SelectToggle({ sel, disabled }: { sel: AssignSelectionState; disabled: boolean }) {
+  const hintId = useId()
+  // Solo si hay algo para seleccionar: sin filas el botón ya está apagado y el aviso confundiría.
+  const hint = !sel.selecting && !disabled ? sel.noBranch : null
   return (
-    <button
-      type="button"
-      aria-pressed={sel.selecting}
-      onClick={() => (sel.selecting ? sel.stop() : sel.start())}
-      disabled={disabled}
-      className={`min-h-11 rounded-full px-4 text-sm font-semibold ring-1 disabled:opacity-50 ${
-        sel.selecting ? 'bg-ink text-gold-light ring-ink' : 'bg-white text-ink ring-ink/15 active:bg-sand'
-      }`}
-    >
-      {sel.selecting ? 'Cancelar selección' : 'Seleccionar'}
-    </button>
+    <span className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        aria-pressed={sel.selecting}
+        aria-describedby={hint ? hintId : undefined}
+        onClick={() => (sel.selecting ? sel.stop() : sel.start())}
+        disabled={!sel.selecting && (disabled || hint !== null)}
+        className={`min-h-11 rounded-full px-4 text-sm font-semibold ring-1 disabled:opacity-50 ${
+          sel.selecting ? 'bg-ink text-gold-light ring-ink' : 'bg-white text-ink ring-ink/15 active:bg-sand'
+        }`}
+      >
+        {sel.selecting ? 'Cancelar selección' : 'Seleccionar'}
+      </button>
+      {hint && (
+        <span id={hintId} className="max-w-56 text-xs text-ink/55" data-testid="select-hint">
+          {hint}
+        </span>
+      )}
+    </span>
   )
 }
