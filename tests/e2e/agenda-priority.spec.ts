@@ -75,8 +75,9 @@ test('026 desglose de atrasados y «Poner para hoy» en la agenda', async ({ pag
   await page.getByRole('button', { name: 'Del día', exact: true }).click()
   const agenda = page.getByTestId('agenda')
   const rowOf = (name: string) => agenda.getByTestId('agenda-row').filter({ hasText: name })
+  // Spec 028: las dos primeras columnas son «Asignados hoy» y «Rellamadas».
   const cells = (name: string) => rowOf(name).locator('td')
-  await expect(cells(origen).nth(3)).toHaveText('2')
+  await expect(cells(origen).nth(5)).toHaveText('2')
 
   await rowOf(origen).getByRole('button', { name: origen }).click()
   const dialog = page.getByRole('dialog', { name: `${origen} · Agenda de hoy` })
@@ -102,11 +103,11 @@ test('026 desglose de atrasados y «Poner para hoy» en la agenda', async ({ pag
   await dialog.getByRole('tab', { name: /^Pendientes/ }).click()
   await expect(dialog.getByText('Prioridad de hoy · atrasado 10 días')).toBeVisible()
   await expect(dialog.getByTestId('priority-badge')).toBeVisible()
-  await expect(cells(origen).nth(2)).toContainText('★ 1 prioridad')
-  await expect(cells(origen).nth(3)).toHaveText('1')
+  await expect(cells(origen).nth(4)).toContainText('★ 1 prioridad')
+  await expect(cells(origen).nth(5)).toHaveText('1')
 
   // B8: se puede quitar el mismo día y vuelve a Atrasados.
   await dialog.getByRole('button', { name: 'Quitar prioridad de hoy' }).click()
   await expect(page.getByText('✓ Prioridad quitada')).toBeVisible()
-  await expect(cells(origen).nth(3)).toHaveText('2')
+  await expect(cells(origen).nth(5)).toHaveText('2')
 })

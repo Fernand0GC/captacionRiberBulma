@@ -24,10 +24,14 @@ import { useRecontactAgenda, type AgendaRow } from './api'
 
 const PAGE = 25
 
-const BUCKETS: { key: AgendaBucket; label: string; empty: string }[] = [
+/** Spec 028: «later» = recibidos hoy y agendados más adelante (solo se ve si hay alguno). */
+type Tab = AgendaBucket | 'later'
+
+const BUCKETS: { key: Tab; label: string; empty: string }[] = [
   { key: 'pending', label: 'Pendientes', empty: 'No le queda nada pendiente para hoy.' },
   { key: 'done', label: 'Contactados hoy', empty: 'Todavía no contactó a nadie hoy.' },
   { key: 'late', label: 'Atrasados', empty: 'No tiene atrasados.' },
+  { key: 'later', label: 'Para más adelante', empty: 'No recibió hoy nada agendado para más adelante.' },
 ]
 
 /** Spec 026: filtros del desglose de Atrasados. */
@@ -59,11 +63,13 @@ export function AgendaSection({
   onGoToday: () => void
 }) {
   const q = useRecontactAgenda(branchId, isToday)
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [opened, setOpened] = useState<{ id: string; tab?: Tab } | null>(null)
   // La regla depende de la hora: se fija al recibir los datos para que la tabla y el detalle digan lo mismo.
   const people = useMemo(() => (q.data ? agendaByPerson(q.data, new Date(q.dataUpdatedAt)) : []), [q.data, q.dataUpdatedAt])
   const totals = agendaTotals(people)
-  const open = people.find((p) => p.id === openId)
+  const open = people.find((p) => p.id === opened?.id)
+  // Spec 028: sin la migración 028 no hay «Asignados hoy»; la tabla queda como antes.
+  const withAssigned = totals.assigned !== null
 
   return (
     <section className="flex flex-col gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5" aria-labelledby="agenda-title" data-testid="agenda">
@@ -72,7 +78,9 @@ export function AgendaSection({
           Agenda de recontacto
         </h2>
         <p className="text-sm text-ink/55">
-          Clientes que cada persona tenía que contactar hoy (rellamadas, recaptación y asignados nuevos), igual que su «Mis contactos».
+          {withAssigned
+            ? '«Asignados hoy» es el mismo número de Actividad. «Le tocaba hoy» es lo que debía contactar hoy, igual que su «Mis contactos».'
+            : 'Clientes que cada persona tenía que contactar hoy (rellamadas, recaptación y asignados nuevos), igual que su «Mis contactos».'}
           {referred && <span className="ml-1 font-semibold text-ink/70">Incluye todos los orígenes.</span>}
         </p>
       </div>
@@ -102,6 +110,16 @@ export function AgendaSection({
               <thead className="bg-ink text-gold-light">
                 <tr>
                   <th scope="col" className="rounded-l-2xl px-3 py-3 text-left">Persona</th>
+                  {withAssigned && (
+                    <>
+                      <th scope="col" className="px-3 py-3 text-right" title="Clientes que le pasaron hoy (igual que «Asignados» en Actividad)">
+                        Asignados hoy
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-right" title="Le tocaba hoy por algo que recibió antes de hoy">
+                        Rellamadas
+                      </th>
+                    </>
+                  )}
                   <th scope="col" className="px-3 py-3 text-right" title="Pendientes + contactados hoy">Le tocaba hoy</th>
                   <th scope="col" className="px-3 py-3 text-right">Contactó</th>
                   <th scope="col" className="px-3 py-3 text-right">Pendientes</th>
@@ -114,13 +132,19 @@ export function AgendaSection({
                     <th scope="row" className="px-3 py-2.5 text-left font-normal">
                       <button
                         type="button"
-                        onClick={() => setOpenId(p.id)}
+                        onClick={() => setOpened({ id: p.id })}
                         className="text-left font-semibold hover:text-gold-dark hover:underline"
                       >
                         {p.full_name}
                       </button>
                       <span className="block text-xs text-ink/45">{ROLE_LABEL[p.role]}</span>
                     </th>
+                    {withAssigned && (
+                      <>
+                        <AssignedCell p={p} onLater={() => setOpened({ id: p.id, tab: 'later' })} />
+                        <Num n={p.recalls} />
+                      </>
+                    )}
                     <Num n={p.due} />
                     <Num n={p.done.length} />
                     <Num n={p.pending.length} warn note={p.priority ? `★ ${p.priority} prioridad` : undefined} />
@@ -131,6 +155,15 @@ export function AgendaSection({
               <tfoot>
                 <tr className="border-t-2 border-ink/10 bg-sand font-semibold" data-testid="agenda-total">
                   <th scope="row" className="px-3 py-3 text-left">Total</th>
+                  {withAssigned && (
+                    <>
+                      <td className="px-3 py-3 text-right tabular-nums">
+                        {totals.assigned}
+                        {totals.later > 0 && <span className="block text-xs font-normal text-ink/50">{totals.later} para más adelante</span>}
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums">{totals.recalls}</td>
+                    </>
+                  )}
                   <td className="px-3 py-3 text-right tabular-nums">{totals.due}</td>
                   <td className="px-3 py-3 text-right tabular-nums">{totals.done}</td>
                   <td className="px-3 py-3 text-right tabular-nums">{totals.pending}</td>
@@ -142,7 +175,9 @@ export function AgendaSection({
         </>
       )}
 
-      {open && q.data && <AgendaDialog person={open} at={new Date(q.dataUpdatedAt)} onClose={() => setOpenId(null)} />}
+      {open && q.data && (
+        <AgendaDialog person={open} at={new Date(q.dataUpdatedAt)} initialTab={opened?.tab} onClose={() => setOpened(null)} />
+      )}
     </section>
   )
 }
@@ -157,9 +192,43 @@ function Num({ n, warn, alert, note }: { n: number; warn?: boolean; alert?: bool
   )
 }
 
-function AgendaDialog({ person, at, onClose }: { person: AgendaPersonView; at: Date; onClose: () => void }) {
-  const first = BUCKETS.find((b) => person[b.key].length > 0)?.key ?? 'pending'
-  const [tab, setTab] = useState<AgendaBucket>(first)
+/**
+ * Spec 028: «Asignados hoy» (regla de Actividad) y, debajo, por qué no todos están en «Le tocaba hoy»: los recibidos
+ * hoy que están agendados más adelante (se tocan y abren la lista) y los que contactó y ya pasaron a otra persona.
+ */
+function AssignedCell({ p, onLater }: { p: AgendaPersonView; onLater: () => void }) {
+  const n = p.assignedToday ?? 0
+  return (
+    <td className={`px-3 py-2.5 text-right tabular-nums ${n === 0 ? 'text-ink/30' : ''}`} data-testid="agenda-assigned">
+      {n}
+      {p.later.length > 0 && (
+        <button type="button" onClick={onLater} className="block w-full text-right text-xs font-semibold text-gold-dark hover:underline">
+          {p.later.length} para más adelante
+        </button>
+      )}
+      {p.passedOn > 0 && (
+        <span className="block text-xs text-ink/50">
+          {p.passedOn} {p.passedOn === 1 ? 'pasó' : 'pasaron'} a otra persona
+        </span>
+      )}
+    </td>
+  )
+}
+
+function AgendaDialog({
+  person,
+  at,
+  initialTab,
+  onClose,
+}: {
+  person: AgendaPersonView
+  at: Date
+  initialTab?: Tab
+  onClose: () => void
+}) {
+  const tabs = BUCKETS.filter((b) => b.key !== 'later' || person.later.length > 0)
+  const first = initialTab ?? tabs.find((b) => person[b.key].length > 0)?.key ?? 'pending'
+  const [tab, setTab] = useState<Tab>(first)
   const [page, setPage] = useState(0)
   // Spec 026: en Atrasados se filtra por antigüedad y tipo; la selección y «Poner para hoy» usan lo filtrado.
   const [lf, setLf] = useState<LateFilter>(NO_LATE_FILTER)
@@ -195,10 +264,10 @@ function AgendaDialog({ person, at, onClose }: { person: AgendaPersonView; at: D
       size="xl"
       onOpenChange={(o) => !o && onClose()}
       title={`${person.full_name} · Agenda de hoy`}
-      description={`Le tocaba hoy ${person.due} · contactó ${person.done.length} · pendientes ${person.pending.length}${person.priority ? ` (★ ${person.priority} prioridad)` : ''} · atrasados ${person.late.length}`}
+      description={`${person.assignedToday !== null ? `Asignados hoy ${person.assignedToday} · ` : ''}Le tocaba hoy ${person.due} · contactó ${person.done.length} · pendientes ${person.pending.length}${person.priority ? ` (★ ${person.priority} prioridad)` : ''} · atrasados ${person.late.length}${person.later.length ? ` · ${person.later.length} para más adelante` : ''}`}
     >
       <div className="flex gap-1 overflow-x-auto border-b border-ink/10" role="tablist" aria-label="Agenda">
-        {BUCKETS.map((b) => (
+        {tabs.map((b) => (
           <button
             key={b.key}
             type="button"

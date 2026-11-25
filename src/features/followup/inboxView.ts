@@ -1,6 +1,6 @@
 import { laPazDate } from '@/lib/dates'
 import type { FollowupRow } from './api'
-import { DUE_ORDER, dueStatus, type DueStatus } from './dueStatus'
+import { DUE_ORDER, dueStatus, receivedLater, type DueStatus } from './dueStatus'
 
 /** Spec 022: filas por página que se pueden elegir; 25 de entrada (la auxiliar trabaja desde el celular). */
 export const PAGE_SIZES = [10, 25, 50, 100] as const
@@ -77,6 +77,9 @@ const waitRank = (r: FollowupRow) => (waitedBefore(r) ? Date.parse(r.waiting_sin
 /** Spec 026: lo que la jefa marcó como prioridad de hoy va primero dentro de su estado. */
 const prioRank = (r: FollowupRow) => (r.priority_today ? 0 : 1)
 
+/** Spec 028: lo recibido hoy y agendado más adelante («Nuevo para ti») va primero dentro de su estado. */
+const freshRank = (r: FollowupRow, now: Date) => (receivedLater(r, now) ? 0 : 1)
+
 const WEEKDAY =['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
 /** «Hoy», «Ayer» o «Sáb 21» para un día YYYY-MM-DD. */
@@ -110,6 +113,7 @@ export function groupByAssignedDay(rows: FollowupRow[], now: Date): DayGroup[] {
         (a, b) =>
           DUE_ORDER[dueStatus(a, now).kind] - DUE_ORDER[dueStatus(b, now).kind] ||
           prioRank(a) - prioRank(b) ||
+          freshRank(a, now) - freshRank(b, now) ||
           waitRank(a) - waitRank(b) ||
           interestRank(a) - interestRank(b) ||
           Date.parse(assignedAt(b)) - Date.parse(assignedAt(a)),
@@ -125,6 +129,7 @@ export function sortRecaptured(rows: FollowupRow[], now: Date): FollowupRow[] {
       (a, b) =>
         DUE_ORDER[dueStatus(a, now).kind] - DUE_ORDER[dueStatus(b, now).kind] ||
         prioRank(a) - prioRank(b) ||
+        freshRank(a, now) - freshRank(b, now) ||
         interestRank(a) - interestRank(b) ||
         (a.next_contact_at ?? assignedAt(a)).localeCompare(b.next_contact_at ?? assignedAt(b)),
     )

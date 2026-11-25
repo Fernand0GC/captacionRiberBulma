@@ -428,7 +428,17 @@ export type AgendaRow = {
 
 export type AgendaPerson = { id: string; full_name: string; role: AppRole; branch_id: number | null }
 
-export type AgendaReport = { today: string; people: AgendaPerson[]; rows: AgendaRow[]; truncated: boolean }
+/** Spec 028: «Asignados hoy» de una persona con la regla de Actividad, y cuántos de esos ya pasaron a otra persona. */
+export type AgendaAssigned = { id: string; assigned: number; passed_on: number }
+
+export type AgendaReport = {
+  today: string
+  people: AgendaPerson[]
+  rows: AgendaRow[]
+  truncated: boolean
+  /** Spec 028. Falta si la base no tiene la migración 028 (la agenda funciona igual, sin esas columnas). */
+  assigned?: AgendaAssigned[]
+}
 
 /** Siempre es la agenda de hoy: solo se pide cuando «Del día» muestra hoy. */
 export function useRecontactAgenda(branchId: number | undefined, enabled: boolean) {

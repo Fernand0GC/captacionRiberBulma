@@ -74,11 +74,39 @@ export function dueStatus(r: DueInput, now: Date): DueStatus {
     }
   }
   const s = scheduled(r, now)
-  if (!r.priority_today) return s
+  if (!r.priority_today) return freshLater(r, s, today) ? { kind: 'normal', label: newForYou(r) } : s
   // Spec 026: la prioridad lo vuelve trabajo de hoy; el atraso queda como dato (no se borra la fecha).
   const late = lateOf(r, today)
   if (late) return { kind: 'now', label: `Prioridad de hoy · atrasado ${days(late.days)}` }
   return { kind: 'now', label: s.kind === 'now' || s.kind === 'soon' ? `Prioridad de hoy · ${s.label}` : 'Prioridad de hoy' }
+}
+
+const CLOSED = new Set(['sale', 'lost'])
+
+/**
+ * Spec 028: lo recibió hoy (el responsable actual), sigue abierto y está agendado para más adelante. No le toca hoy
+ * (no pide atención ni cuenta como pendiente), pero se ve hoy para que sepa que es suyo y la jefa vea lo que asignó.
+ */
+function freshLater(r: DueInput, s: DueStatus, today: string): boolean {
+  return (
+    s.kind === 'normal' &&
+    r.next_contact_at !== null &&
+    !!r.assigned_at &&
+    laPazDate(new Date(r.assigned_at)) === today &&
+    !CLOSED.has(r.stage)
+  )
+}
+
+/** «Nuevo para ti · visita 29/11 10:00» / «Nuevo para ti · contactar 03/12 09:00». */
+function newForYou(r: DueInput): string {
+  const at = r.next_contact_at!
+  const isVisit = r.visit_at !== null && new Date(r.visit_at).getTime() === new Date(at).getTime()
+  return `Nuevo para ti · ${isVisit ? 'visita' : 'contactar'} ${shortDate(at)} ${fmtTime(at)}`
+}
+
+/** Spec 028: va a «Para más adelante» de la Agenda y primero dentro de su lista en «Mis contactos». */
+export function receivedLater(r: DueInput, now: Date): boolean {
+  return freshLater(r, dueStatus(r, now), laPazDate(now))
 }
 
 /**

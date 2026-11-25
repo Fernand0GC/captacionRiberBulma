@@ -82,6 +82,15 @@ export async function exportDaily(
       columns: [
         { header: 'Persona', width: 28, value: (p) => p.full_name },
         { header: 'Rol', width: 14, value: (p) => ROLE_LABEL[p.role] },
+        // Spec 028: «Asignados hoy» = Actividad; vacío si la base no tiene la 028.
+        ...(agenda.some((p) => p.assignedToday !== null)
+          ? [
+              { header: 'Asignados hoy', width: 11, value: (p: AgendaPersonView) => p.assignedToday ?? 0 },
+              { header: 'Rellamadas', width: 11, value: (p: AgendaPersonView) => p.recalls },
+              { header: 'Para más adelante', width: 11, value: (p: AgendaPersonView) => p.later.length },
+              { header: 'Pasaron a otra persona', width: 11, value: (p: AgendaPersonView) => p.passedOn },
+            ]
+          : []),
         { header: 'Le tocaba hoy', width: 12, value: (p) => p.due },
         { header: 'Contactó', width: 11, value: (p) => p.done.length },
         { header: 'Pendientes', width: 11, value: (p) => p.pending.length },

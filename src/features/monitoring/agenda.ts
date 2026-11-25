@@ -1,4 +1,5 @@
-import { dueStatus, lateInfo, type LateType } from '@/features/followup/dueStatus'
+import { dueStatus, lateInfo, receivedLater, type LateType } from '@/features/followup/dueStatus'
+import { laPazDate } from '@/lib/dates'
 import { cardOf } from '@/features/followup/inboxView'
 import type { Assignable } from '@/features/prospects/AssignSelection'
 import type { AgendaPerson, AgendaReport, AgendaRow } from './api'
@@ -19,6 +20,14 @@ export type AgendaPersonView = AgendaPerson & {
   lateBy: LateBreakdown
   /** Spec 026: pendientes que la jefa marcó como prioridad de hoy. */
   priority: number
+  /** Spec 028: recibidos hoy y agendados más adelante (se ven, no se exigen). */
+  later: AgendaRow[]
+  /** Spec 028: «Asignados hoy» con la regla de Actividad; null si la base no tiene la 028. */
+  assignedToday: number | null
+  /** Spec 028: de los asignados hoy, los que contactó y ya pasaron a otra persona. */
+  passedOn: number
+  /** Spec 028: le tocaba hoy por algo que recibió antes de hoy (rellamadas, recaptación, atrasados que contactó hoy). */
+  recalls: number
 }
 
 // --- Spec 026: desglose de atrasados ---------------------------------------------------------------------------------
@@ -69,7 +78,9 @@ export function bucketOf(r: AgendaRow, now: Date): AgendaBucket | null {
 const missing = (p: AgendaPersonView) => p.pending.length + p.late.length
 
 /** Una fila por persona (con ceros), ordenadas por lo que falta (pendientes + atrasados) y luego por nombre. */
-export function agendaByPerson(report: Pick<AgendaReport, 'people' | 'rows'>, now: Date): AgendaPersonView[] {
+export function agendaByPerson(report: Pick<AgendaReport, 'people' | 'rows' | 'assigned'>, now: Date): AgendaPersonView[] {
+  const today = laPazDate(now)
+  const asg = new Map((report.assigned ?? []).map((a) => [a.id, a]))
   const byId = new Map<string, AgendaPersonView>()
   const ensure = (id: string, p?: AgendaPerson) => {
     let v = byId.get(id)
@@ -82,6 +93,10 @@ export function agendaByPerson(report: Pick<AgendaReport, 'people' | 'rows'>, no
         due: 0,
         lateBy: lateBreakdown([], now),
         priority: 0,
+        later: [],
+        assignedToday: null,
+        passedOn: 0,
+        recalls: 0,
       }
       byId.set(id, v)
     }
@@ -91,23 +106,48 @@ export function agendaByPerson(report: Pick<AgendaReport, 'people' | 'rows'>, no
   for (const r of report.rows) {
     const b = bucketOf(r, now)
     if (b) ensure(r.assigned_to)[b].push(r)
+    else if (receivedLater(r, now)) ensure(r.assigned_to).later.push(r)
   }
+  for (const a of report.assigned ?? []) if (a.assigned > 0) ensure(a.id)
   return [...byId.values()]
     .map((v) => ({
       ...v,
       due: v.pending.length + v.done.length,
       lateBy: lateBreakdown(v.late, now),
       priority: v.pending.filter((r) => r.priority_today).length,
+      assignedToday: report.assigned ? (asg.get(v.id)?.assigned ?? 0) : null,
+      passedOn: asg.get(v.id)?.passed_on ?? 0,
+      recalls: [...v.pending, ...v.done].filter((r) => laPazDate(new Date(r.assigned_at)) !== today).length,
     }))
     .sort((a, b) => missing(b) - missing(a) || a.full_name.localeCompare(b.full_name, 'es'))
 }
 
-export type AgendaTotals = { due: number; done: number; pending: number; late: number }
+export type AgendaTotals = {
+  due: number
+  done: number
+  pending: number
+  late: number
+  /** Spec 028: null si la base no tiene la 028. */
+  assigned: number | null
+  recalls: number
+  later: number
+  passedOn: number
+}
 
 export function agendaTotals(people: AgendaPersonView[]): AgendaTotals {
+  const known = people.length > 0 && people.every((p) => p.assignedToday !== null)
   return people.reduce<AgendaTotals>(
-    (t, p) => ({ due: t.due + p.due, done: t.done + p.done.length, pending: t.pending + p.pending.length, late: t.late + p.late.length }),
-    { due: 0, done: 0, pending: 0, late: 0 },
+    (t, p) => ({
+      due: t.due + p.due,
+      done: t.done + p.done.length,
+      pending: t.pending + p.pending.length,
+      late: t.late + p.late.length,
+      assigned: t.assigned === null ? null : t.assigned + (p.assignedToday ?? 0),
+      recalls: t.recalls + p.recalls,
+      later: t.later + p.later.length,
+      passedOn: t.passedOn + p.passedOn,
+    }),
+    { due: 0, done: 0, pending: 0, late: 0, assigned: known ? 0 : null, recalls: 0, later: 0, passedOn: 0 },
   )
 }
 

@@ -28,7 +28,8 @@ test.describe('pantalla ancha', () => {
 
     // Total: Le tocaba hoy = Contactó + Pendientes.
     const total = agenda.getByTestId('agenda-total').locator('td')
-    expect(await num(total.nth(0))).toBe((await num(total.nth(1))) + (await num(total.nth(2))))
+    // Spec 028: 0 Asignados hoy · 1 Rellamadas · 2 Le tocaba hoy · 3 Contactó · 4 Pendientes.
+    expect(await num(total.nth(2))).toBe((await num(total.nth(3))) + (await num(total.nth(4))))
 
     // Detalle de una persona: tres pestañas con sus números.
     await agenda.getByTestId('agenda-row').first().getByRole('button').click()

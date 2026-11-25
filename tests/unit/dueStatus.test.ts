@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { FollowupRow } from '@/features/followup/api'
-import { dueStatus, lateInfo, visitPassed } from '@/features/followup/dueStatus'
+import { dueStatus, lateInfo, receivedLater, visitPassed } from '@/features/followup/dueStatus'
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 
@@ -215,4 +215,35 @@ describe('spec 026 · prioridad de hoy', () => {
     expect(dueStatus({ ...late, last_contacted_at: '2026-10-30T09:00:00-04:00' }, now).kind).toBe('done'))
   it('B5 · sin prioridad (otro día) vuelve a atrasado con sus días reales', () =>
     expect(dueStatus({ ...late, priority_today: false }, now)).toEqual({ kind: 'late', label: 'Atrasado 2 días · tocaba el 28/10' }))
+})
+
+// Spec 028: recibido hoy con fecha agendada más adelante. Se ve hoy como nuevo, pero no pide atención.
+describe('spec 028 · «Nuevo para ti» (recibido hoy, agendado más adelante)', () => {
+  const got = row({ assigned_at: '2026-10-30T10:14:00-04:00', next_contact_at: '2026-11-03T10:00:00-04:00', visit_at: '2026-11-03T10:00:00-04:00' })
+  it('C9 · visita más adelante: etiqueta con la fecha, sin pedir atención', () =>
+    expect(dueStatus(got, now)).toEqual({ kind: 'normal', label: 'Nuevo para ti · visita 03/11 10:00' }))
+  it('llamada más adelante', () =>
+    expect(dueStatus({ ...got, visit_at: null, next_contact_at: '2026-11-05T09:00:00-04:00' }, now).label).toBe(
+      'Nuevo para ti · contactar 05/11 09:00',
+    ))
+  it('llamada mañana también es «más adelante» (no le toca hoy)', () =>
+    expect(dueStatus({ ...got, visit_at: null, next_contact_at: '2026-10-31T09:00:00-04:00' }, now)).toEqual({
+      kind: 'normal',
+      label: 'Nuevo para ti · contactar 31/10 09:00',
+    }))
+  it('visita mañana: sigue siendo «confirmar hoy» (le toca hoy)', () =>
+    expect(dueStatus({ ...got, next_contact_at: '2026-10-31T10:00:00-04:00', visit_at: '2026-10-31T10:00:00-04:00' }, now).kind).toBe('soon'))
+  it('C8 · recibido otro día: la etiqueta de siempre', () =>
+    expect(dueStatus({ ...got, assigned_at: '2026-10-29T10:14:00-04:00' }, now).label).toBe('Visita en 4 días · 03/11 10:00'))
+  it('si ya lo contactó hoy, es «resuelto hoy» como siempre', () =>
+    expect(dueStatus({ ...got, last_contacted_at: '2026-10-30T11:00:00-04:00' }, now).kind).toBe('done'))
+  it('con prioridad de hoy (026) pasa a trabajo de hoy', () =>
+    expect(dueStatus({ ...got, priority_today: true }, now).kind).toBe('now'))
+  it('receivedLater: solo lo recibido hoy, abierto y agendado más adelante', () => {
+    expect(receivedLater(got, now)).toBe(true)
+    expect(receivedLater({ ...got, assigned_at: '2026-10-29T10:14:00-04:00' }, now)).toBe(false)
+    expect(receivedLater({ ...got, next_contact_at: '2026-10-30T15:00:00-04:00', visit_at: null }, now)).toBe(false)
+    expect(receivedLater({ ...got, stage: 'sale' }, now)).toBe(false)
+    expect(receivedLater({ ...got, next_contact_at: null, visit_at: null }, now)).toBe(false)
+  })
 })

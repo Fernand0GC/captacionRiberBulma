@@ -122,7 +122,7 @@ describe('agendaByPerson', () => {
     expect(extra.find((p) => p.id === 'u-otro')?.pending.length).toBe(1)
   })
   it('totales', () => {
-    expect(agendaTotals(view)).toEqual({ due: 6, done: 2, pending: 4, late: 2 })
+    expect(agendaTotals(view)).toEqual({ due: 6, done: 2, pending: 4, late: 2, assigned: null, recalls: 5, later: 0, passedOn: 0 })
   })
 })
 
@@ -228,5 +228,67 @@ describe('spec 026 · mensajes de «Poner para hoy»', () => {
   })
   it('B8 · quitar', () => {
     expect(priorityMessage({ changed: 1, skipped: 0 }, 'Rene', false)).toBe('✓ Prioridad quitada')
+  })
+})
+
+// Spec 028: la agenda refleja los asignados del día (caso Rene, 25/11: 15 en Actividad, 13 en «Le tocaba hoy»).
+describe('spec 028 · asignados hoy, rellamadas y para más adelante', () => {
+  // Isabel se lo pasó hoy desde Nayara con la visita que ya estaba pactada para el viernes (como Carlos Tonore).
+  const laterVisit = row('carlos', {
+    stage: 'followup',
+    reassigned_from_name: 'Nayara',
+    assigned_at: '2026-11-23T10:14:00-04:00',
+    next_contact_at: '2026-11-27T10:00:00-04:00',
+    visit_at: '2026-11-27T10:00:00-04:00',
+  })
+  const laterCall = row('saul', { ...laterVisit, id: 'saul', visit_at: null, next_contact_at: '2026-12-03T09:00:00-04:00' })
+  // nextWeek: agendado para la otra semana, pero recibido antes de hoy → no entra a ninguna parte (como siempre).
+  const rows = [dueToday, doneToday, newToday, inheritedToday, laterVisit, laterCall, nextWeek]
+  const assigned = [
+    { id: MAICO, assigned: 5, passed_on: 1 },
+    { id: ANA, assigned: 0, passed_on: 0 },
+  ]
+  const view = agendaByPerson({ people, rows, assigned }, now)
+  const maico = view.find((p) => p.id === MAICO)!
+
+  it('C6 · recibido hoy y agendado más adelante → «Para más adelante», con su fecha', () => {
+    expect(maico.later.map((r) => r.id)).toEqual(['carlos', 'saul'])
+  })
+  it('C7 · lo de más adelante no suma a Le tocaba hoy, Pendientes ni Atrasados', () => {
+    expect(maico.pending.map((r) => r.id).sort()).toEqual(['heredado', 'hoy', 'nuevo'])
+    expect(maico.done.map((r) => r.id)).toEqual(['llamado'])
+    expect(maico.late).toEqual([])
+    expect(maico.due).toBe(4)
+  })
+  it('agendado más adelante y recibido antes de hoy → no está en ninguna parte (como antes)', () => {
+    expect([...maico.pending, ...maico.done, ...maico.late, ...maico.later].some((r) => r.id === 'semana')).toBe(false)
+  })
+  it('C1 · «Asignados hoy» viene del servidor (regla de Actividad) y C3 · cuántos pasaron a otra persona', () => {
+    expect(maico.assignedToday).toBe(5)
+    expect(maico.passedOn).toBe(1)
+  })
+  it('C4 · rellamadas: le tocaba hoy por algo que recibió antes de hoy', () => {
+    // hoy y llamado son de días anteriores; nuevo y heredado los recibió hoy.
+    expect(maico.recalls).toBe(2)
+  })
+  it('C5 · Le tocaba hoy = recibidos hoy que están en la agenda + rellamadas', () => {
+    const fromToday = [...maico.pending, ...maico.done].filter((r) => r.assigned_at.startsWith('2026-11-23')).length
+    expect(maico.due).toBe(fromToday + maico.recalls)
+  })
+  it('personal en cero: 0 asignados, 0 rellamadas, nada para más adelante', () => {
+    const ana = view.find((p) => p.id === ANA)!
+    expect([ana.assignedToday, ana.recalls, ana.later.length, ana.passedOn]).toEqual([0, 0, 0, 0])
+  })
+  it('totales con las columnas nuevas', () => {
+    expect(agendaTotals(view)).toEqual({ due: 4, done: 1, pending: 3, late: 0, assigned: 5, recalls: 2, later: 2, passedOn: 1 })
+  })
+  it('C12 · sin la migración 028 (no llega `assigned`): asignados hoy = null y los totales lo dicen', () => {
+    const old = agendaByPerson({ people, rows: [dueToday, newToday] }, now)
+    expect(old.map((p) => p.assignedToday)).toEqual([null, null])
+    expect(agendaTotals(old).assigned).toBeNull()
+  })
+  it('la prioridad de hoy le gana a «más adelante»: pasa a Pendientes (spec 026)', () => {
+    const p = agendaByPerson({ people, rows: [{ ...laterVisit, priority_today: true }], assigned }, now)[0]!
+    expect([p.pending.length, p.later.length]).toEqual([1, 0])
   })
 })

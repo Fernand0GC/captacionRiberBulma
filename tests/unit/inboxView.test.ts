@@ -164,3 +164,18 @@ describe('spec 026 · prioridad primero', () => {
     expect(groupByAssignedDay([fresh, p2], now)[0]!.rows.map((r) => r.id)).toEqual(['prio2', 'nuevo'])
   })
 })
+
+// Spec 028: lo recibido hoy con fecha más adelante va primero dentro de su estado (no sube por encima de lo de hoy).
+describe('spec 028 · «Nuevo para ti» primero dentro de su lista', () => {
+  const old = row('viejo', { stage: 'followup', last_contacted_at: '2026-11-20T10:00:00-04:00', next_contact_at: '2026-11-25T09:00:00-04:00' })
+  const fresh = row('nuevo-para-ti', {
+    stage: 'followup',
+    last_contacted_at: '2026-11-20T10:00:00-04:00',
+    assigned_at: '2026-11-23T10:14:00-04:00',
+    next_contact_at: '2026-11-29T10:00:00-04:00',
+  })
+  const today = row('hoy', { stage: 'recapture', last_contacted_at: '2026-11-20T10:00:00-04:00', next_contact_at: '2026-11-23T09:00:00-04:00' })
+  it('C9 · antes que lo agendado de otros días, después de lo que toca hoy', () =>
+    expect(sortRecaptured([old, fresh, today], now).map((r) => r.id)).toEqual(['hoy', 'nuevo-para-ti', 'viejo']))
+  it('no cuenta en «Para hoy»', () => expect(summarize([fresh], now)).toEqual({ today: 0, late: 0, done: 0 }))
+})
