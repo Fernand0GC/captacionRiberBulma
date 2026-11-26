@@ -14,7 +14,9 @@ import {
   MdListAlt,
   MdShare,
   MdFactCheck,
+  MdKey,
 } from 'react-icons/md'
+import { canGrantPermissions, canSeeReferrals } from '@/features/auth/access'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { LogoutButton } from '@/features/auth/LogoutButton'
 import { InstallCard } from '@/features/install/InstallCard'
@@ -24,13 +26,23 @@ import {
   FOLLOWUP_ROLES,
   GLOBAL_ROLES,
   MANAGER_ROLES,
-  REFERRAL_ROLES,
   ROLE_LABEL,
   type AppRole,
+  type Profile,
 } from '@/features/auth/types'
 import { SyncRunner } from '@/features/sync/SyncRunner'
 
-type NavItem = { to: string; label: string; icon: React.ReactNode; roles: AppRole[] }
+/** `allow` (spec 029) reemplaza a `roles` cuando el acceso depende también de permisos o de «Actuar como». */
+type NavItem = {
+  to: string
+  label: string
+  icon: React.ReactNode
+  roles?: AppRole[]
+  allow?: (p: Profile, acting: boolean) => boolean
+}
+
+// Permisos por persona (spec 029): en los dos menús, porque Sistemas puede estar actuando como alguien de campo.
+const PERMISSIONS_NAV: NavItem = { to: '/permisos', label: 'Permisos', icon: <MdKey />, allow: canGrantPermissions }
 
 // Una sola app para todos los roles: cada uno ve solo sus secciones. Gestión primero para quien gestiona;
 // para el personal de campo, Mis contactos primero (si hace seguimiento) y luego Registrar.
@@ -41,7 +53,7 @@ const MANAGE_NAV: NavItem[] = [
   { to: '/planificacion', label: 'Planificación', icon: <MdEventNote />, roles: MANAGER_ROLES },
   { to: '/metas', label: 'Metas', icon: <MdFlag />, roles: MANAGER_ROLES },
   { to: '/equipo', label: 'Mi equipo', icon: <MdGroups />, roles: MANAGER_ROLES },
-  { to: '/referidos', label: 'Referidos', icon: <MdShare />, roles: REFERRAL_ROLES },
+  { to: '/referidos', label: 'Referidos', icon: <MdShare />, allow: canSeeReferrals },
   {
     to: '/verificar-compartidas',
     label: 'Verificar compartidas',
@@ -52,6 +64,7 @@ const MANAGE_NAV: NavItem[] = [
   { to: '/registrar', label: 'Registrar', icon: <MdPersonAdd />, roles: CAPTURE_ROLES },
   { to: '/admin/usuarios', label: 'Usuarios', icon: <MdManageAccounts />, roles: ['admin'] },
   { to: '/admin/catalogo', label: 'Catálogo', icon: <MdCategory />, roles: ['admin'] },
+  PERMISSIONS_NAV,
 ]
 const FIELD_NAV: NavItem[] = [
   { to: '/seguimiento', label: 'Mis contactos', icon: <MdPhone />, roles: FOLLOWUP_ROLES },
@@ -67,6 +80,7 @@ const FIELD_NAV: NavItem[] = [
     icon: <MdFactCheck />,
     roles: ['collections'],
   },
+  PERMISSIONS_NAV,
 ]
 
 // La banda de «Actuar como» (spec 027) solo se descarga cuando Sistemas actúa como otra persona.
@@ -87,10 +101,11 @@ function ContactsBadge({ className }: { className: string }) {
 }
 
 function useNav(): NavItem[] {
-  const { profile } = useAuth()
+  const { profile, impersonation } = useAuth()
   if (!profile) return []
   const base = MANAGER_ROLES.includes(profile.role) ? MANAGE_NAV : FIELD_NAV
-  return base.filter((n) => n.roles.includes(profile.role))
+  const acting = impersonation !== null
+  return base.filter((n) => (n.allow ? n.allow(profile, acting) : (n.roles ?? []).includes(profile.role)))
 }
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {

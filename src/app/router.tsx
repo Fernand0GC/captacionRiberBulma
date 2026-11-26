@@ -1,12 +1,12 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet, redirect } from '@tanstack/react-router'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { SsoLanding } from '@/features/auth/SsoLanding'
+import { canGrantPermissions, canSeeReferrals } from '@/features/auth/access'
 import {
   CAPTURE_ROLES,
   FOLLOWUP_ROLES,
   MANAGER_ROLES,
   ORG_VIEW_ROLES,
-  REFERRAL_ROLES,
   ROLE_LABEL,
   VERIFY_SHARES_ROLES,
   type AppRole,
@@ -197,12 +197,13 @@ const teamRoute = createRoute({
   component: lazyRouteComponent(() => import('@/features/team/TeamPage'), 'TeamPage'),
 })
 
-// Referidos (spec 005): jefe de ventas, gerencia y Sistemas. El encargado no (el servidor responde forbidden).
+// Referidos (spec 005): jefe de ventas, gerencia y Sistemas; la encargada con el permiso «Referidos» (spec 029),
+// solo su sucursal. El servidor lo exige (can_see_referrals).
 const referralsLayout = createRoute({
   getParentRoute: () => manageLayout,
   id: 'referrals',
   component: () => (
-    <RequireRole roles={REFERRAL_ROLES}>
+    <RequireRole allow={canSeeReferrals}>
       <Outlet />
     </RequireRole>
   ),
@@ -212,6 +213,23 @@ const referralsRoute = createRoute({
   path: '/referidos',
   validateSearch: validateReferralSearch,
   component: lazyRouteComponent(() => import('@/features/referrals/ReferralsPage'), 'ReferralsPage'),
+})
+
+// Permisos por persona (spec 029): Sistemas, gerencia y jefe de ventas; también Sistemas actuando como otro.
+// Fuera de manageLayout porque quien se actúa puede ser de campo. El servidor lo exige (permission_set).
+const permissionsLayout = createRoute({
+  getParentRoute: () => shellLayout,
+  id: 'permissions',
+  component: () => (
+    <RequireRole allow={canGrantPermissions}>
+      <ManagedOutlet />
+    </RequireRole>
+  ),
+})
+const permissionsRoute = createRoute({
+  getParentRoute: () => permissionsLayout,
+  path: '/permisos',
+  component: lazyRouteComponent(() => import('@/features/permissions/PermissionsPage'), 'PermissionsPage'),
 })
 
 // Sistemas (admin): usuarios y catálogos.
@@ -246,6 +264,7 @@ const routeTree = rootRoute.addChildren([
     clientLayout.addChildren([clientRoute]),
     planningLayout.addChildren([planningRoute, planningHistoryRoute]),
     verifyLayout.addChildren([verifySharesRoute]),
+    permissionsLayout.addChildren([permissionsRoute]),
     manageLayout.addChildren([dashboardRoute, manageRoute, distributeRoute, goalsRoute, teamRoute, referralsLayout.addChildren([referralsRoute]), adminLayout.addChildren([usersRoute, catalogRoute])]),
   ]),
 ])

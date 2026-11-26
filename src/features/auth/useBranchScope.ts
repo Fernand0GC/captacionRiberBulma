@@ -1,4 +1,5 @@
 import { useBranches } from '@/features/prospects/api'
+import { branchOptions } from './access'
 import { useAuth } from './AuthProvider'
 import { GLOBAL_ROLES } from './types'
 
@@ -13,7 +14,8 @@ export function useBranchScope() {
   const branches = useBranches()
   const global = !!profile && GLOBAL_ROLES.includes(profile.role)
   const multi = profile?.role === 'sales_lead'
-  const options = multi ? branches.data?.filter((b) => profile.branch_ids?.includes(b.id)) : branches.data
+  // Encargada: solo la suya (spec 029: con Referidos ya no ve un selector con sucursales que no puede abrir).
+  const options = profile ? branchOptions(profile, branches.data) : branches.data
   return {
     /** Muestra el selector de sucursal. */
     canPick: global || multi,

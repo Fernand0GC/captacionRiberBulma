@@ -12,7 +12,8 @@ import {
 } from '@/lib/impersonation'
 import { supabase, usernameToEmail } from '@/lib/supabase'
 import { toAppError } from '@/lib/errors'
-import type { Profile } from './types'
+import type { Permission, Profile } from './types'
+import { permissionsFrom } from './access'
 
 type Status = 'loading' | 'anonymous' | 'ready' | 'inactive'
 
@@ -44,15 +45,19 @@ function readCachedProfile(uid: string): Profile | null {
 }
 
 async function fetchProfile(uid: string): Promise<Profile | null> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select(
-      'id, username, full_name, role, branch_id, contract_type, active, deactivated_at, profile_branches(branch_id)',
-    )
-    .eq('id', uid)
-    .maybeSingle()
+  // La consulta de permisos es independiente para que su fallo no impida cargar el perfil.
+  const [{ data, error }, permissions] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select(
+        'id, username, full_name, role, branch_id, contract_type, active, deactivated_at, profile_branches(branch_id)',
+      )
+      .eq('id', uid)
+      .maybeSingle(),
+    supabase.from('profile_permissions').select('permission').eq('profile_id', uid),
+  ])
   if (error) throw error
-  const profile = data ? toProfile(data) : null
+  const profile = data ? { ...toProfile(data), permissions: permissionsFrom(permissions) } : null
   if (profile) {
     try {
       localStorage.setItem(cacheKey(uid), JSON.stringify(profile))
@@ -63,12 +68,20 @@ async function fetchProfile(uid: string): Promise<Profile | null> {
   return profile
 }
 
-/** La relación profile_branches llega anidada: se aplana a branch_ids (jefe de ventas). */
+/** Las relaciones llegan anidadas: profile_branches → branch_ids (jefe de ventas), profile_permissions → permissions (spec 029). */
 export function toProfile({
   profile_branches,
+  profile_permissions,
   ...p
-}: Record<string, unknown> & { profile_branches?: { branch_id: number }[] }): Profile {
-  return { ...(p as unknown as Profile), branch_ids: (profile_branches ?? []).map((b) => b.branch_id) }
+}: Record<string, unknown> & {
+  profile_branches?: { branch_id: number }[]
+  profile_permissions?: { permission: Permission }[]
+}): Profile {
+  return {
+    ...(p as unknown as Profile),
+    branch_ids: (profile_branches ?? []).map((b) => b.branch_id),
+    permissions: (profile_permissions ?? []).map((x) => x.permission),
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

@@ -9,6 +9,9 @@ export type AppRole =
   /** Cobros (spec 006): solo verifica compartidas de sus sucursales; sin datos de clientes. */
   | 'collections'
 
+/** Permisos por persona (spec 029): se otorgan a una encargada, solo valen en su sucursal. */
+export type Permission = 'replan_past' | 'referrals'
+
 export type Profile = {
   id: string
   username: string
@@ -20,6 +23,8 @@ export type Profile = {
   contract_type: 'temporary' | 'permanent'
   active: boolean
   deactivated_at: string | null
+  /** Permisos extra (spec 029). Puede faltar en un perfil guardado en caché antes de la 029. */
+  permissions?: Permission[]
   /** CI de la cuenta única (solo lo traen la pantalla Usuarios). */
   ci?: string | null
 }
