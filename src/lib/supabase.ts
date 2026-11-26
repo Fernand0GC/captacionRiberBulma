@@ -58,6 +58,20 @@ const rest = new PostgrestClient(`${url}/rest/v1`, {
     if (acting) headers.set(IMPERSONATION_HEADER, acting)
     const res = await fetchWithTimeout(input, { ...init, headers })
     if (acting && !res.ok && isImpersonationInvalid(await res.clone().text())) {
+      // Se cierra en la base antes de borrarla (queda «vencida» y no abierta). Llamada directa, sin este envoltorio:
+      // no hay recursión. Si la rechazada ya era la de volver (cabecera ajena), no se reintenta.
+      if (!String(input).endsWith('/rpc/impersonation_end')) {
+        await fetchWithTimeout(`${url}/rest/v1/rpc/impersonation_end`, {
+          method: 'POST',
+          headers: {
+            apikey: anonKey,
+            Authorization: headers.get('Authorization') ?? '',
+            'Content-Type': 'application/json',
+            [IMPERSONATION_HEADER]: acting,
+          },
+          body: '{}',
+        }).catch(() => undefined) // sin red: igual se vuelve; la próxima que se empiece la cierra como vencida
+      }
       clearImpersonation()
       reloadApp()
     }

@@ -22,21 +22,26 @@ export function formatRemaining(ms: number): string {
   return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`
 }
 
+/** Lo guardado tal cual, vigente o no. */
 function readStored(): Impersonation | null {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return null
-    const s = JSON.parse(raw) as Impersonation
-    return remainingMs(s) > 0 ? s : null
+    return raw ? (JSON.parse(raw) as Impersonation) : null
   } catch {
     return null
   }
 }
 
-/** La suplantación vigente de ESTE admin (otra cuenta en el mismo navegador no la hereda). */
+/** La suplantación vigente de ESTE admin (otra cuenta en el mismo navegador no la hereda). Es lo que usa la pantalla. */
 export function readImpersonation(actorId: string): Impersonation | null {
   const s = readStored()
-  return s && s.actorId === actorId ? s : null
+  return s && s.actorId === actorId && remainingMs(s) > 0 ? s : null
+}
+
+/** Al arrancar: id de una suplantación guardada que ya no vale (vencida o de otro admin), para cerrarla y borrarla. */
+export function staleImpersonationId(actorId: string): string | null {
+  const s = readStored()
+  return s && !readImpersonation(actorId) ? s.id : null
 }
 
 export function saveImpersonation(s: Impersonation): void {
@@ -55,7 +60,11 @@ export function clearImpersonation(): void {
   }
 }
 
-/** Valor de la cabecera para la próxima consulta, o null si no hay suplantación vigente. */
+/**
+ * Valor de la cabecera para la próxima consulta: mientras haya algo guardado, AUNQUE haya vencido. Así la base la
+ * rechaza (`impersonation_invalid`) y nunca corre como el admin en el rato entre el vencimiento y la vuelta
+ * (pestaña dormida, red lenta, reloj desfasado). Se deja de mandar solo al borrarla. Auditoría 2026-11-24, H1.
+ */
 export function impersonationHeader(): string | null {
   return readStored()?.id ?? null
 }

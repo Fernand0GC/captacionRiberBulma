@@ -7,8 +7,10 @@ import {
   readImpersonation,
   remainingMs,
   saveImpersonation,
+  staleImpersonationId,
   type Impersonation,
 } from '@/lib/impersonation'
+import { isTransient, toAppError } from '@/lib/errors'
 
 const NOW = Date.parse('2026-11-25T14:00:00Z')
 const ADMIN = '00000000-0000-4000-8000-000000000001'
@@ -59,11 +61,27 @@ describe('suplantación guardada', () => {
     expect(readImpersonation(ADMIN)).toBeNull()
   })
 
-  it('vencida: no se lee ni manda cabecera', () => {
+  it('vencida: la pantalla ya no la usa, pero la cabecera SIGUE saliendo para que la base la rechace', () => {
+    // Auditoría 2026-11-24 (H1): sin cabecera, la petición correría como el admin antes de que la app vuelva.
     saveImpersonation(sample(30))
     vi.setSystemTime(NOW + 30 * 60_000)
     expect(readImpersonation(ADMIN)).toBeNull()
-    expect(impersonationHeader()).toBeNull()
+    expect(impersonationHeader()).toBe(sample().id)
+  })
+
+  it('al arrancar: detecta la guardada que ya no vale (vencida o de otro admin) para cerrarla', () => {
+    expect(staleImpersonationId(ADMIN)).toBeNull()
+    saveImpersonation(sample(30))
+    expect(staleImpersonationId(ADMIN)).toBeNull() // vigente y propia: se sigue usando
+    vi.setSystemTime(NOW + 30 * 60_000)
+    expect(staleImpersonationId(ADMIN)).toBe(sample().id)
+    vi.setSystemTime(NOW)
+    saveImpersonation(sample(30, '00000000-0000-4000-8000-0000000000d1'))
+    expect(staleImpersonationId(ADMIN)).toBe(sample().id)
+  })
+
+  it('una captación rechazada por suplantación vencida queda pendiente (error transitorio), no bloqueada', () => {
+    expect(isTransient(toAppError({ message: 'impersonation_invalid' }))).toBe(true)
   })
 
   it('volver: se borra', () => {

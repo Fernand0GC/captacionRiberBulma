@@ -19,7 +19,15 @@ su sesión y la app manda la cabecera `x-actuar-como: <id de la suplantación>`.
 sea del admin, esté abierta y vigente, y reemplaza los claims: `sub` = la persona, `act.sub` = el admin (RFC 8693, igual
 que Cobros). Así `auth.uid()` devuelve a la persona y **todas las RLS y RPC existentes funcionan sin cambios**.
 - `impersonation_start(p_target)` / `impersonation_end()`: abren y cierran (solo por RPC; la tabla no se lee directo).
-- `audit_log.acting_by`: el admin real en cada cambio auditado hecho mientras actuaba.
+- `audit_log.acting_by`: el admin real en cada cambio auditado hecho mientras actuaba (por defecto `acting_actor()`,
+  así también las auditorías manuales como `org_delete`). Las altas de `prospects` y `followups` hechas actuando
+  también se auditan (`audit_acting_insert`).
+- Bitácora `impersonation_requests`: cada petición que puede escribir hecha actuando (suplantación, método, ruta,
+  hora). Las de solo lectura no se anotan (PostgREST corre en solo lectura GET y RPC STABLE, aun por POST).
+- Vencimiento (auditoría 2026-11-24): la app manda la cabecera mientras esté guardada, **aunque haya vencido**, para
+  que la base la rechace; nunca hay una consulta como el admin con la pantalla del otro. Única excepción en la base:
+  `/rpc/impersonation_end` con una suplantación propia corre como el admin para poder cerrarla. Al rechazo, la app la
+  cierra, la borra y recarga; al arrancar, una guardada que ya no vale se cierra antes de cargar nada.
 - La app recarga al empezar y al volver (no quedan datos en caché de la otra identidad).
 - Captaciones sin señal: cada una ya guarda su `userId`; el envío solo corre para la identidad activa, así que nunca se
   suben con la identidad equivocada. Al volver con pendientes de la persona se avisa.

@@ -6,6 +6,7 @@ import {
   readImpersonation,
   reloadApp,
   saveImpersonation,
+  staleImpersonationId,
   type Impersonation,
   type ImpersonationTarget,
 } from '@/lib/impersonation'
@@ -82,6 +83,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus('anonymous')
       return
     }
+    // Una suplantación guardada que ya no vale (venció con la app cerrada, u otro admin en este navegador) se cierra
+    // y se borra ANTES de cargar nada: si no, la cabecera haría rechazar cada consulta. Sin red, igual se borra
+    // (la base ya no la acepta, y la próxima que se empiece la cierra como vencida).
+    if (staleImpersonationId(s.user.id)) {
+      if (navigator.onLine) await supabase.rpc('impersonation_end') // sin red no se espera: arranque offline al instante
+      clearImpersonation()
+    }
     // Actuando como otro, la app entera usa el perfil de esa persona (la base ya la ve como ella por la cabecera).
     const acting = readImpersonation(s.user.id)
     setImpersonation(acting)
@@ -107,10 +115,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    const loadSession = async () => {
+      const { data } = await supabase.auth.getSession()
       setSession(data.session)
-      void loadProfile(data.session)
-    })
+      await loadProfile(data.session)
+    }
+    void loadSession()
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s)
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') void loadProfile(s)
@@ -131,7 +141,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error
   }, [])
 
-  // Volver a mi cuenta: se cierra en el servidor (si falla, igual vence a los 30 min y la cabecera ya no se manda).
+  // Volver a mi cuenta: se cierra en el servidor. La cabecera sale hasta el final, también vencida: la base deja pasar
+  // solo /rpc/impersonation_end como el admin y rechaza cualquier otra consulta (auditoría 2026-11-24, H1).
   const endImpersonation = useCallback(async () => {
     await supabase.rpc('impersonation_end') // devuelve { error } sin lanzar: si falla, igual se vuelve
     clearImpersonation()
