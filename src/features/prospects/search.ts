@@ -39,7 +39,7 @@ export type ManageSearch = {
   /** Lupas de «Clientes con seguimiento» (solo achican la lista; los números no cambian). */
   resultado?: ResultParam
   tipo?: KindParam
-  buscar?: string
+  // La lupa por nombre/celular NO va acá: es dato personal y vive en el estado de DailyView (constitución IV).
 }
 
 /** «efectivos», «no_efectivos» o un resultado exacto (ContactResult de followup/api). */
@@ -69,7 +69,7 @@ export type DateBasis = 'registered' | 'assigned' | 'last_contact' | 'next_conta
 export type MetricParam = 'all' | 'calls' | 'messages' | 'store' | 'effective' | 'no_answer' | 'visits' | 'sales' | 'assigned' | 'first' | 'recontact'
 
 /** Parámetros propios de Seguimientos y Actividad: se limpian al cambiar de vista. */
-export const MONITORING_KEYS = ['estado', 'interes', 'intentos', 'vencidos', 'sin_contacto', 'motivo', 'contar', 'orden', 'persona', 'metrica', 'agrupar', 'dia', 'origen', 'referidor', 'lista', 'resultado', 'tipo', 'buscar'] as const
+export const MONITORING_KEYS = ['estado', 'interes', 'intentos', 'vencidos', 'sin_contacto', 'motivo', 'contar', 'orden', 'persona', 'metrica', 'agrupar', 'dia', 'origen', 'referidor', 'lista', 'resultado', 'tipo'] as const
 
 const VIEWS: ManageView[] = ['visitas', 'seguimiento', 'actividad', 'dia']
 const TABS: FollowupTabParam[] = ['sin_contactar', 'seguimiento', 'potencial', 'venta', 'sin_interes']
@@ -124,7 +124,6 @@ export function validateManageSearch(raw: Record<string, unknown>): ManageSearch
     lista: raw.lista === 'seguimiento' ? 'seguimiento' : undefined,
     resultado: oneOf(RESULTS, raw.resultado),
     tipo: oneOf(KINDS, raw.tipo),
-    buscar: typeof raw.buscar === 'string' && raw.buscar.trim() ? raw.buscar.slice(0, 60) : undefined,
   }
 }
 

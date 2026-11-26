@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { useState } from 'react'
 import { StatTile } from '@/features/dashboard/charts'
 import { METHOD_LABEL, RESULT_LABEL, type ContactResult } from '@/features/followup/api'
 import { selectCls, ViewSwitch, type ManageScope } from '@/features/prospects/ManageFilterBar'
@@ -85,8 +86,13 @@ export function DailyView({ scope }: { scope: ManageScope }) {
   // La persona puede no tener actividad en otro día, sucursal u origen: al cambiarlos, el filtro Persona se limpia.
   const goDay = (d: string) => setSearch({ dia: d === today ? undefined : d, persona: undefined })
   // Lupas de la lista de seguimiento: solo achican la tabla; las tarjetas siguen con los números del servidor.
-  const lens: FollowedLens = { resultado: search.resultado, tipo: search.tipo, etapa: search.etapa, buscar: search.buscar }
-  const clearLens = () => setSearch({ resultado: undefined, tipo: undefined, etapa: undefined, buscar: undefined })
+  // Resultado, tipo y etapa van en la URL (no son personales); nombre/celular solo en memoria (constitución IV).
+  const [buscar, setBuscar] = useState('')
+  const lens: FollowedLens = { resultado: search.resultado, tipo: search.tipo, etapa: search.etapa, buscar }
+  const clearLens = () => {
+    setBuscar('')
+    setSearch({ resultado: undefined, tipo: undefined, etapa: undefined })
+  }
   const followed = r ? filterFollowed(r.followed_rows, lens, day) : []
 
   return (
@@ -330,7 +336,7 @@ export function DailyView({ scope }: { scope: ManageScope }) {
               <NewTable rows={r.new_rows} showBranch={isGlobal && sucursal === undefined} />
             ) : (
               <>
-                <LensBar lens={lens} onChange={setSearch} onClear={clearLens} />
+                <LensBar lens={lens} onChange={setSearch} onSearch={setBuscar} onClear={clearLens} />
                 {hasLens(lens) && r.followed_rows.length > 0 && (
                   <p className="-my-2 px-1 text-sm text-ink/55" aria-live="polite">
                     <span className="font-semibold tabular-nums text-ink">{followed.length}</span> de{' '}
@@ -445,14 +451,17 @@ const KIND_OPTIONS: [KindParam, string][] = [
 const lensSelectCls =
   'min-h-11 rounded-xl border border-ink/15 bg-white px-3 text-sm outline-none focus:border-gold focus:ring-4 focus:ring-gold/20'
 
-/** Lupas de «Clientes con seguimiento»: viven en la URL y solo achican la tabla (las tarjetas no cambian). */
+/** Lupas de «Clientes con seguimiento»: solo achican la tabla (las tarjetas no cambian). Los selects viven en la URL;
+ * la búsqueda por nombre/celular, en el estado del padre (dato personal, constitución IV). */
 function LensBar({
   lens,
   onChange,
+  onSearch,
   onClear,
 }: {
   lens: FollowedLens
-  onChange: (patch: Pick<ManageSearch, 'resultado' | 'tipo' | 'etapa' | 'buscar'>) => void
+  onChange: (patch: Pick<ManageSearch, 'resultado' | 'tipo' | 'etapa'>) => void
+  onSearch: (value: string) => void
   onClear: () => void
 }) {
   return (
@@ -463,7 +472,7 @@ function LensBar({
         aria-label="Buscar por nombre o celular"
         placeholder="Buscar nombre o celular…"
         value={lens.buscar ?? ''}
-        onChange={(e) => onChange({ buscar: e.target.value || undefined })}
+        onChange={(e) => onSearch(e.target.value)}
         className="min-h-11 min-w-0 flex-1 rounded-xl border border-ink/15 bg-white px-3 text-base outline-none placeholder:text-ink/35 focus:border-gold focus:ring-4 focus:ring-gold/20 sm:max-w-xs"
       />
       <select

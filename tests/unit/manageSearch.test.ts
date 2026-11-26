@@ -20,6 +20,12 @@ describe('validateManageSearch: vistas de monitoreo', () => {
     expect(bad.intentos).toBeUndefined()
   })
 
+  it('la búsqueda por nombre/celular nunca vive en la URL (constitución IV)', () => {
+    // Un enlace viejo con ?buscar= se ignora: no filtra ni vuelve a escribirse en la URL.
+    expect(validateManageSearch({ ver: 'dia', buscar: '73340001' })).not.toHaveProperty('buscar')
+    expect(MONITORING_KEYS).not.toContain('buscar')
+  })
+
   it('vencidos acepta true, 1 y "1"', () => {
     expect(validateManageSearch({ vencidos: true }).vencidos).toBe(true)
     expect(validateManageSearch({ vencidos: 1 }).vencidos).toBe(true)

@@ -69,3 +69,29 @@ test('del día (009): la tarjeta del Panel lleva a la lista de seguimiento', asy
   await expect(page).toHaveURL(/lista=seguimiento/)
   await expect(page.getByRole('tab', { name: /^Clientes con seguimiento/ })).toHaveAttribute('aria-selected', 'true')
 })
+
+test('del día: la búsqueda por nombre/celular no se escribe en la URL (constitución IV)', async ({ page }) => {
+  await login(page, 'enc.trinidad')
+  await page.waitForURL((u) => !u.pathname.endsWith('/login'))
+  // Un enlace viejo con ?buscar= se ignora: no filtra ni aparece en el buscador.
+  await page.goto('/gestion?ver=dia&lista=seguimiento&buscar=73340001')
+  const box = page.getByRole('searchbox', { name: 'Buscar por nombre o celular' })
+  await expect(box).toHaveValue('')
+
+  const before = new URL(page.url()).search
+  expect(before).not.toContain('buscar')
+  await box.fill('73340001')
+  await expect(box).toHaveValue('73340001')
+  expect(new URL(page.url()).search).toBe(before)
+  await box.fill('')
+  expect(new URL(page.url()).search).toBe(before)
+
+  // Las lupas no personales siguen en la URL; «Limpiar» vacía también la búsqueda.
+  await box.fill('ana')
+  await page.getByRole('combobox', { name: 'Resultado' }).selectOption('efectivos')
+  await expect(page).toHaveURL(/resultado=efectivos/)
+  expect(page.url()).not.toContain('buscar')
+  await page.getByRole('search', { name: 'Lupas de la lista' }).getByRole('button', { name: 'Limpiar' }).click()
+  await expect(box).toHaveValue('')
+  await expect(page).not.toHaveURL(/resultado=/)
+})

@@ -70,20 +70,14 @@ describe('filterFollowed', () => {
 })
 
 describe('parámetros de la URL de las lupas', () => {
-  it('resultado y tipo solo con valores de la lista; buscar como texto', () => {
-    expect(validateManageSearch({ resultado: 'efectivos', tipo: 'nuevos', buscar: 'ana' })).toMatchObject({
-      resultado: 'efectivos',
-      tipo: 'nuevos',
-      buscar: 'ana',
-    })
+  it('resultado y tipo solo con valores de la lista; buscar nunca en la URL (constitución IV)', () => {
+    const s = validateManageSearch({ resultado: 'efectivos', tipo: 'nuevos', buscar: 'ana' })
+    expect(s).toMatchObject({ resultado: 'efectivos', tipo: 'nuevos' })
+    expect(s).not.toHaveProperty('buscar')
     expect(validateManageSearch({ resultado: 'sold' }).resultado).toBe('sold')
-    expect(validateManageSearch({ resultado: 'x', tipo: 'y', buscar: 5 })).toMatchObject({
-      resultado: undefined,
-      tipo: undefined,
-      buscar: undefined,
-    })
+    expect(validateManageSearch({ resultado: 'x', tipo: 'y' })).toMatchObject({ resultado: undefined, tipo: undefined })
   })
   it('se limpian al cambiar de vista', () => {
-    expect(MONITORING_KEYS).toEqual(expect.arrayContaining(['resultado', 'tipo', 'buscar']))
+    expect(MONITORING_KEYS).toEqual(expect.arrayContaining(['resultado', 'tipo']))
   })
 })

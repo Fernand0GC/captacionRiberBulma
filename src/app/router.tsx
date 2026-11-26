@@ -1,4 +1,4 @@
-import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from '@tanstack/react-router'
+import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet, redirect } from '@tanstack/react-router'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { SsoLanding } from '@/features/auth/SsoLanding'
 import {
@@ -162,6 +162,13 @@ const manageRoute = createRoute({
   getParentRoute: () => manageLayout,
   path: '/gestion',
   validateSearch: validateManageSearch,
+  // Enlaces viejos con ?buscar=<teléfono> (antes de la corrección): se reescribe la URL sin el dato personal
+  // (constitución IV). Se valida la URL cruda: el `search` de beforeLoad arrastra los parámetros sin validar de los
+  // padres y volvería a traer `buscar` (bucle de redirecciones). replace: que no quede en el historial.
+  beforeLoad: ({ location }) => {
+    const raw = location.search as Record<string, unknown>
+    if ('buscar' in raw) throw redirect({ to: '/gestion', search: validateManageSearch(raw), replace: true })
+  },
   component: lazyRouteComponent(() => import('@/features/prospects/ProspectsPage'), 'ProspectsPage'),
 })
 
