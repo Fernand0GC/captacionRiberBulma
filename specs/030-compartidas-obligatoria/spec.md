@@ -1,6 +1,6 @@
 # Spec 030 · Meta de compartidas obligatoria
 
-Estado: en desarrollo (2026-11-27). Origen: observaciones 1, 3, 4 y 5 de ventas («APP - CAPTACION»).
+Estado: en producción (2026-11-27: migración 20261127000100 aplicada y registrada; app en el commit 7cc16ac). Origen: observaciones 1, 3, 4 y 5 de ventas («APP - CAPTACION»).
 
 ## Problema
 

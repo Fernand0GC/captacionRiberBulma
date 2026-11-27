@@ -13,6 +13,7 @@ import { Field, TextInput } from '@/ui/Field'
 import { useToast } from '@/ui/Toast'
 import { getCaptureBranch, getDayChannel, getDayChannelDetail } from './channel'
 import { InterestToggle } from './InterestToggle'
+import { asksOccupation } from './occupation'
 import { ProductPicker } from './ProductPicker'
 import { ReferrerPicker } from './ReferrerPicker'
 import {
@@ -66,6 +67,7 @@ export function CaptureForm() {
   const channelId = getDayChannel(profile!.id)
   const channelDetail = getDayChannelDetail(profile!.id)
   const channelName = catalogs?.channels.find((c) => Number(c.value) === channelId)?.label
+  const showOccupation = asksOccupation(channelName)
   // Referidos (specs 005 y 010): se elige de la lista de la sucursal (catálogo guardado, sirve sin señal) o se
   // escribe uno nuevo, que viaja dentro de la captación. La casilla se muestra siempre, haya lista o no.
   const [referred, setReferred] = useState(false)
@@ -104,7 +106,7 @@ export function CaptureForm() {
         channel_id: channelId ?? undefined,
         channel_detail: channelDetail || undefined,
         interest: (form.interest || undefined) as 'high' | 'medium' | 'low' | undefined,
-        occupation: form.occupation.trim() || undefined,
+        occupation: showOccupation ? form.occupation.trim() || undefined : undefined,
         address: form.address.trim() || undefined,
         // Sin sucursal propia: la elegida en Registrar (el servidor valida que pueda registrar ahí).
         branch_id: profile!.branch_id === null ? (getCaptureBranch(profile!.id) ?? undefined) : undefined,
@@ -182,27 +184,29 @@ export function CaptureForm() {
           )}
         </Field>
 
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-semibold text-ink/80">
-            Ocupación del cliente <span className="font-normal text-ink/40">(opcional)</span>
-          </span>
-          <div className="flex flex-col gap-2">
-            {RUBROS.map((rubro) => (
-              <button
-                key={rubro}
-                type="button"
-                onClick={() => set('occupation')(form.occupation === rubro ? '' : rubro)}
-                className={`rounded-xl px-4 py-3 text-left text-sm font-medium ring-1 transition-colors ${
-                  form.occupation === rubro
-                    ? 'bg-charcoal text-gold ring-gold-dark'
-                    : 'bg-white text-ink/80 ring-ink/10 active:bg-ink/5'
-                }`}
-              >
-                {rubro}
-              </button>
-            ))}
+        {showOccupation && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-ink/80">
+              Ocupación del cliente <span className="font-normal text-ink/40">(opcional)</span>
+            </span>
+            <div className="flex flex-col gap-2">
+              {RUBROS.map((rubro) => (
+                <button
+                  key={rubro}
+                  type="button"
+                  onClick={() => set('occupation')(form.occupation === rubro ? '' : rubro)}
+                  className={`rounded-xl px-4 py-3 text-left text-sm font-medium ring-1 transition-colors ${
+                    form.occupation === rubro
+                      ? 'bg-charcoal text-gold ring-gold-dark'
+                      : 'bg-white text-ink/80 ring-ink/10 active:bg-ink/5'
+                  }`}
+                >
+                  {rubro}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-semibold text-ink/80">
