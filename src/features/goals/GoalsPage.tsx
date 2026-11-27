@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useBranchScope } from '@/features/auth/useBranchScope'
 import { Card } from '@/features/dashboard/charts'
@@ -21,7 +22,7 @@ import {
   type GoalSet,
 } from './api'
 import { GoalProgress } from './GoalProgress'
-import { shownGoalKeys, todaySubtitle } from './logic'
+import { channelBreakdown, shownGoalKeys, todaySubtitle } from './logic'
 
 const EMPTY: GoalSet = { captures: null, contacts: null, potential: null, sales: null }
 const inputCls = 'min-h-11 w-full rounded-xl border border-ink/15 bg-white px-3 text-lg tabular-nums outline-none focus:border-gold focus:ring-4 focus:ring-gold/20'
@@ -54,6 +55,7 @@ function DailyTab({ branch }: { branch: number }) {
   const today = laPazDate(new Date())
   const cfg = useDailyConfig(branch)
   const todayGoals = useGoalsForDay(branch)
+  const breakdown = channelBreakdown(todayGoals.data?.by_channel ?? [])
   const setBase = useGoalMutation<GoalSet>('set_daily_base', (g) => ({ p_branch: branch, g }))
   const setOverride = useGoalMutation<{ day: string; g: (GoalSet & { note?: string }) | null }>('set_daily_override', (v) => ({
     p_branch: branch,
@@ -95,6 +97,47 @@ function DailyTab({ branch }: { branch: number }) {
           <GoalProgress data={todayGoals.data} />
         ) : (
           <p className="text-ink/45">Todavía no hay metas. Carga la meta base abajo.</p>
+        )}
+        {breakdown && (
+          <div className="min-w-0">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-max text-left text-sm tabular-nums">
+                <caption className="pb-2 text-left font-semibold">Por canal</caption>
+                <thead>
+                  <tr className="border-b border-ink/10 text-ink/50">
+                    {['Canal', 'Meta', 'Captados', '%', ...(breakdown.showShares ? ['Meta compart.', 'Compartidas'] : [])].map((heading) => (
+                      <th key={heading} scope="col" className="py-2 pr-3 font-semibold">{heading}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {breakdown.rows.map((row) => (
+                    <tr key={row.channel} className="border-b border-ink/5">
+                      <th scope="row" className="py-2 pr-3 font-normal">{row.channel}</th>
+                      <td className="py-2 pr-3">{row.goal}</td>
+                      <td className="py-2 pr-3">{row.result}</td>
+                      <td className="py-2 pr-3">{row.pct}</td>
+                      {breakdown.showShares && <td className="py-2 pr-3">{row.share_goal}</td>}
+                      {breakdown.showShares && <td className="py-2 pr-3">{row.share_result}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="font-bold">
+                    <th scope="row" className="py-2 pr-3">{breakdown.total.channel}</th>
+                    <td className="py-2 pr-3">{breakdown.total.goal}</td>
+                    <td className="py-2 pr-3">{breakdown.total.result}</td>
+                    <td className="py-2 pr-3">{breakdown.total.pct}</td>
+                    {breakdown.showShares && <td className="py-2 pr-3">{breakdown.total.share_goal}</td>}
+                    {breakdown.showShares && <td className="py-2 pr-3">{breakdown.total.share_result}</td>}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <Link to="/planificacion" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-2">
+              Ver detalle en Planificación
+            </Link>
+          </div>
         )}
       </Card>
 

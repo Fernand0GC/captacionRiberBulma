@@ -9,6 +9,7 @@ const base: DayGoals = {
   adjusted: false,
   note: null,
   captures_from_plan: false,
+  by_channel: [],
   goals: { captures: 20, contacts: null, potential: 5, sales: 2, shares: null },
   actuals: { captures: 3, contacts: 0, potential: 1, sales: 0, shares: 0 },
 }

@@ -5,6 +5,13 @@ import { supabase } from '@/lib/supabase'
 export type GoalKey = 'captures' | 'contacts' | 'potential' | 'sales'
 export type ShownGoalKey = GoalKey | 'shares'
 export type GoalSet = Record<GoalKey, number | null>
+export type ChannelGoal = {
+  channel: string
+  goal: number
+  result: number
+  share_goal: number
+  share_result: number
+}
 export type DayGoals = {
   day: string
   adjusted: boolean
@@ -12,6 +19,7 @@ export type DayGoals = {
   captures_from_plan: boolean
   goals: GoalSet & { shares: number | null }
   actuals: Record<ShownGoalKey, number>
+  by_channel: ChannelGoal[]
 }
 export type Override = GoalSet & { day: string; note: string | null }
 export type MonthlyRow = {
