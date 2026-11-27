@@ -1,5 +1,7 @@
 begin;
 select plan(10);
+-- Spec 032: sin resultados pendientes heredados de otras corridas (la transacción se deshace al final).
+delete from public.org_assignments where branch_id in (5, 7);
 
 -- Spec 008: subcanal y horario obligatorios en org_upsert (20261119000200).
 -- Usuarios del seed: 3 enc.verdolago (5), 4 aux.verdolago (5).

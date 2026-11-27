@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toAppError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
+import { resultsPendingMessage } from './logic'
 
 // Organización comercial (spec 003, ajustes de la 004 y la 006). Contratos en specs/003-organizacion-comercial/contracts/rpc.md,
 // specs/004-ajustes-organizacion-ventas/contracts/rpc.md y specs/006-ajustes-ventas-2/contracts/rpc.md.
@@ -146,6 +147,8 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.rpc(fn, args)
   if (error) {
     const detail = (error as { details?: string | null }).details ?? ''
+    // spec 032, obs. 8: conservar el mensaje de pendientes en el formulario y al copiar el día.
+    if (error.message === 'results_pending') throw new Error(resultsPendingMessage(detail))
     if (error.message === 'invalid_input' && detail in INVALID_DETAIL) throw new Error(INVALID_DETAIL[detail])
     throw toAppError(error)
   }

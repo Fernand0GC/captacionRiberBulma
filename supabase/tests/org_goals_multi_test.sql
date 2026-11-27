@@ -1,5 +1,7 @@
 begin;
 select plan(32);
+-- Spec 032: sin resultados pendientes heredados de otras corridas (la transacción se deshace al final).
+delete from public.org_assignments where branch_id in (5, 7);
 
 -- Spec 004: dos metas, selección múltiple y subcanales agregados por ventas (20261118000100).
 -- Usuarios del seed: 3 enc.verdolago, 4 aux.verdolago, 5 sup.verdolago, 6 vol.verdolago, 7 enc.trinidad, 1 admin.

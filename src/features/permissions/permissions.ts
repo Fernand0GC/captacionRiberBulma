@@ -17,7 +17,8 @@ export const PERMISSION_INFO: { key: Permission; label: string; help: string }[]
   {
     key: 'replan_past',
     label: 'Planificar días pasados',
-    help: 'Editar y quitar asignaciones de días anteriores a hoy en su sucursal.',
+    // spec 032, obs. 7: el permiso también permite cargar resultados de días pasados.
+    help: 'Editar y quitar asignaciones de días anteriores a hoy en su sucursal, y cargar sus resultados.',
   },
   {
     key: 'referrals',

@@ -1,5 +1,7 @@
 begin;
 select plan(29);
+-- Spec 032: sin resultados pendientes heredados de otras corridas (la transacción se deshace al final).
+delete from public.org_assignments where branch_id in (5, 7);
 
 -- Spec 019: «Acomodo de tienda» pasa de subcanal (hecho a mano) a canal de Tienda (20261123001900).
 -- El subcanal real solo existe en producción: acá se arman subcanales de prueba y se vuelve a llamar la función.

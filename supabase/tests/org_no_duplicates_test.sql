@@ -1,5 +1,7 @@
 begin;
 select plan(9);
+-- Spec 032: sin resultados pendientes heredados de otras corridas (la transacción se deshace al final).
+delete from public.org_assignments where branch_id in (5, 7);
 
 -- Spec 011: org_upsert rechaza asignaciones iguales (20261121000100).
 -- «Igual» = misma sucursal, día, persona, turno, inicio, fin, canal y subcanal.

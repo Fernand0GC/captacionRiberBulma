@@ -1,5 +1,10 @@
 begin;
 select plan(39);
+-- Spec 032: sin resultados pendientes heredados de otras corridas (la transacción se deshace al final).
+delete from public.org_assignments where branch_id in (5, 7);
+-- Spec 032: las reglas del cierre del día rigen desde hace 30 días en esta prueba, para que «ayer» siempre cuente.
+create or replace function public.org_day_close_since() returns date
+language sql stable set search_path = '' as $$ select (now() at time zone 'America/La_Paz')::date - 30 $$;
 
 -- Usuarios del seed: 3 enc.verdolago, 4 aux.verdolago, 5 sup.verdolago, 6 vol.verdolago, 7 enc.trinidad,
 -- 9 jefe.ventas (Verdolago y Trinidad), 2 gerente, 1 admin.
@@ -95,8 +100,8 @@ select throws_ok(format($$ select public.org_delete(%L) $$, (select id from ids 
   'P0001', 'forbidden', 'el encargado no elimina una asignación de ayer (018)');
 select is((pg_temp.row_of('yesterday', (select today - 1 from k), (select today - 1 from k)) ->> 'can_replan')::boolean,
   false, 'la fila de ayer avisa que el encargado no puede replanificar (018)');
-select lives_ok(format($$ select public.org_set_result(%L, 3, null) $$, (select id from ids where name = 'yesterday')),
-  'el encargado registra el resultado de ayer');
+select throws_ok(format($$ select public.org_set_result(%L, 3, null) $$, (select id from ids where name = 'yesterday')),
+  'P0001', 'forbidden', 'el encargado ya no registra el resultado de ayer (032, obs. 7)');
 
 -- Supervisor: mismos permisos que el encargado
 select tests.login_as('00000000-0000-4000-8000-000000000005');

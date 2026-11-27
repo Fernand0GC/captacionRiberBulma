@@ -1,5 +1,7 @@
 begin;
 select plan(56);
+-- Spec 032: sin resultados pendientes heredados de otras corridas (la transacción se deshace al final).
+delete from public.org_assignments where branch_id in (5, 7);
 
 -- Spec 006: observaciones al crear, orden por persona, volanteras, marcas al agregar subcanal, catálogo y
 -- verificación de compartidas por Cobros (20261118002000 y 20261118002100).

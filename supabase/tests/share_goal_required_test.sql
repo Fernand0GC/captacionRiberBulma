@@ -1,5 +1,7 @@
 begin;
 select plan(13);
+-- Spec 032: sin resultados pendientes heredados de otras corridas (la transacción se deshace al final).
+delete from public.org_assignments where branch_id in (5, 7);
 
 -- Spec 030: la meta de compartidas vuelve a ser obligatoria donde el catálogo la pide (reemplaza FR-011 de la 007).
 -- Usuarios del seed: 3 enc.verdolago (sucursal 5), 4 aux.verdolago (5).

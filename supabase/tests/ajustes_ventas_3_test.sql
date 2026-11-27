@@ -1,5 +1,7 @@
 begin;
 select plan(12);
+-- Spec 032: sin resultados pendientes heredados de otras corridas (la transacción se deshace al final).
+delete from public.org_assignments where branch_id in (5, 7);
 
 -- Spec 007: copia de día sin duplicados (org_copy_day_v2 y org_copy_day) y meta de compartidas opcional
 -- (20261119000100). Usuarios del seed: 3 enc.verdolago (5), 4 aux.verdolago (5), 7 enc.trinidad (7).

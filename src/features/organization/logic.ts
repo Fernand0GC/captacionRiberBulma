@@ -3,6 +3,23 @@ import type { Assignment, Catalog, Shift, Subchannel } from './api'
 
 // Lógica pura de la organización: sin React ni red, para probarla con Vitest.
 
+/** spec 032, obs. 8: explica los resultados pendientes con fecha y cantidad si el detalle es válido. */
+export function resultsPendingMessage(detail: string): string {
+  const fallback = 'Faltan resultados del último día trabajado. Cárgalos antes de planificar un día nuevo.'
+  const match = /^(\d{4}-\d{2}-\d{2})\|([1-9]\d*)$/.exec(detail)
+  if (!match) return fallback
+  const date = match[1]!
+  const count = Number(match[2])
+  const parsed = new Date(`${date}T00:00:00Z`)
+  if (
+    !Number.isSafeInteger(count) ||
+    !Number.isFinite(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== date ||
+    date.startsWith('0000-')
+  ) return fallback
+  return `Faltan resultados del ${date.slice(8, 10)}/${date.slice(5, 7)} (${count} ${count === 1 ? 'asignación' : 'asignaciones'}). Cárgalos antes de planificar un día nuevo.`
+}
+
 /** Horario sugerido del subcanal para el turno, o null si no tiene (FR-011). */
 export function suggestedTimes(
   sub: Subchannel | undefined,
