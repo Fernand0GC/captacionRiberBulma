@@ -12,8 +12,12 @@ test('registro (033): con Freelance el formulario es corto y guarda la venta', a
   // Criterio 1: solo los cuatro campos.
   await expect(page.getByLabel(/Nombre completo/)).toBeVisible()
   await expect(page.getByLabel(/^Celular/)).toBeVisible()
-  await expect(page.getByLabel(/^Freelancer/)).toBeVisible()
-  await expect(page.getByText('Producto que compró')).toBeVisible()
+  // Spec 038: la lista de freelancers de la sucursal se ve desde el inicio (selección única).
+  const freelancers = page.getByRole('radiogroup', { name: /^Freelancer/ })
+  await expect(freelancers).toBeVisible()
+  await expect(freelancers.getByRole('radio').first()).toBeVisible()
+  // Spec 038, criterio 6: el producto lleva asterisco de obligatorio.
+  await expect(page.getByText(/Producto que compró\s*\*/)).toBeVisible()
   await expect(page.getByText('Ocupación del cliente')).toHaveCount(0)
   await expect(page.getByText('Nivel de interés')).toHaveCount(0)
   await expect(page.getByText('Dirección o referencia')).toHaveCount(0)
@@ -26,11 +30,20 @@ test('registro (033): con Freelance el formulario es corto y guarda la venta', a
   await expect(page.getByText('Escribe el nombre del freelancer.')).toBeVisible()
   await expect(page.getByText('Elige el producto que compró.')).toBeVisible()
 
-  // Criterio 3: freelancer nuevo, sin preguntar el tipo.
-  await page.getByLabel(/^Freelancer/).fill(freelancer)
-  await page.getByRole('button', { name: `＋ Agregar «${freelancer}»` }).click()
+  // Spec 038: elegir uno de la lista lo marca (y solo uno queda elegido).
+  const first = freelancers.getByRole('radio').first()
+  await first.check()
+  await expect(first).toBeChecked()
+  await expect(freelancers.getByRole('radio', { checked: true })).toHaveCount(1)
+
+  // Criterio 3 (033) / 3 (038): freelancer nuevo desde el buscador, sin preguntar el tipo; queda elegido.
+  const search = freelancers.getByRole('searchbox', { name: 'Buscar freelancer' })
+  await search.fill(freelancer)
+  await freelancers.getByRole('button', { name: `Agregar «${freelancer}»` }).click()
+  await expect(search).toHaveValue('')
   await expect(page.getByRole('group', { name: /Quién es/ })).toHaveCount(0)
-  await expect(page.getByTestId('referrer-chosen')).toContainText(freelancer)
+  await expect(freelancers.getByRole('radio', { name: new RegExp(freelancer) })).toBeChecked()
+  await expect(freelancers.getByRole('radio', { checked: true })).toHaveCount(1)
 
   await page.getByRole('tab', { name: 'Celulares' }).click()
   await expect(page.getByTestId('product-choice')).toBeVisible()

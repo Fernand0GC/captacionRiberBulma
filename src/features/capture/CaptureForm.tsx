@@ -13,6 +13,7 @@ import { Field, TextInput } from '@/ui/Field'
 import { useToast } from '@/ui/Toast'
 import { getCaptureBranch, getDayChannel, getDayChannelDetail } from './channel'
 import { isFreelanceChannel } from './freelance'
+import { FreelancerPicker } from './FreelancerPicker'
 import { InterestToggle } from './InterestToggle'
 import { asksOccupation } from './occupation'
 import { ProductPicker } from './ProductPicker'
@@ -220,7 +221,7 @@ export function CaptureForm() {
 
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-semibold text-ink/80">
-            {freelanceMode ? 'Producto que compró' : <>Producto de interés <span className="font-normal text-ink/40">(opcional)</span></>}
+            {freelanceMode ? <>Producto que compró <span className="text-gold-dark">*</span></> : <>Producto de interés <span className="font-normal text-ink/40">(opcional)</span></>}
           </span>
           {catalogs ? (
             <ProductPicker catalogs={catalogs} value={productId} onChange={(id) => {
@@ -248,10 +249,18 @@ export function CaptureForm() {
               Es referido <span className="font-normal text-ink/50">(alguien lo recomendó)</span>
             </label>
           )}
-          {(freelanceMode || referred) && (
+          {freelanceMode ? (
+            <FreelancerPicker
+              options={referrerOptions.filter((option) => option.kind === 'freelance')}
+              value={referrer}
+              onChange={(v) => {
+                setReferrer(v)
+                setErrors((er) => ({ ...er, referrer: undefined }))
+              }}
+              error={errors.referrer}
+            />
+          ) : referred && (
             <ReferrerPicker
-              fixedKind={freelanceMode ? 'freelance' : undefined}
-              text={freelanceMode ? { label: 'Freelancer', chosen: 'Freelancer', placeholder: 'Nombre del freelancer' } : undefined}
               options={referrerOptions}
               value={referrer}
               onChange={(v) => {
