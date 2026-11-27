@@ -22,6 +22,16 @@ test('planificación (033): el canal Freelancers muestra la cantidad de freelanc
   await group.getByRole('textbox', { name: /Nombre del freelancer/ }).fill(nuevo)
   await group.getByRole('button', { name: 'Agregar', exact: true }).click()
   await expect(group.getByRole('checkbox', { name: nuevo })).toBeChecked()
+  // Spec 036: buscador; lo que no existe se agrega desde la búsqueda y queda marcado; los marcados van primero.
+  const otro = `E2E Busca ${tag}`
+  const search = group.getByRole('searchbox', { name: 'Buscar freelancer' })
+  await search.fill(otro.toUpperCase())
+  // Lo ya marcado se sigue viendo, así que no sale «Ningún freelancer coincide…» (eso lo prueba freelancerView.test.ts).
+  await group.getByRole('button', { name: `Agregar «${otro.toUpperCase()}»` }).click()
+  await expect(search).toHaveValue('')
+  await expect(group.getByRole('checkbox', { name: otro.toUpperCase() })).toBeChecked()
+  await expect(group.getByText('2 marcados')).toBeVisible()
+  await expect(group.getByRole('checkbox').first()).toBeChecked()
   await expect(dlg.getByTestId('freelancer-count')).toHaveText(/^\d+ freelancers? en la sucursal$/)
   // Otro canal: no se muestra.
   await dlg.getByRole('combobox', { name: /^Canal/ }).selectOption({ label: 'Llamadas' })

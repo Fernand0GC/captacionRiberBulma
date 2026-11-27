@@ -7,6 +7,7 @@ import { Dialog } from '@/ui/Dialog'
 import { Field, TextInput } from '@/ui/Field'
 import { Select } from '@/ui/Select'
 import { useToast } from '@/ui/Toast'
+import { freelancerView } from './freelancerView'
 import {
   addSubchannel,
   addFreelancer,
@@ -111,6 +112,7 @@ export function AssignmentDialog({
   const [flyers, setFlyers] = useState<string[]>(assignment?.flyer_ids ?? [])
   // spec 035: selección y alta de freelancers desde la asignación.
   const [freelancers, setFreelancers] = useState<number[]>(assignment?.freelancer_ids ?? [])
+  const [freelancerQuery, setFreelancerQuery] = useState('')
   const [addingFreelancer, setAddingFreelancer] = useState<string | null>(null)
   const [freelancerBusy, setFreelancerBusy] = useState(false)
   // Subcanales marcados al crear, en el orden en que se marcaron (el primero propone el horario).
@@ -150,9 +152,11 @@ export function AssignmentDialog({
     if (!freelancerOptions.some((o) => o.id === f.id))
       freelancerOptions.push({ id: f.id, name: `${f.name} (inactivo)` })
 
-  async function createFreelancer() {
+  const freelancerDisplay = freelancerView(freelancerOptions, freelancers, freelancerQuery)
+
+  async function createFreelancer(newName = addingFreelancer ?? '') {
     if (freelancerBusy) return
-    const name = (addingFreelancer ?? '').trim().replace(/\s+/g, ' ')
+    const name = newName.trim().replace(/\s+/g, ' ')
     if (name.length < 2 || name.length > 60)
       return fail('El nombre tiene que tener entre 2 y 60 caracteres.', 'freelancers')
     setFreelancerBusy(true)
@@ -166,6 +170,7 @@ export function AssignmentDialog({
         return fail('Ese referidor ya existe, pero no es un freelancer activo de esta sucursal.', 'freelancers')
       setFreelancers((ids) => [...new Set([...ids, result.id])])
       setAddingFreelancer(null)
+      setFreelancerQuery('')
     } catch (e) {
       fail((e as Error).message, 'freelancers')
     } finally {
@@ -461,20 +466,41 @@ export function AssignmentDialog({
         {withFreelancers && (
           <fieldset aria-label="Freelancers que van" data-field="freelancers" className="flex flex-col gap-2" disabled={freelancerBusy}>
             <legend className="mb-1.5 text-sm font-semibold text-ink/80">Freelancers que van</legend>
-            {freelancerOptions.map((f) => (
-              <label key={f.id} className="flex min-h-9 items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="h-5 w-5 accent-ink"
-                  checked={freelancers.includes(f.id)}
-                  onChange={(e) => setFreelancers((ids) => e.target.checked ? [...ids, f.id] : ids.filter((id) => id !== f.id))}
-                />
-                {f.name}
-              </label>
-            ))}
-            {addingFreelancer === null ? (
-              <Button type="button" onClick={() => setAddingFreelancer('')}>+ Agregar freelancer</Button>
-            ) : (
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-48 flex-1">
+                <Field label="Buscar freelancer">
+                  {(id) => <TextInput id={id} type="search" value={freelancerQuery} onChange={(e) => setFreelancerQuery(e.target.value)} />}
+                </Field>
+              </div>
+              {addingFreelancer === null && (
+                <Button type="button" onClick={() => setAddingFreelancer('')}>+ Agregar freelancer</Button>
+              )}
+            </div>
+            {freelancerDisplay.pickedText !== null && (
+              <p className="text-sm text-ink/70">{freelancerDisplay.pickedText}</p>
+            )}
+            <div className="grid max-h-72 grid-cols-1 overflow-y-auto sm:grid-cols-2">
+              {freelancerDisplay.items.map((f) => (
+                <label key={f.id} className="flex min-h-9 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 accent-ink"
+                    checked={f.checked}
+                    onChange={(e) => setFreelancers((ids) => e.target.checked ? [...ids, f.id] : ids.filter((id) => id !== f.id))}
+                  />
+                  {f.name}
+                </label>
+              ))}
+            </div>
+            {freelancerDisplay.emptyText !== null && (
+              <p className="text-sm text-ink/55">{freelancerDisplay.emptyText}</p>
+            )}
+            {freelancerDisplay.addName !== null && (
+              <Button type="button" onClick={() => void createFreelancer(freelancerDisplay.addName ?? '')} disabled={freelancerBusy}>
+                Agregar «{freelancerDisplay.addName}»
+              </Button>
+            )}
+            {addingFreelancer !== null && (
               <>
                 <Field label="Nombre del freelancer">
                   {(id) => <TextInput id={id} value={addingFreelancer} maxLength={60} onChange={(e) => setAddingFreelancer(e.target.value)} />}
