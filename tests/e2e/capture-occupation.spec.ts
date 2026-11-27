@@ -1,15 +1,12 @@
 import { expect, test } from '@playwright/test'
-import { login, openRegister, pickChannel, randomPhone } from './helpers'
+import { login, openNewWithChannel, randomPhone } from './helpers'
 
 // Spec 031: «Ocupación del cliente» no aparece si el canal de la jornada es Messenger o Marketplace. Cada prueba
 // arranca con el navegador limpio, así que el diálogo de canal sale siempre.
 
 async function openFormWith(page: import('@playwright/test').Page, channel: string) {
   await login(page, 'sup.verdolago')
-  await openRegister(page)
-  await page.getByRole('button', { name: 'Nuevo Registro' }).click()
-  await pickChannel(page, channel, 'Publicación e2e')
-  await expect(page).toHaveURL(/\/registrar\/nuevo$/)
+  await openNewWithChannel(page, channel, 'Publicación e2e')
   await expect(page.getByLabel(/Nombre completo/)).toBeVisible()
 }
 

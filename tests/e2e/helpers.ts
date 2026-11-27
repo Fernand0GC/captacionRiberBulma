@@ -57,3 +57,19 @@ export async function logoutFromManage(page: Page): Promise<void> {
     await expect(page).toHaveURL(/\/login$/, { timeout: 3_000 })
   }).toPass({ timeout: 15_000 })
 }
+
+/**
+ * Abre «Nuevo Registro» con el canal elegido. La ventana del canal solo aparece cuando ya cargó la lista de canales;
+ * si se toca antes, la app entra directo al formulario. Por eso reintenta hasta que la ventana aparezca.
+ */
+export async function openNewWithChannel(page: Page, channel: string, detail = 'Plaza principal'): Promise<void> {
+  await openRegister(page)
+  const picker = page.getByRole('dialog', { name: '¿Por qué canal captas hoy?' })
+  await expect(async () => {
+    if (!page.url().endsWith('/registrar')) await page.goto('/registrar')
+    await page.getByRole('button', { name: 'Nuevo Registro' }).click()
+    await expect(picker).toBeVisible({ timeout: 3000 })
+  }).toPass({ timeout: 45_000 })
+  await pickChannel(page, channel, detail)
+  await expect(page).toHaveURL(/\/registrar\/nuevo$/)
+}

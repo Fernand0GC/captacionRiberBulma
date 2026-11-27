@@ -5,6 +5,7 @@ export type CapturePayload = {
   id: string
   full_name: string
   phone: string
+  sold?: boolean
   product_id?: number
   channel_id?: number
   channel_detail?: string

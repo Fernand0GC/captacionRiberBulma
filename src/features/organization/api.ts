@@ -248,3 +248,22 @@ export async function saveCatalogItem(level: CatalogLevel, item: Record<string, 
     throw toAppError(error)
   }
 }
+
+/** Spec 033: padrón activo de freelancers de la sucursal elegida. */
+export function useFreelancerCount(branch: number | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['org', 'freelancer-count', branch],
+    enabled: enabled && branch !== undefined,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('referrers')
+        .select('id', { count: 'exact', head: true })
+        .eq('branch_id', branch!)
+        .eq('kind', 'freelance')
+        .eq('active', true)
+        .is('merged_into', null)
+      if (error) throw toAppError(error)
+      return count ?? 0
+    },
+  })
+}

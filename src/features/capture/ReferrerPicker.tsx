@@ -10,6 +10,7 @@ import {
   newKindLabel,
   optionToChoice,
   suggest,
+  type NewReferrerKind,
   type ReferrerChoice,
   type ReferrerOption,
 } from './referrerPick'
@@ -31,6 +32,7 @@ export function ReferrerPicker({
   onQueryChange,
   error,
   text = PICKER_TEXT,
+  fixedKind,
 }: {
   options: ReferrerOption[]
   value: ReferrerChoice | null
@@ -41,6 +43,7 @@ export function ReferrerPicker({
   error?: string
   /** Textos de la pantalla (spec 016: la carga de oficina dice «¿Quién te pasó los contactos?»). */
   text?: PickerText
+  fixedKind?: NewReferrerKind
 }) {
   const [adding, setAdding] = useState(false)
 
@@ -68,7 +71,7 @@ export function ReferrerPicker({
 
   const name = cleanName(query)
 
-  if (adding) {
+  if (adding && !fixedKind) {
     return (
       <div className="flex flex-col gap-2 rounded-2xl bg-white p-4 ring-1 ring-ink/10">
         <p className="text-sm text-ink/60">
@@ -99,8 +102,9 @@ export function ReferrerPicker({
     )
   }
 
-  const matches = suggest(options, query)
-  const showAdd = canAdd(options, query)
+  const eligible = fixedKind ? options.filter((o) => o.kind === fixedKind) : options
+  const matches = suggest(eligible, query)
+  const showAdd = canAdd(eligible, query)
 
   return (
     <div className="flex flex-col gap-2">
@@ -141,7 +145,10 @@ export function ReferrerPicker({
             <button
               type="button"
               className="flex min-h-12 items-center justify-between gap-3 px-4 text-left font-semibold text-gold-dark active:bg-sand"
-              onClick={() => setAdding(true)}
+              onClick={() => {
+                if (fixedKind) onChange({ id: null, name, kind: fixedKind })
+                else setAdding(true)
+              }}
             >
               <span className="truncate">＋ Agregar «{name}»</span>
               <span className="shrink-0 text-xs font-normal text-ink/50">nuevo</span>

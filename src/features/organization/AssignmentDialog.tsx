@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { isFreelanceChannel } from '@/features/capture/freelance'
 import { digits, NUMERIC_INPUT } from '@/lib/numeric'
 import { Button } from '@/ui/Button'
 import { Dialog } from '@/ui/Dialog'
@@ -11,6 +12,7 @@ import {
   saveAssignment,
   saveAssignments,
   SHIFT_LABEL,
+  useFreelancerCount,
   useOrgCatalog,
   useOrgMutation,
   useOrgStaff,
@@ -132,6 +134,8 @@ export function AssignmentDialog({
   }
 
   const cat = catalog.data
+  const freelanceMode = isFreelanceChannel(cat?.channels.find((c) => String(c.id) === v.channel_id)?.name)
+  const freelancerCount = useFreelancerCount(branch, freelanceMode)
   const isActiveOrCurrent = (active: boolean, id: number, current: string) => active || String(id) === current
   const strategies = (cat?.strategies ?? []).filter((s) => isActiveOrCurrent(s.active, s.id, v.strategy_id))
   const channels = (cat?.channels ?? []).filter(
@@ -406,6 +410,17 @@ export function AssignmentDialog({
             )}
           </Field>
         </div>
+        {freelanceMode && (
+          <p data-testid="freelancer-count" className="-mt-2 text-sm text-ink/60">
+            {freelancerCount.isError
+              ? 'No se pudo cargar la cantidad de freelancers.'
+              : freelancerCount.data === undefined
+                ? 'Cargando freelancers…'
+                : freelancerCount.data === 0
+                  ? 'No hay freelancers cargados en la sucursal. Se cargan en Referidos.'
+                  : `${freelancerCount.data} ${freelancerCount.data === 1 ? 'freelancer' : 'freelancers'} en la sucursal`}
+          </p>
+        )}
         {editing ? (
           <div data-field="subchannel">
             <Field label="Subcanal" required={needsSub} optional={!needsSub}>
