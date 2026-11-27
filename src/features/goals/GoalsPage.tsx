@@ -21,6 +21,7 @@ import {
   type GoalSet,
 } from './api'
 import { GoalProgress } from './GoalProgress'
+import { shownGoalKeys, todaySubtitle } from './logic'
 
 const EMPTY: GoalSet = { captures: null, contacts: null, potential: null, sales: null }
 const inputCls = 'min-h-11 w-full rounded-xl border border-ink/15 bg-white px-3 text-lg tabular-nums outline-none focus:border-gold focus:ring-4 focus:ring-gold/20'
@@ -87,20 +88,23 @@ function DailyTab({ branch }: { branch: number }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <Card title="Hoy" subtitle={todayGoals.data?.adjusted ? `Meta ajustada${todayGoals.data.note ? ` · ${todayGoals.data.note}` : ''}` : 'Meta base'}>
+      <Card title="Hoy" subtitle={todayGoals.data ? todaySubtitle(todayGoals.data) : 'Meta base'}>
         {!todayGoals.data ? (
           <p className="text-ink/45">Cargando…</p>
-        ) : GOAL_KEYS.some((k) => todayGoals.data!.goals[k] !== null) ? (
+        ) : shownGoalKeys(todayGoals.data).length > 0 ? (
           <GoalProgress data={todayGoals.data} />
         ) : (
           <p className="text-ink/45">Todavía no hay metas. Carga la meta base abajo.</p>
         )}
       </Card>
 
-      <Card title="Meta base" subtitle="Se aplica todos los días. Deja vacío lo que no tenga meta.">
+      <Card title="Meta base" subtitle="Se aplica todos los días. Deja vacío lo que no tenga meta. Si el día tiene Planificación, la meta de Captaciones sale de ahí.">
         <GoalInputs idPrefix="base" value={baseValue} onChange={setBaseVal} />
         <div>
-          <Button disabled={setBase.isPending} onClick={() => void run(setBase.mutateAsync(baseValue).then(() => setBaseVal(null)), '✓ Meta base guardada')}>
+          <Button disabled={setBase.isPending} onClick={() => void run((async () => {
+            await setBase.mutateAsync(baseValue)
+            setBaseVal(null)
+          })(), '✓ Meta base guardada')}>
             Guardar meta base
           </Button>
         </div>

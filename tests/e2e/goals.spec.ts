@@ -25,7 +25,7 @@ test('metas diarias: el encargado pone la base y el Panel muestra el avance de h
   await expect(page.getByText('✓ Ajuste guardado')).toBeVisible()
   await page.goto('/panel')
   await expect(page.getByTestId('goal-captures')).toContainText('/ 40')
-  await expect(page.getByText(/Ajustada · Feria/)).toBeVisible()
+  await expect(page.getByText(/Meta ajustada · Feria/)).toBeVisible() // 034: mismo subtítulo que en Metas
 
   // Limpieza: quitar el ajuste
   await page.goto('/metas')

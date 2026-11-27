@@ -12,6 +12,7 @@ import { useMetrics } from './api'
 import { useDailyReport } from '@/features/monitoring/api'
 import { useGoalsForDay } from '@/features/goals/api'
 import { GoalProgress } from '@/features/goals/GoalProgress'
+import { todaySubtitle } from '@/features/goals/logic'
 import { Card, DayColumns, HBars, InlineBar, StatTile } from './charts'
 
 const PERIODS: { v: Period; label: string }[] = [
@@ -118,7 +119,7 @@ export function DashboardPage() {
         <p className="p-8 text-center text-ink/45">Cargando…</p>
       ) : (
         <>
-          <Card title="Metas de hoy" subtitle={goals.data?.adjusted ? `Ajustada${goals.data.note ? ` · ${goals.data.note}` : ''}` : undefined}>
+          <Card title="Metas de hoy" subtitle={goals.data ? todaySubtitle(goals.data) : undefined}>
             {!goals.data ? (
               <p className="text-ink/45">Cargando…</p>
             ) : hasGoals ? (

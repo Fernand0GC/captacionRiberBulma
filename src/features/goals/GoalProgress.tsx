@@ -1,9 +1,10 @@
 import { SERIES } from '@/features/dashboard/charts'
-import { GOAL_KEYS, GOAL_LABEL, type DayGoals } from './api'
+import { GOAL_LABEL, type DayGoals } from './api'
+import { shownGoalKeys } from './logic'
 
 /** Avance contra la meta: barra (meta = 100%), "34 / 50" y %. Solo las etapas con meta. */
 export function GoalProgress({ data, compact }: { data: DayGoals; compact?: boolean }) {
-  const keys = GOAL_KEYS.filter((k) => data.goals[k] !== null && data.goals[k] !== undefined)
+  const keys = shownGoalKeys(data)
   if (!keys.length) return null
   return (
     <ul className={`grid gap-4 ${compact ? 'sm:grid-cols-2' : 'sm:grid-cols-2 xl:grid-cols-4'}`}>

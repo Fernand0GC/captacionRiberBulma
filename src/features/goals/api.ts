@@ -3,8 +3,16 @@ import { toAppError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 
 export type GoalKey = 'captures' | 'contacts' | 'potential' | 'sales'
+export type ShownGoalKey = GoalKey | 'shares'
 export type GoalSet = Record<GoalKey, number | null>
-export type DayGoals = { day: string; adjusted: boolean; note: string | null; goals: GoalSet; actuals: Record<GoalKey, number> }
+export type DayGoals = {
+  day: string
+  adjusted: boolean
+  note: string | null
+  captures_from_plan: boolean
+  goals: GoalSet & { shares: number | null }
+  actuals: Record<ShownGoalKey, number>
+}
 export type Override = GoalSet & { day: string; note: string | null }
 export type MonthlyRow = {
   branch_id: number
@@ -17,11 +25,12 @@ export type MonthlyRow = {
   daily_target: number | null
 }
 
-export const GOAL_LABEL: Record<GoalKey, string> = {
+export const GOAL_LABEL: Record<ShownGoalKey, string> = {
   captures: 'Captaciones',
   contacts: 'Contactos (recaptación)',
   potential: 'Clientes potenciales',
   sales: 'Ventas',
+  shares: 'Compartidas',
 }
 export const GOAL_KEYS: GoalKey[] = ['captures', 'contacts', 'potential', 'sales']
 export const LINE_LABEL = { phones: 'CELULARES', appliances: 'ELECTROS' } as const
