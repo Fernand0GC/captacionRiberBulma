@@ -7,9 +7,9 @@ import { useToast } from '@/ui/Toast'
 import { saveCatalogItem, useOrgCatalog, useProfileNames, type CatalogLevel, type Channel, type Subchannel } from './api'
 
 type Item = { id?: number; name: string; sort: number; active: boolean }
-type Flag = 'uses_place' | 'uses_goal' | 'uses_share_goal' | 'uses_flyers'
+type Flag = 'uses_place' | 'uses_goal' | 'uses_share_goal' | 'uses_flyers' | 'uses_freelancers'
 /** Valor de una marca que todavía no existe en el elemento (fila nueva). */
-const FLAG_DEFAULT: Record<Flag, boolean> = { uses_place: true, uses_goal: true, uses_share_goal: false, uses_flyers: false }
+const FLAG_DEFAULT: Record<Flag, boolean> = { uses_place: true, uses_goal: true, uses_share_goal: false, uses_flyers: false, uses_freelancers: false }
 type FlagDef = { key: Flag; label: string }
 const PLACE_FLAGS: FlagDef[] = [{ key: 'uses_place', label: 'Pide ubicación' }]
 /** Por subcanal; en el canal valen para asignaciones sin subcanal y como valor inicial de subcanales nuevos (004). */
@@ -18,7 +18,7 @@ const GOAL_FLAGS: FlagDef[] = [
   { key: 'uses_share_goal', label: 'Compartidas' },
 ]
 /** Canal: metas y «Volanteras que van» (spec 006, FR-008). */
-const CHANNEL_FLAGS: FlagDef[] = [...GOAL_FLAGS, { key: 'uses_flyers', label: 'Pide volanteras' }]
+const CHANNEL_FLAGS: FlagDef[] = [...GOAL_FLAGS, { key: 'uses_flyers', label: 'Pide volanteras' }, { key: 'uses_freelancers', label: 'Freelancers' }]
 type Draft = Item &
   Partial<Record<Flag, boolean>> &
   Partial<Pick<Subchannel, 'morning_start' | 'morning_end' | 'afternoon_start' | 'afternoon_end'>>

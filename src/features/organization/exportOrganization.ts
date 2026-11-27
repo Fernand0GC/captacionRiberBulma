@@ -65,6 +65,7 @@ export async function exportOrganization(rows: Assignment[], scopeName: string, 
     { header: 'Resul. compartidas', width: 11, numFmt: '#,##0', value: (r) => r.share_result },
     { header: 'Compartidas verificadas', width: 12, numFmt: '#,##0', value: (r) => r.share_verified },
     { header: 'Volanteras', width: 30, value: (r) => r.flyers.map((f) => f.name).join(', ') || null },
+    { header: 'Freelancers', width: 30, value: (r) => (r.freelancers ?? []).map((f) => f.name).join(', ') || null },
     { header: 'Observaciones', width: 36, value: (r) => r.notes },
   ]
   const header = ws.getRow(6)

@@ -311,3 +311,8 @@ export function goalsText(r: Pick<Assignment, 'goal' | 'share_goal'>): string | 
 export function verifiedText(r: Pick<Assignment, 'share_verified'>): string | null {
   return r.share_verified === null ? null : `verificadas ${r.share_verified}`
 }
+
+/** spec 035: el canal pide «Freelancers que van». */
+export function usesFreelancers(cat: Pick<Catalog, 'channels'> | undefined, channelId: Id): boolean {
+  return cat?.channels.find((x) => same(x.id, channelId))?.uses_freelancers ?? false
+}

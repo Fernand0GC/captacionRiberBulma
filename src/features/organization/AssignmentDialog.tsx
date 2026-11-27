@@ -9,6 +9,8 @@ import { Select } from '@/ui/Select'
 import { useToast } from '@/ui/Toast'
 import {
   addSubchannel,
+  addFreelancer,
+  useOrgFreelancers,
   saveAssignment,
   saveAssignments,
   SHIFT_LABEL,
@@ -32,6 +34,7 @@ import {
   sameSlot,
   suggestedTimes,
   usesFlyers,
+  usesFreelancers,
   type GoalFlags,
 } from './logic'
 
@@ -106,6 +109,10 @@ export function AssignmentDialog({
   })
   // Volanteras que van (spec 006, US3): ids marcados.
   const [flyers, setFlyers] = useState<string[]>(assignment?.flyer_ids ?? [])
+  // spec 035: selección y alta de freelancers desde la asignación.
+  const [freelancers, setFreelancers] = useState<number[]>(assignment?.freelancer_ids ?? [])
+  const [addingFreelancer, setAddingFreelancer] = useState<string | null>(null)
+  const [freelancerBusy, setFreelancerBusy] = useState(false)
   // Subcanales marcados al crear, en el orden en que se marcaron (el primero propone el horario).
   const [picked, setPicked] = useState<number[]>([])
   const [goals, setGoals] = useState<Record<number, Goals>>({})
@@ -135,7 +142,36 @@ export function AssignmentDialog({
 
   const cat = catalog.data
   const freelanceMode = isFreelanceChannel(cat?.channels.find((c) => String(c.id) === v.channel_id)?.name)
-  const freelancerCount = useFreelancerCount(branch, freelanceMode)
+  const withFreelancers = usesFreelancers(cat, v.channel_id)
+  const freelancerCount = useFreelancerCount(branch, freelanceMode || withFreelancers)
+  const freelancerList = useOrgFreelancers(branch, withFreelancers)
+  const freelancerOptions = [...(freelancerList.data ?? [])]
+  for (const f of assignment?.freelancers ?? [])
+    if (!freelancerOptions.some((o) => o.id === f.id))
+      freelancerOptions.push({ id: f.id, name: `${f.name} (inactivo)` })
+
+  async function createFreelancer() {
+    if (freelancerBusy) return
+    const name = (addingFreelancer ?? '').trim().replace(/\s+/g, ' ')
+    if (name.length < 2 || name.length > 60)
+      return fail('El nombre tiene que tener entre 2 y 60 caracteres.', 'freelancers')
+    setFreelancerBusy(true)
+    setErr(undefined)
+    try {
+      const result = await addFreelancer({ branch, name })
+      const refreshed = await freelancerList.refetch()
+      if (refreshed.error) throw refreshed.error
+      if (!refreshed.data?.some((f) => f.id === result.id) &&
+          !assignment?.freelancer_ids?.includes(result.id))
+        return fail('Ese referidor ya existe, pero no es un freelancer activo de esta sucursal.', 'freelancers')
+      setFreelancers((ids) => [...new Set([...ids, result.id])])
+      setAddingFreelancer(null)
+    } catch (e) {
+      fail((e as Error).message, 'freelancers')
+    } finally {
+      setFreelancerBusy(false)
+    }
+  }
   const isActiveOrCurrent = (active: boolean, id: number, current: string) => active || String(id) === current
   const strategies = (cat?.strategies ?? []).filter((s) => isActiveOrCurrent(s.active, s.id, v.strategy_id))
   const channels = (cat?.channels ?? []).filter(
@@ -304,6 +340,7 @@ export function AssignmentDialog({
       place: show.place ? v.place : '',
       notes: v.notes.trim(),
       flyer_ids: withFlyers ? flyers : [],
+      freelancer_ids: withFreelancers ? freelancers : [],
     }
     // Valida todas las metas antes de marcar el guardado, para que un error no deje la marca puesta.
     let one: AssignmentInput | undefined
@@ -350,7 +387,7 @@ export function AssignmentDialog({
     }
   }
 
-  const busy = saveOne.isPending || saveMany.isPending
+  const busy = saveOne.isPending || saveMany.isPending || freelancerBusy
   const notesOver = v.notes.trim().length > NOTES_MAX
   return (
     <Dialog
@@ -410,7 +447,7 @@ export function AssignmentDialog({
             )}
           </Field>
         </div>
-        {freelanceMode && (
+        {(freelanceMode || withFreelancers) && (
           <p data-testid="freelancer-count" className="-mt-2 text-sm text-ink/60">
             {freelancerCount.isError
               ? 'No se pudo cargar la cantidad de freelancers.'
@@ -420,6 +457,32 @@ export function AssignmentDialog({
                   ? 'No hay freelancers cargados en la sucursal. Se cargan en Referidos.'
                   : `${freelancerCount.data} ${freelancerCount.data === 1 ? 'freelancer' : 'freelancers'} en la sucursal`}
           </p>
+        )}
+        {withFreelancers && (
+          <fieldset aria-label="Freelancers que van" data-field="freelancers" className="flex flex-col gap-2" disabled={freelancerBusy}>
+            <legend className="mb-1.5 text-sm font-semibold text-ink/80">Freelancers que van</legend>
+            {freelancerOptions.map((f) => (
+              <label key={f.id} className="flex min-h-9 items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 accent-ink"
+                  checked={freelancers.includes(f.id)}
+                  onChange={(e) => setFreelancers((ids) => e.target.checked ? [...ids, f.id] : ids.filter((id) => id !== f.id))}
+                />
+                {f.name}
+              </label>
+            ))}
+            {addingFreelancer === null ? (
+              <Button type="button" onClick={() => setAddingFreelancer('')}>+ Agregar freelancer</Button>
+            ) : (
+              <>
+                <Field label="Nombre del freelancer">
+                  {(id) => <TextInput id={id} value={addingFreelancer} maxLength={60} onChange={(e) => setAddingFreelancer(e.target.value)} />}
+                </Field>
+                <Button type="button" onClick={() => void createFreelancer()} disabled={freelancerBusy}>Agregar</Button>
+              </>
+            )}
+          </fieldset>
         )}
         {editing ? (
           <div data-field="subchannel">

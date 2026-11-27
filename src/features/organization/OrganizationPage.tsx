@@ -144,6 +144,7 @@ function Verified({ r }: { r: Assignment }) {
   )
 }
 
+const freelancerNames = (r: Assignment) => (r.freelancers ?? []).map((f) => f.name).join(', ')
 const flyerNames = (r: Assignment) => r.flyers.map((f) => f.name).join(', ')
 const countText = (n: number) => (n === 1 ? '1 asignación' : `${n} asignaciones`)
 
@@ -200,6 +201,7 @@ function CompactLine({
               </td>
               <td rowSpan={n} className="break-words px-3 py-2 align-top text-ink/60">
                 {r.channel}&nbsp;<span className="text-ink/40">›</span>
+                {!!r.freelancers?.length && <span className="block text-xs">Freelancers: {freelancerNames(r)}</span>}
                 {r.flyers.length > 0 && <span className="block text-xs">Volanteras: {flyerNames(r)}</span>}
               </td>
             </>
@@ -788,6 +790,9 @@ export function OrganizationPage() {
                       </p>
                       {r.flyers.length > 0 && (
                         <p className="text-sm text-ink/70">Volanteras: {flyerNames(r)}</p>
+                      )}
+                      {!!r.freelancers?.length && (
+                        <p className="text-sm text-ink/70">Freelancers: {freelancerNames(r)}</p>
                       )}
                       {r.notes && <p className="mt-1 text-sm italic text-ink/70">“{r.notes}”</p>}
                       <div className="mt-2">{actions(r)}</div>

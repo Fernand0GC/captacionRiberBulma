@@ -40,9 +40,13 @@ export type Assignment = {
   uses_goal: boolean
   uses_share_goal: boolean
   /** El canal pide volanteras que acompañan (spec 006). */
+  /** spec 035: opcional al leer datos anteriores a la migración. */
+  uses_freelancers?: boolean
   uses_flyers: boolean
+  freelancer_ids?: number[]
   flyer_ids: string[]
   /** Volanteras que van, con su nombre (también las dadas de baja). */
+  freelancers?: { id: number; name: string }[]
   flyers: { id: string; name: string }[]
   /** Compartidas verificadas por Cobros (spec 006). null = sin verificar. */
   share_verified: number | null
@@ -72,6 +76,8 @@ export type Channel = {
   uses_goal: boolean
   uses_share_goal: boolean
   /** Pide «Volanteras que van» (spec 006). */
+  /** spec 035: opcional al leer datos anteriores a la migración. */
+  uses_freelancers?: boolean
   uses_flyers: boolean
 }
 export type Subchannel = {
@@ -114,6 +120,7 @@ export type AssignmentInput = {
   /** Hasta 300 caracteres; vacío = sin observaciones. */
   notes: string
   /** Volanteras que acompañan; la base las vacía si el canal no las pide. */
+  freelancer_ids: number[]
   flyer_ids: string[]
 }
 
@@ -140,6 +147,7 @@ const INVALID_DETAIL: Record<string, string> = {
   range: 'Elige un rango de hasta 31 días.',
   day: 'Elige otro día.',
   place: 'El lugar admite hasta 200 caracteres.',
+  freelancers: 'Los freelancers tienen que estar activos y ser de esta sucursal.',
   flyers: 'Las volanteras tienen que estar activas y ser de esta sucursal.',
 }
 
@@ -149,6 +157,8 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
     const detail = (error as { details?: string | null }).details ?? ''
     // spec 032, obs. 8: conservar el mensaje de pendientes en el formulario y al copiar el día.
     if (error.message === 'results_pending') throw new Error(resultsPendingMessage(detail))
+    if (fn === 'org_add_freelancer' && error.message === 'invalid_input' && detail === 'name')
+      throw new Error('El nombre tiene que tener entre 2 y 60 caracteres.')
     if (error.message === 'invalid_input' && detail in INVALID_DETAIL) throw new Error(INVALID_DETAIL[detail])
     throw toAppError(error)
   }
@@ -249,21 +259,30 @@ export async function saveCatalogItem(level: CatalogLevel, item: Record<string, 
   }
 }
 
-/** Spec 033: padrón activo de freelancers de la sucursal elegida. */
-export function useFreelancerCount(branch: number | undefined, enabled: boolean) {
+/** spec 035: padrón activo compartido por las casillas y el conteo de la spec 033. */
+export function useOrgFreelancers(branch: number | undefined, enabled = true) {
   return useQuery({
-    queryKey: ['org', 'freelancer-count', branch],
+    queryKey: ['org', 'freelancers', branch],
     enabled: enabled && branch !== undefined,
-    queryFn: async () => {
-      const { count, error } = await supabase
+    queryFn: async (): Promise<{ id: number; name: string }[]> => {
+      const { data, error } = await supabase
         .from('referrers')
-        .select('id', { count: 'exact', head: true })
+        .select('id, name')
         .eq('branch_id', branch!)
         .eq('kind', 'freelance')
         .eq('active', true)
         .is('merged_into', null)
+        .order('name')
       if (error) throw toAppError(error)
-      return count ?? 0
+      return data
     },
   })
 }
+
+export function useFreelancerCount(branch: number | undefined, enabled: boolean) {
+  const query = useOrgFreelancers(branch, enabled)
+  return { ...query, data: query.data?.length }
+}
+
+export const addFreelancer = (v: { branch: number; name: string }) =>
+  rpc<{ id: number; existed: boolean }>('org_add_freelancer', { p_branch: v.branch, p_name: v.name })
