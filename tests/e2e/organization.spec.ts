@@ -158,13 +158,17 @@ test('organización (004): carga varios subcanales con dos metas, registra compa
   const bc = dlg.getByRole('group', { name: 'Metas de Barrios chinos - grupos' })
   await wa.getByRole('textbox', { name: /^Meta de captación/ }).fill('20')
   await dlg.getByRole('button', { name: 'Guardar' }).click()
-  // 007: compartidas es opcional; falta la captación de Barrios chinos. El aviso queda junto a los botones (FR-006)
-  // y el foco va al campo que falta (FR-007).
-  await expect(dlg.getByTestId('form-error')).toHaveText('Escribe la meta de captación de «Barrios chinos - grupos».')
+  // 030: la meta de compartidas es obligatoria donde se pide (reemplaza la FR-011 de la 007). Falta la de Mensajería
+  // WhatsApp: el aviso queda junto a los botones (007, FR-006) y el foco va al campo que falta (FR-007).
+  await expect(wa.getByText('Meta de compartidas (opcional)')).toHaveCount(0)
+  await expect(dlg.getByTestId('form-error')).toHaveText('Escribe la meta de compartidas de «Mensajería WhatsApp».')
   await expect(dlg.getByTestId('form-error')).toBeInViewport()
-  await expect(bc.getByRole('textbox', { name: /^Meta de captación/ })).toBeFocused()
-  await expect(wa.getByText('Meta de compartidas (opcional)')).toBeVisible()
+  await expect(wa.getByRole('textbox', { name: /^Meta de compartidas/ })).toBeFocused()
   await wa.getByRole('textbox', { name: /^Meta de compartidas/ }).fill('15')
+  await dlg.getByRole('button', { name: 'Guardar' }).click()
+  // Luego falta la captación de Barrios chinos (sin cambio).
+  await expect(dlg.getByTestId('form-error')).toHaveText('Escribe la meta de captación de «Barrios chinos - grupos».')
+  await expect(bc.getByRole('textbox', { name: /^Meta de captación/ })).toBeFocused()
   await bc.getByRole('textbox', { name: /^Meta de captación/ }).fill('10')
   await bc.getByRole('textbox', { name: /^Meta de compartidas/ }).fill('30')
   await dlg.getByRole('button', { name: 'Guardar' }).click()

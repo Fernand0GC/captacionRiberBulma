@@ -64,14 +64,11 @@ select tests.login_as('00000000-0000-4000-8000-000000000007');
 select throws_ok($$ select public.org_copy_day_v2(5::smallint, (select d1 from k), (select d1 + 4 from k)) $$,
   'P0001', 'forbidden', 'el encargado de otra sucursal no puede copiar');
 
--- Meta de compartidas opcional (FR-011) -----------------------------------------------------------------------------
+-- Meta de compartidas: la FR-011 (opcional) la reemplaza la spec 030 → obligatoria donde se pide --------------------
 select tests.login_as('00000000-0000-4000-8000-000000000003');
-insert into ids select 'share', public.org_save(pg_temp.call((select d1 from k), '08:30', '08:45',
-  jsonb_build_object('channel_id', (select compartidas from k), 'subchannel_id', (select sh_wa from k), 'goal', null)));
-select tests.logout();
-select is((select share_goal from public.org_assignments where id = (select id from ids where name = 'share')), null,
-  'Compartidas WhatsApp sin meta de compartidas se guarda');
-select tests.login_as('00000000-0000-4000-8000-000000000003');
+select throws_ok(format($$ select public.org_save(%L) $$, pg_temp.call((select d1 from k), '08:30', '08:45',
+  jsonb_build_object('channel_id', (select compartidas from k), 'subchannel_id', (select sh_wa from k), 'goal', null))),
+  'P0001', 'invalid_input', 'Compartidas WhatsApp sin meta de compartidas se rechaza (spec 030)');
 select is(public.org_save(pg_temp.call((select d1 from k), '09:00', '09:30', '{"share_goal": 15}')) is not null, true,
   'captación con meta se guarda (sin cambio)');
 select throws_ok(format($$ select public.org_save(%L) $$, pg_temp.call((select d1 from k), '09:30', '10:00', '{"goal": null}')),

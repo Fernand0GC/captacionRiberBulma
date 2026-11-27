@@ -254,8 +254,8 @@ export function AssignmentDialog({
     .map(clashLabel)
 
   /**
-   * Metas según la marca: la que no aplica va vacía. La de captación es obligatoria si aplica; la de compartidas es
-   * opcional (spec 007, FR-011). `field` es el sufijo del campo (`-<subcanal>` en una carga múltiple).
+   * Metas según la marca: la que no aplica va vacía. Captación y compartidas son obligatorias si aplican (spec 030).
+   * `field` es el sufijo del campo (`-<subcanal>` en una carga múltiple).
    */
   function readGoals(
     flags: GoalFlags,
@@ -265,7 +265,7 @@ export function AssignmentDialog({
   ): { goal: number | null; share_goal: number | null } | FormError {
     const goal = flags.goal ? parseGoal(g.goal, `meta de captación${of}`) : null
     if (typeof goal === 'string') return { message: goal, field: `goal${field}` }
-    const share = flags.share ? parseGoal(g.share_goal, `meta de compartidas${of}`, true) : null
+    const share = flags.share ? parseGoal(g.share_goal, `meta de compartidas${of}`) : null
     if (typeof share === 'string') return { message: share, field: `share_goal${field}` }
     return { goal, share_goal: share }
   }
@@ -628,7 +628,7 @@ export function AssignmentDialog({
   )
 }
 
-/** Campos de meta según la marca efectiva: captación obligatoria; compartidas opcional (spec 007, FR-011). */
+/** Campos de meta según la marca efectiva: captación y compartidas obligatorias si aplican (spec 030). */
 function GoalFields({
   flags,
   goals,
@@ -666,7 +666,7 @@ function GoalFields({
   return (
     <div className="grid grid-cols-2 gap-2">
       {flags.goal && input('goal', 'Meta de captación (contactos)', 'Ej.: 30', true)}
-      {flags.share && input('share_goal', 'Meta de compartidas', 'Ej.: 15', false)}
+      {flags.share && input('share_goal', 'Meta de compartidas', 'Ej.: 15', true)}
     </div>
   )
 }

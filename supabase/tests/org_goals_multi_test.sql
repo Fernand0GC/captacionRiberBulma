@@ -56,12 +56,10 @@ select tests.login_as('00000000-0000-4000-8000-000000000003');
 select throws_ok(format($$ select public.org_save(%L) $$,
   pg_temp.base(jsonb_build_object('subchannel_id', (select whatsapp from k), 'share_goal', 15))),
   'P0001', 'invalid_input', 'WhatsApp sin meta de captación rechazado');
--- 007 (FR-011): la meta de compartidas es opcional; se borra enseguida para no alterar la copia de más abajo.
-insert into ids select 'wa_no_share', public.org_save(
-  pg_temp.base(jsonb_build_object('subchannel_id', (select whatsapp from k), 'goal', 20)));
-select is(pg_temp.row_of((select id from ids where name = 'wa_no_share')) ->> 'share_goal', null,
-  'WhatsApp sin meta de compartidas se guarda (007: opcional)');
-select public.org_delete((select id from ids where name = 'wa_no_share'));
+-- 030: la meta de compartidas vuelve a ser obligatoria donde se pide (reemplaza la FR-011 de la 007).
+select throws_ok(format($$ select public.org_save(%L) $$,
+  pg_temp.base(jsonb_build_object('subchannel_id', (select whatsapp from k), 'goal', 20))),
+  'P0001', 'invalid_input', 'WhatsApp sin meta de compartidas rechazado (030)');
 select throws_ok(format($$ select public.org_save(%L) $$,
   pg_temp.base(jsonb_build_object('subchannel_id', (select whatsapp from k), 'goal', 20, 'share_goal', 10000))),
   'P0001', 'invalid_input', 'meta de compartidas fuera de rango rechazada');
@@ -111,7 +109,7 @@ select tests.logout(); -- org_assignments solo se lee por RPC
 select is((select count(*)::int from public.org_assignments where profile_id = '00000000-0000-4000-8000-000000000005'
   and work_date = (select tomorrow from k)), 0, 'todo o nada: no quedó ninguna fila de la carga fallida');
 select tests.login_as('00000000-0000-4000-8000-000000000003');
-insert into ids select 'single', unnest(public.org_save_many(pg_temp.base(jsonb_build_object('channel_id', (select no_subs from k), 'start_time', '14:00', 'end_time', '15:00'))));
+insert into ids select 'single', unnest(public.org_save_many(pg_temp.base(jsonb_build_object('channel_id', (select no_subs from k), 'start_time', '14:00', 'end_time', '15:00', 'share_goal', 40)))); -- 030: el canal pide compartidas
 select tests.logout(); -- org_assignments solo se lee por RPC
 select ok((select batch_id is null and subchannel_id is null from public.org_assignments where id = (select id from ids where name = 'single')),
   'sin ítems: una asignación sin subcanal y sin batch_id');
