@@ -5,6 +5,7 @@ import { Dialog } from '@/ui/Dialog'
 import { Field, TextInput } from '@/ui/Field'
 import { useToast } from '@/ui/Toast'
 import { setAssignmentResult, useOrgMutation, type Assignment } from './api'
+import { resultFields } from './logic'
 
 const NOTES_MAX = 300
 
@@ -19,6 +20,7 @@ const parseResult = (raw: string): number | null | undefined => {
 /**
  * Resultado y observaciones de una asignación (spec 003, US2). Desde la 004 pide «Captados» y «Compartidas» por
  * separado, según las marcas de la fila o si ya hay meta o resultado cargado. Vacío = vuelve a «sin resultado».
+ * Spec 040: las tareas por cumplimiento solo piden «¿Se hizo?», salvo números ya guardados.
  */
 export function ResultDialog({ assignment: a, onClose }: { assignment: Assignment; onClose: () => void }) {
   const toast = useToast()
@@ -26,12 +28,9 @@ export function ResultDialog({ assignment: a, onClose }: { assignment: Assignmen
   const [result, setResult] = useState(asText(a.result))
   const [shareResult, setShareResult] = useState(asText(a.share_result))
   const [done, setDone] = useState(a.done)
-  const showDone = !a.uses_goal && !a.uses_share_goal && a.goal === null && a.share_goal === null
+  const { done: showDone, capture: showCapture, share: showShare } = resultFields(a)
   const [notes, setNotes] = useState(a.notes ?? '')
   const [err, setErr] = useState<string>()
-  const showShare = a.uses_share_goal || a.share_goal !== null || a.share_result !== null
-  // Sin ninguna meta (p. ej. Tareas administrativas) igual se puede anotar un resultado de captación.
-  const showCapture = a.uses_goal || a.goal !== null || a.result !== null || !showShare
 
   async function submit() {
     const n = showCapture ? parseResult(result) : a.result

@@ -317,6 +317,22 @@ export function usesFreelancers(cat: Pick<Catalog, 'channels'> | undefined, chan
   return cat?.channels.find((x) => same(x.id, channelId))?.uses_freelancers ?? false
 }
 
+/** spec 040: las tareas por cumplimiento solo piden números si ya tienen resultados guardados. */
+export function resultFields(a: {
+  uses_goal: boolean
+  uses_share_goal: boolean
+  goal: number | null
+  share_goal: number | null
+  result: number | null
+  share_result: number | null
+}): { done: boolean; capture: boolean; share: boolean } {
+  return {
+    done: !a.uses_goal && !a.uses_share_goal && a.goal === null && a.share_goal === null,
+    capture: a.uses_goal || a.goal !== null || a.result !== null,
+    share: a.uses_share_goal || a.share_goal !== null || a.share_result !== null,
+  }
+}
+
 /** spec 039: los números tienen prioridad sobre la marca de tarea hecha. */
 export function resultState(a: {
   result: number | null

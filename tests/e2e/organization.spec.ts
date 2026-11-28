@@ -531,3 +531,38 @@ test('organización (019): «Acomodo de tienda» es un canal de Tienda, sin subc
   await expect(page.getByText('✓ Asignación agregada')).toBeVisible()
   await expect(page.getByTestId('assignment-card').filter({ hasText: 'Acomodo de tienda' })).toContainText('09:00–10:00')
 })
+
+// Spec 040 (obs. 14 de ventas): una tarea por cumplimiento no pide ningún número al registrar el resultado.
+test('organización (040): una tarea sin meta solo pregunta «¿Se hizo?» al registrar el resultado', async ({ page }) => {
+  page.on('dialog', (d) => void d.accept()) // confirmación al quitar
+  await login(page, 'enc.trinidad')
+  await expect(page).toHaveURL(/\/panel/)
+  await page.goto('/planificacion')
+  // Hoy y no el día siguiente: el resultado solo se registra el mismo día (spec 032).
+  await page.getByRole('button', { name: '＋ Mañana' }).click()
+  const dlg = page.getByRole('dialog', { name: 'Nueva asignación' })
+  await dlg.getByRole('combobox', { name: /^Persona/ }).selectOption({ label: 'Volantera Trinidad' })
+  await dlg.getByRole('combobox', { name: /^Estrategia/ }).selectOption({ label: 'Tienda' })
+  await dlg.getByRole('combobox', { name: /^Canal/ }).selectOption({ label: 'Creación de contenido' })
+  await expect(dlg.getByTestId('no-goal-note')).toBeVisible()
+  await dlg.getByLabel('Hora inicio').fill('09:00')
+  await dlg.getByLabel('Hora fin').fill('09:30')
+  await dlg.getByRole('button', { name: 'Guardar' }).click()
+  await expect(page.getByText('✓ Asignación agregada')).toBeVisible()
+
+  const card = page.getByTestId('assignment-card').filter({ hasText: 'Creación de contenido' })
+  await card.getByRole('button', { name: 'Resultado' }).click()
+  const res = page.getByRole('dialog', { name: 'Resultado' })
+  await expect(res.getByRole('group', { name: '¿Se hizo?' })).toBeVisible()
+  await expect(res.getByRole('textbox', { name: /^Captados/ })).toHaveCount(0)
+  await expect(res.getByRole('textbox', { name: /^Compartidas/ })).toHaveCount(0)
+  await expect(res.getByRole('textbox', { name: /^Observaciones/ })).toBeVisible()
+  await res.getByRole('button', { name: 'Hecho', exact: true }).click()
+  await res.getByRole('button', { name: 'Guardar' }).click()
+  await expect(page.getByText('✓ Resultado guardado')).toBeVisible()
+  await expect(card).toContainText('Hecho')
+
+  // Limpieza
+  await card.getByRole('button', { name: 'Quitar asignación de Volantera Trinidad' }).click()
+  await expect(card).toHaveCount(0)
+})
