@@ -1,0 +1,1 @@
+-- Spec 039: el auxiliar registra el resultado de sus tareas (lo programa Codex; ver specs/039-auxiliar-registra-resultado).
