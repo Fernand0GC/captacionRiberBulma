@@ -1,6 +1,6 @@
 # Spec 039 · El auxiliar registra el resultado de sus tareas en «Mi plan»
 
-**Rama**: `feat/039-auxiliar-registra-resultado` · **Creada**: 2026-11-28 · **Estado**: En curso.
+**Rama**: `feat/039-auxiliar-registra-resultado` · **Creada**: 2026-11-28 · **Estado**: Implementada 2026-11-28 (rama local, sin push ni producción).
 
 **Origen**: observación 13 de ventas («APP - CAPTACION», 2026-11-28): «que el mismo encargado de la tarea pueda
 registrar el resultado; por ejemplo los aux tienen sus tareas asignadas pero solo las pueden ver». Captura de «Mi plan»
@@ -125,3 +125,28 @@ y el encargado ve quién lo registró y lo puede corregir.
 - Que el auxiliar no pueda tocar lo que el encargado corrigió (D3).
 - Que «Hecho / No hecho» alcance para las tareas sin meta, o si quieren foto o comentario obligatorio.
 - Si el supervisor o las volanteras/freelancers de la tarea también deberían registrar.
+
+## Evidencia (2026-11-28)
+
+| Comprobación | Resultado |
+|---|---|
+| pgTAP `own_result_test.sql` | 30/30 |
+| pgTAP del proyecto | 53/58 archivos; los 5 rojos son los de siempre por datos locales (acomodo_tienda_channel, capture_high_interest, followup, org_catalog, referrals) |
+| Vitest | 453/453 (incluye `ownResult.test.ts`) |
+| tsc / eslint | 0 errores |
+| Navegador (aux.verdolago y enc.verdolago, 360 px y escritorio) | 16/16 |
+
+Ajuste de prueba: `tests/unit/organization.test.ts` suma los 4 campos nuevos de `Assignment` en su dato de ejemplo
+(cambio de contrato de esta spec).
+
+## Nota para Fer
+
+- Archivos: `src/features/organization/{OrganizationPage,ResultDialog,api,logic,exportOrganization}.ts(x)`.
+- Migración `20261128000100_own_result.sql`: 3 columnas nuevas en `org_assignments`, función nueva
+  `org_report_result`, reemplaza las dos `org_set_result` y `org_list`. **Orden: migración primero, push después**
+  (la app nueva llama a `org_report_result`; la app vieja sigue funcionando con la base nueva).
+- Producción: `RB-union/precheck-039-produccion.sql` (solo lectura, huellas md5) y luego
+  `RB-union/migraciones-039-produccion.sql` (con registro en `schema_migrations`).
+- Verificar: con una cuenta de auxiliar, «Mi plan» muestra «Registrar resultado» en las tareas de hoy.
+- Volver atrás: ver «Deshacer» en el encabezado de la migración (cuerpos en `codex/vigentes.sql`).
+- Riesgo nuevo: el auxiliar ahora escribe `result`, que alimenta Metas (spec 037). Lo puede corregir el encargado.

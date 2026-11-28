@@ -63,10 +63,12 @@ export async function exportOrganization(rows: Assignment[], scopeName: string, 
     { header: 'Resul.', width: 8, numFmt: '#,##0', value: (r) => r.result },
     { header: 'Meta compartidas', width: 11, numFmt: '#,##0', value: (r) => r.share_goal },
     { header: 'Resul. compartidas', width: 11, numFmt: '#,##0', value: (r) => r.share_result },
+    { header: 'Hecho', width: 10, value: (r) => r.done === null ? null : r.done ? 'Sí' : 'No' },
     { header: 'Compartidas verificadas', width: 12, numFmt: '#,##0', value: (r) => r.share_verified },
     { header: 'Volanteras', width: 30, value: (r) => r.flyers.map((f) => f.name).join(', ') || null },
     { header: 'Freelancers', width: 30, value: (r) => (r.freelancers ?? []).map((f) => f.name).join(', ') || null },
     { header: 'Observaciones', width: 36, value: (r) => r.notes },
+    { header: 'Registrado por', width: 28, value: (r) => r.result_by_name },
   ]
   const header = ws.getRow(6)
   columns.forEach((c, i) => {

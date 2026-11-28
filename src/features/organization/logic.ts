@@ -316,3 +316,26 @@ export function verifiedText(r: Pick<Assignment, 'share_verified'>): string | nu
 export function usesFreelancers(cat: Pick<Catalog, 'channels'> | undefined, channelId: Id): boolean {
   return cat?.channels.find((x) => same(x.id, channelId))?.uses_freelancers ?? false
 }
+
+/** spec 039: los números tienen prioridad sobre la marca de tarea hecha. */
+export function resultState(a: {
+  result: number | null
+  share_result: number | null
+  done: boolean | null
+}): 'score' | 'done' | 'not_done' | 'pending' {
+  if (a.result !== null || a.share_result !== null) return 'score'
+  if (a.done === true) return 'done'
+  if (a.done === false) return 'not_done'
+  return 'pending'
+}
+
+/** spec 039: solo se identifica a otra persona cuando se conoce su nombre. */
+export function registeredBy(a: {
+  profile_id: string
+  result_by: string | null
+  result_by_name: string | null
+}): string | null {
+  return a.result_by && a.result_by !== a.profile_id && a.result_by_name
+    ? `Registrado por ${a.result_by_name}`
+    : null
+}

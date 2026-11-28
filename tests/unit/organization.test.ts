@@ -64,6 +64,11 @@ const row = (over: Partial<Assignment> = {}): Assignment => ({
   result: null,
   share_goal: null,
   share_result: null,
+  // spec 039: campos nuevos del contrato de Assignment.
+  done: null,
+  result_by: null,
+  result_by_name: null,
+  result_at: null,
   batch_id: null,
   uses_goal: true,
   uses_share_goal: false,

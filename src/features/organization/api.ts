@@ -34,6 +34,14 @@ export type Assignment = {
   share_goal: number | null
   /** Resultado de compartidas. null = sin resultado. */
   share_result: number | null
+  /** spec 039: tarea hecha o no hecha; null = sin marcar. */
+  done: boolean | null
+  /** Última persona que registró un resultado; null si se borró todo. */
+  result_by: string | null
+  /** Nombre de quien registró el resultado. */
+  result_by_name: string | null
+  /** Fecha y hora del último registro de resultado. */
+  result_at: string | null
   /** Igual en las asignaciones creadas en una misma carga múltiple (spec 004). */
   batch_id: string | null
   /** Marcas efectivas vigentes del subcanal (o del canal si no hay subcanal). */
@@ -156,6 +164,9 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   if (error) {
     const detail = (error as { details?: string | null }).details ?? ''
     // spec 032, obs. 8: conservar el mensaje de pendientes en el formulario y al copiar el día.
+    // spec 039: explicar el bloqueo sin cerrar el diálogo.
+    if (error.message === 'result_locked')
+      throw new Error('El encargado ya corrigió este resultado. Si hay que cambiarlo, pídeselo.')
     if (error.message === 'results_pending') throw new Error(resultsPendingMessage(detail))
     if (fn === 'org_add_freelancer' && error.message === 'invalid_input' && detail === 'name')
       throw new Error('El nombre tiene que tener entre 2 y 60 caracteres.')
@@ -232,9 +243,21 @@ export function useOrgMutation<V, R = unknown>(fn: (v: V) => Promise<R>) {
 export const saveAssignment = (p: AssignmentInput) => rpc<string>('org_save', { p })
 /** Crea una asignación por subcanal, todas o ninguna (spec 004, FR-010 y FR-012). */
 export const saveAssignments = (p: AssignmentBatchInput) => rpc<string[]>('org_save_many', { p })
-/** Siempre manda p_share_result (aunque sea null) para usar la versión de 4 argumentos. */
-export const setAssignmentResult = (v: { id: string; result: number | null; share_result: number | null; notes: string }) =>
-  rpc<null>('org_set_result', { p_id: v.id, p_result: v.result, p_notes: v.notes, p_share_result: v.share_result })
+/** spec 039: registra números y estado con los permisos de la persona y del encargado. */
+export const setAssignmentResult = (v: {
+  id: string
+  result: number | null
+  share_result: number | null
+  done: boolean | null
+  notes: string
+}) =>
+  rpc<null>('org_report_result', {
+    p_id: v.id,
+    p_result: v.result,
+    p_share_result: v.share_result,
+    p_done: v.done,
+    p_notes: v.notes,
+  })
 /** Agrega el subcanal que falta (o devuelve el existente con el mismo nombre). */
 export const addSubchannel = (v: { branch: number; channel: number; name: string }) =>
   rpc<{ id: number; existed: boolean }>('org_add_subchannel', { p_branch: v.branch, p_channel: v.channel, p_name: v.name })

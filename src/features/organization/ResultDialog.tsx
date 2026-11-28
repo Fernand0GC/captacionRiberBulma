@@ -25,6 +25,8 @@ export function ResultDialog({ assignment: a, onClose }: { assignment: Assignmen
   const save = useOrgMutation(setAssignmentResult)
   const [result, setResult] = useState(asText(a.result))
   const [shareResult, setShareResult] = useState(asText(a.share_result))
+  const [done, setDone] = useState(a.done)
+  const showDone = !a.uses_goal && !a.uses_share_goal && a.goal === null && a.share_goal === null
   const [notes, setNotes] = useState(a.notes ?? '')
   const [err, setErr] = useState<string>()
   const showShare = a.uses_share_goal || a.share_goal !== null || a.share_result !== null
@@ -39,7 +41,7 @@ export function ResultDialog({ assignment: a, onClose }: { assignment: Assignmen
     // Se avisa y no se recorta: lo escrito queda en el campo para que la persona lo acorte.
     if (notes.trim().length > NOTES_MAX) return setErr(`Las observaciones admiten hasta ${NOTES_MAX} caracteres.`)
     try {
-      await save.mutateAsync({ id: a.id, result: n, share_result: sn, notes })
+      await save.mutateAsync({ id: a.id, result: n, share_result: sn, done: showDone ? done : a.done, notes })
       toast('✓ Resultado guardado', 'success')
       onClose()
     } catch (e) {
@@ -56,6 +58,27 @@ export function ResultDialog({ assignment: a, onClose }: { assignment: Assignmen
       description={`${a.person} · ${a.channel}${a.subchannel ? ` · ${a.subchannel}` : ''}`}
     >
       <div className="flex flex-col gap-4">
+        {showDone && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-2 text-sm font-semibold text-ink/80">¿Se hizo?</legend>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={done === true ? 'primary' : 'secondary'}
+                aria-pressed={done === true}
+                onClick={() => setDone(done === true ? null : true)}
+              >
+                Hecho
+              </Button>
+              <Button
+                variant={done === false ? 'primary' : 'secondary'}
+                aria-pressed={done === false}
+                onClick={() => setDone(done === false ? null : false)}
+              >
+                No hecho
+              </Button>
+            </div>
+          </fieldset>
+        )}
         {showCapture && <ResultField label="Captados" goal={a.goal} value={result} onChange={setResult} />}
         {showShare && <ResultField label="Compartidas" goal={a.share_goal} value={shareResult} onChange={setShareResult} />}
         <label className="flex flex-col gap-1.5 text-sm font-semibold text-ink/80">

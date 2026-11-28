@@ -29,6 +29,8 @@ import {
   goalsText,
   groupByPerson,
   groupRows,
+  registeredBy,
+  resultState,
   totals,
   verifiedText,
   type FilterKey,
@@ -104,20 +106,23 @@ function Score({ goal, result, label }: { goal: number | null; result: number | 
 }
 
 /** Captación y compartidas por separado, cada una con su cumplimiento (FR-007 de la 004). */
-function ResultCell({ r }: { r: Assignment }) {
-  if (r.result === null && r.share_result === null)
-    return (
-      <span>
-        <span className="text-ink/45">Pendiente</span>
-        <Verified r={r} />
-      </span>
-    )
+function ResultCell({ r, showRegisteredBy = true }: { r: Assignment; showRegisteredBy?: boolean }) {
+  const state = resultState(r)
+  const by = registeredBy(r)
   const share = r.uses_share_goal || r.share_goal !== null || r.share_result !== null
   const capture = r.uses_goal || r.goal !== null || r.result !== null || !share
   return (
-    <span data-testid="assignment-result">
-      {capture && <Score goal={r.goal} result={r.result} label={share ? 'Captados' : undefined} />}
-      {share && <Score goal={r.share_goal} result={r.share_result} label="Compartidas" />}
+    <span data-testid="assignment-result" className="min-w-0 break-words">
+      {state === 'pending' && <span className="text-ink/45">Pendiente</span>}
+      {state === 'done' && <span className="font-semibold text-emerald-700">Hecho</span>}
+      {state === 'not_done' && <span className="font-semibold text-rb-red">No hecho</span>}
+      {state === 'score' && (
+        <>
+          {capture && <Score goal={r.goal} result={r.result} label={share ? 'Captados' : undefined} />}
+          {share && <Score goal={r.share_goal} result={r.share_result} label="Compartidas" />}
+        </>
+      )}
+      {showRegisteredBy && by && <span className="block text-xs text-ink/50">{by}</span>}
       <Verified r={r} />
     </span>
   )
@@ -369,13 +374,13 @@ export function OrganizationPage() {
       : 'min-h-9 rounded-full px-3 text-sm font-semibold'
     return (
       <div className={`flex gap-1.5 ${compact ? 'flex-nowrap' : 'flex-wrap'}`}>
-        {r.can_set_result && !ownOnly && (
+        {r.can_set_result && (
           <button
             type="button"
             onClick={() => setResultOf(r)}
             className={`${btn} ring-1 ring-ink/15 active:bg-sand`}
           >
-            Resultado
+            {ownOnly ? 'Registrar resultado' : 'Resultado'}
           </button>
         )}
         {r.can_replan && !ownOnly && (
@@ -756,15 +761,17 @@ export function OrganizationPage() {
                       className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-ink/5"
                       data-testid="assignment-card"
                     >
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <p className="font-display text-lg font-semibold tabular-nums">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
+                        <p className="min-w-0 font-display text-lg font-semibold tabular-nums">
                           {hours(r)}{' '}
                           <span className="text-sm font-normal text-ink/50">
                             · {SHIFT_LABEL[r.shift]}
                             {singleDay ? '' : ` · ${dm(r.work_date)}`}
                           </span>
                         </p>
-                        <ResultCell r={r} />
+                        <div className="min-w-0 text-right">
+                          <ResultCell r={r} showRegisteredBy={false} />
+                        </div>
                       </div>
                       {/* La persona va en el encabezado del grupo; en la tarjeta queda para lectores de pantalla y búsquedas. */}
                       {!ownOnly && <p className="sr-only">{r.person}</p>}
@@ -795,6 +802,9 @@ export function OrganizationPage() {
                         <p className="text-sm text-ink/70">Freelancers: {freelancerNames(r)}</p>
                       )}
                       {r.notes && <p className="mt-1 text-sm italic text-ink/70">“{r.notes}”</p>}
+                      {registeredBy(r) && (
+                        <p className="mt-1 break-words text-xs text-ink/50">{registeredBy(r)}</p>
+                      )}
                       <div className="mt-2">{actions(r)}</div>
                     </li>
                   ))}
